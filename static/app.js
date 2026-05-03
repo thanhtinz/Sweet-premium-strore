@@ -183,20 +183,26 @@ async function navigate() {
 
   // Admin layout switch
   const isAdmin = hash.startsWith('#/admin');
-  const storefrontShell = qs('#storefront-shell');
+  const appShell = qs('#app-shell');
+  const sidebar = qs('#sidebar');
+  const sidebarOverlay = qs('#sidebar-overlay');
   const adminWrap = qs('#admin-wrap');
 
   if (isAdmin) {
-    storefrontShell.style.display = 'none';
-    adminWrap.style.display = 'flex';
+    if (appShell) appShell.style.display = 'none';
+    if (sidebar) sidebar.style.display = 'none';
+    if (sidebarOverlay) sidebarOverlay.style.display = 'none';
+    if (adminWrap) adminWrap.style.display = 'flex';
     if (!currentUser || !currentUser.is_admin) {
       adminWrap.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-3)">Bạn không có quyền truy cập Admin Panel.<br><a href="#/" style="color:var(--primary)">Quay về trang chủ</a></div>';
       return;
     }
     renderAdminShell(adminWrap);
   } else {
-    storefrontShell.style.display = 'flex';
-    adminWrap.style.display = 'none';
+    if (appShell) appShell.style.display = '';
+    if (sidebar) sidebar.style.display = '';
+    if (sidebarOverlay) sidebarOverlay.style.display = '';
+    if (adminWrap) adminWrap.style.display = 'none';
   }
 
   if (!route) {
