@@ -47,6 +47,7 @@ class Product(Base):
     name = Column(String(255), nullable=False)
     slug = Column(String(255), unique=True, nullable=False, index=True)
     description = Column(Text)
+    notes = Column(Text)  # purchase notes / warnings
     image_url = Column(Text)
     is_featured = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
@@ -56,6 +57,7 @@ class Product(Base):
 
     category = relationship("Category", back_populates="products")
     packages = relationship("ProductPackage", back_populates="product", cascade="all, delete-orphan")
+    reviews = relationship("Review", back_populates="product", cascade="all, delete-orphan")
 
 
 class ProductPackage(Base):
@@ -272,3 +274,21 @@ class BlogPost(Base):
     updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
 
     category = relationship("BlogCategory", back_populates="posts")
+
+
+# ── Reviews ───────────────────────────────────────────
+
+class Review(Base):
+    __tablename__ = "reviews"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String(255), nullable=False, index=True)
+    user_name = Column(String(255))
+    rating = Column(Integer, nullable=False)  # 1-5
+    comment = Column(Text)
+    is_verified = Column(Boolean, default=False)  # bought the product
+    is_visible = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+
+    product = relationship("Product", back_populates="reviews")

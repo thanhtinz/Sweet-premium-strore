@@ -512,56 +512,131 @@ async function renderProduct(view, { slug }) {
   view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
     const p = await apiFetch(`/products/${slug}`);
-    let selectedPkg = p.packages[0] || null;
+    let selectedPkg = p.packages?.[0] || null;
+    let quantity = 1;
+    let reviewPage = 1;
+    let reviewData = null;
 
+    // ── Helpers ──
+    const isOutOfStock = (pkg) => pkg.delivery_type === 'auto' && pkg.stock_count < 1;
+    const getDisplayPrice = (pkg) => pkg.flash_sale ? pkg.flash_sale.sale_price : pkg.price;
+    const getStrikePrice = (pkg) => pkg.flash_sale ? pkg.price : pkg.original_price;
+    const starsHtml = (rating, size = 16) => {
+      let h = '';
+      for (let i = 1; i <= 5; i++) {
+        h += i <= Math.round(rating)
+          ? `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="var(--amber)" stroke="var(--amber)" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
+          : `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+      }
+      return h;
+    };
+
+    // ── Load reviews ──
+    const loadReviews = async (page = 1) => {
+      try {
+        reviewData = await apiFetch(`/reviews/product/${p.id}?page=${page}&limit=10`);
+        reviewPage = page;
+      } catch { reviewData = null; }
+    };
+    await loadReviews(1);
+
+    // ── Timers cleanup ──
+    const intervals = [];
+    const cleanupTimers = () => intervals.forEach(id => clearInterval(id));
+    const timerObs = new MutationObserver(() => {
+      if (!document.contains(view)) { cleanupTimers(); timerObs.disconnect(); }
+    });
+    timerObs.observe(document.body, { childList: true, subtree: true });
+
+    // ── Main render ──
     const render = () => {
       view.innerHTML = '';
-      view.appendChild(el('div', 'breadcrumb mb-16', `<a href="#/">Trang chủ</a> <span>›</span> ${p.category_name ? `<a href="#/category/${p.category_id}">${p.category_name}</a> <span>›</span> ` : ''}${p.name}`));
+      cleanupTimers();
 
-      const detail = el('div', 'product-detail-grid');
-      // Image
-      const imgWrap = el('div', 'product-detail-img');
-      imgWrap.innerHTML = p.image_url ? `<img src="${p.image_url}" alt="${p.name}" />` : '<div class="product-detail-img-ph"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>';
-      // Info
-      const info = el('div', 'product-detail-info');
-      info.innerHTML = `
-        ${p.category_name ? `<div class="product-detail-cat">${p.category_name}</div>` : ''}
-        <div class="product-detail-name">${p.name}</div>
-        <div class="product-detail-desc">${p.description || ''}</div>
+      // Breadcrumb
+      view.appendChild(el('div', 'breadcrumb mb-16', `<a href="#/">Trang chủ</a> <span>›</span> ${p.category_name ? `<a href="#/category/${p.category_slug || p.category_id}">${p.category_name}</a> <span>›</span> ` : ''}${p.name}`));
+
+      // ── Top section: 2-col grid ──
+      const topGrid = el('div', 'pd-top-grid');
+
+      // Left: Image
+      const imgWrap = el('div', 'pd-top-img');
+      imgWrap.innerHTML = p.image_url
+        ? `<img src="${p.image_url}" alt="${p.name}" />`
+        : `<div class="pd-top-img-ph">${ico.box}</div>`;
+
+      // Right: Info
+      const infoWrap = el('div', 'pd-top-info');
+      infoWrap.innerHTML = `
+        ${p.category_name ? `<span class="pd-cat-badge">${p.category_name}</span>` : ''}
+        <h1 class="pd-name">${p.name}</h1>
+        <div class="pd-rating-row">
+          <span class="pd-rating-stars">${starsHtml(p.review_avg || 0)}</span>
+          <span class="pd-rating-avg">${p.review_avg ? p.review_avg.toFixed(1) : '—'}</span>
+          <span class="pd-rating-count">(${p.review_count || 0} đánh giá)</span>
+        </div>
+        <div class="pd-short-desc">${p.description || ''}</div>
       `;
 
-      if (p.packages.length) {
-        const pkgSection = el('div');
-        pkgSection.innerHTML = '<div class="fw-600 mb-8">Chọn gói</div>';
-        const pkgList = el('div', 'package-list');
+      topGrid.appendChild(imgWrap);
+      topGrid.appendChild(infoWrap);
+      view.appendChild(topGrid);
+
+      // ── Cards section ──
+      const cards = el('div', 'pd-cards');
+
+      // ── Card 1: Chọn gói sản phẩm ──
+      if (p.packages?.length) {
+        const pkgCard = el('div', 'pd-card');
+        pkgCard.innerHTML = '<div class="pd-card-title">Chọn gói sản phẩm</div>';
+        const pkgGrid = el('div', 'pd-pkg-grid');
+
         p.packages.forEach(pkg => {
-          const item = el('div', 'package-item' + (selectedPkg?.id === pkg.id ? ' selected' : ''));
-          const stockInfo = pkg.delivery_type === 'auto'
-            ? `<div class="pkg-stock"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ${pkg.stock_count} có sẵn</div>`
-            : `<div class="pkg-stock manual">Giao thủ công</div>`;
+          const oos = isOutOfStock(pkg);
           const fs = pkg.flash_sale;
-          const displayPrice = fs ? fs.sale_price : pkg.price;
-          const strikePrice = fs ? pkg.price : pkg.original_price;
+          const displayPrice = getDisplayPrice(pkg);
+          const strikePrice = getStrikePrice(pkg);
           const discountPct = (fs && pkg.price > 0) ? Math.round((1 - fs.sale_price / pkg.price) * 100) : 0;
-          item.innerHTML = `
-            <div><div class="pkg-name">${pkg.name}</div><div class="pkg-desc">${pkg.description || ''}</div>${stockInfo}</div>
-            <div style="text-align:right">
-              ${fs ? `<div class="pkg-flash-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> -${discountPct}%</div>` : ''}
-              <div class="pkg-price${fs ? ' pkg-price-flash' : ''}">${fmt(displayPrice)}</div>
-              ${strikePrice ? `<div class="pkg-orig">${fmt(strikePrice)}</div>` : ''}
-              ${fs && fs.ends_at ? `<div class="pkg-flash-timer" data-end="${fs.ends_at}">⏳ --:--:--</div>` : ''}
+
+          const pill = el('div', 'pd-pkg-pill' + (selectedPkg?.id === pkg.id ? ' selected' : '') + (oos ? ' oos' : '') + (fs ? ' flash' : ''));
+          pill.innerHTML = `
+            <div class="pd-pkg-main">
+              <div class="pd-pkg-name${oos ? ' oos-text' : ''}">${pkg.name}</div>
+              ${pkg.description ? `<div class="pd-pkg-desc">${pkg.description}</div>` : ''}
+              <div class="pd-pkg-badges">
+                ${pkg.delivery_type === 'auto'
+                  ? (pkg.stock_count > 0
+                    ? `<span class="pd-badge pd-badge-green">Còn hàng (${pkg.stock_count})</span>`
+                    : `<span class="pd-badge pd-badge-red">Hết hàng</span>`)
+                  : `<span class="pd-badge pd-badge-blue">Giao thủ công</span>`
+                }
+                ${fs ? `<span class="pd-badge pd-badge-flash">${ico.zap} -${discountPct}%</span>` : ''}
+              </div>
+              ${fs?.ends_at ? `<div class="pd-pkg-timer" data-end="${fs.ends_at}">⏳ --:--:--</div>` : ''}
+            </div>
+            <div class="pd-pkg-pricing">
+              <div class="pd-pkg-price${fs ? ' flash-price' : ''}">${fmt(displayPrice)}</div>
+              ${strikePrice ? `<div class="pd-pkg-strike">${fmt(strikePrice)}</div>` : ''}
             </div>
           `;
-          if (fs) item.classList.add('package-item-flash');
-          item.onclick = () => { selectedPkg = pkg; qsa('.package-item', pkgList).forEach(e => e.classList.remove('selected')); item.classList.add('selected'); renderFields(); };
-          pkgList.appendChild(item);
+          if (!oos) {
+            pill.onclick = () => {
+              selectedPkg = pkg;
+              quantity = 1;
+              qsa('.pd-pkg-pill', pkgGrid).forEach(e => e.classList.remove('selected'));
+              pill.classList.add('selected');
+              renderOrderForm();
+            };
+          }
+          pkgGrid.appendChild(pill);
         });
-        pkgSection.appendChild(pkgList);
-        info.appendChild(pkgSection);
 
-        // Flash sale countdown in packages
-        const updatePkgTimers = () => {
-          qsa('.pkg-flash-timer', pkgList).forEach(t => {
+        pkgCard.appendChild(pkgGrid);
+        cards.appendChild(pkgCard);
+
+        // Flash sale timers
+        const updateTimers = () => {
+          qsa('.pd-pkg-timer', pkgGrid).forEach(t => {
             const end = new Date(t.dataset.end).getTime();
             const diff = end - Date.now();
             if (diff <= 0) { t.textContent = 'Hết hạn'; return; }
@@ -571,60 +646,301 @@ async function renderProduct(view, { slug }) {
             t.textContent = `⏳ ${h}:${m}:${s}`;
           });
         };
-        updatePkgTimers();
-        const pkgTimerInterval = setInterval(updatePkgTimers, 1000);
-        const timerObs = new MutationObserver(() => {
-          if (!document.contains(view)) { clearInterval(pkgTimerInterval); timerObs.disconnect(); }
-        });
-        timerObs.observe(document.body, { childList: true, subtree: true });
+        updateTimers();
+        intervals.push(setInterval(updateTimers, 1000));
 
-        // Custom fields
-        const fieldsWrap = el('div', 'mt-16'); fieldsWrap.id = 'pkg-fields';
-        info.appendChild(fieldsWrap);
-        const renderFields = () => {
-          if (!selectedPkg?.fields?.length) { fieldsWrap.innerHTML = ''; return; }
-          fieldsWrap.innerHTML = '<div class="fw-600 mb-8">Thông tin yêu cầu</div>';
-          selectedPkg.fields.forEach(f => {
-            const fg = el('div', 'form-group');
-            fg.innerHTML = `<label class="form-label">${f.field_name}${f.is_required ? '<span class="req">*</span>' : ''}</label>`;
-            let input;
-            if (f.field_type === 'textarea') { input = el('textarea', 'form-textarea'); }
-            else if (f.field_type === 'select') {
-              const opts = JSON.parse(f.options || '[]');
-              input = el('select', 'form-select');
-              opts.forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; input.appendChild(opt); });
-            } else { input = el('input', 'form-input'); input.type = f.field_type === 'email' ? 'email' : 'text'; input.placeholder = f.field_name; }
-            input.dataset.field = f.field_name; input.required = f.is_required;
-            fg.appendChild(input); fieldsWrap.appendChild(fg);
-          });
-        };
-        renderFields();
+        // ── Card 2: Đặt hàng ──
+        const orderCard = el('div', 'pd-card');
+        orderCard.innerHTML = '<div class="pd-card-title">Đặt hàng</div>';
+        const orderBody = el('div', 'pd-order-body');
+        orderCard.appendChild(orderBody);
+        cards.appendChild(orderCard);
 
-        // Buttons
-        const collectFields = () => {
-          const fieldVals = {}; let valid = true;
-          qsa('[data-field]', fieldsWrap).forEach(inp => {
-            if (inp.required && !inp.value.trim()) { valid = false; toast(`Vui lòng nhập ${inp.dataset.field}`, 'error'); }
-            else fieldVals[inp.dataset.field] = inp.value.trim();
-          });
-          return valid ? fieldVals : null;
+        const renderOrderForm = () => {
+          orderBody.innerHTML = '';
+          if (!selectedPkg) {
+            orderBody.innerHTML = '<p class="text-muted">Vui lòng chọn gói sản phẩm</p>';
+            return;
+          }
+          const oos = isOutOfStock(selectedPkg);
+          const price = getDisplayPrice(selectedPkg);
+
+          // Package summary
+          orderBody.innerHTML = `
+            <div class="pd-order-summary">
+              <span class="pd-order-pkg-name">${selectedPkg.name}</span>
+              <span class="pd-order-pkg-price">${fmt(price)}</span>
+            </div>
+          `;
+
+          // Custom fields
+          if (selectedPkg.fields?.length) {
+            const fieldsSection = el('div', 'pd-order-fields');
+            fieldsSection.innerHTML = '<div class="pd-order-fields-title">Thông tin yêu cầu</div>';
+            selectedPkg.fields.forEach(f => {
+              const fg = el('div', 'form-group');
+              fg.innerHTML = `<label class="form-label">${f.field_name}${f.is_required ? '<span class="req">*</span>' : ''}</label>`;
+              let input;
+              if (f.field_type === 'textarea') { input = el('textarea', 'form-textarea'); }
+              else if (f.field_type === 'select') {
+                const opts = JSON.parse(f.options || '[]');
+                input = el('select', 'form-select');
+                opts.forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; input.appendChild(opt); });
+              } else { input = el('input', 'form-input'); input.type = f.field_type === 'email' ? 'email' : 'text'; input.placeholder = f.field_name; }
+              input.dataset.field = f.field_name;
+              input.required = f.is_required;
+              fg.appendChild(input);
+              fieldsSection.appendChild(fg);
+            });
+            orderBody.appendChild(fieldsSection);
+          }
+
+          // Quantity
+          const qtyRow = el('div', 'pd-qty-row');
+          qtyRow.innerHTML = `
+            <span class="pd-qty-label">Số lượng</span>
+            <div class="pd-qty-controls">
+              <button class="pd-qty-btn" id="pd-qty-minus">−</button>
+              <span class="pd-qty-val" id="pd-qty-val">${quantity}</span>
+              <button class="pd-qty-btn" id="pd-qty-plus">+</button>
+            </div>
+          `;
+          orderBody.appendChild(qtyRow);
+
+          // Total
+          const totalRow = el('div', 'pd-total-row');
+          totalRow.innerHTML = `
+            <span>Tổng cộng</span>
+            <span class="pd-total-price" id="pd-total-price">${fmt(price * quantity)}</span>
+          `;
+          orderBody.appendChild(totalRow);
+
+          // Buttons
+          const btnRow = el('div', 'pd-btn-row');
+          if (oos) {
+            btnRow.innerHTML = '<button class="btn btn-lg btn-full" disabled>Hết hàng</button>';
+          } else {
+            btnRow.innerHTML = `
+              <button class="btn btn-outline btn-lg" id="pd-add-cart">Thêm vào giỏ</button>
+              <button class="btn btn-primary btn-lg btn-full" id="pd-buy-now">Mua ngay</button>
+            `;
+          }
+          orderBody.appendChild(btnRow);
+
+          // Wire up events
+          const collectFields = () => {
+            const fieldVals = {}; let valid = true;
+            qsa('[data-field]', orderBody).forEach(inp => {
+              if (inp.required && !inp.value.trim()) { valid = false; toast(`Vui lòng nhập ${inp.dataset.field}`, 'error'); }
+              else fieldVals[inp.dataset.field] = inp.value.trim();
+            });
+            return valid ? fieldVals : null;
+          };
+
+          const minusBtn = qs('#pd-qty-minus', orderBody);
+          const plusBtn = qs('#pd-qty-plus', orderBody);
+          if (minusBtn) minusBtn.onclick = () => {
+            if (quantity > 1) { quantity--; qs('#pd-qty-val', orderBody).textContent = quantity; qs('#pd-total-price', orderBody).textContent = fmt(price * quantity); }
+          };
+          if (plusBtn) plusBtn.onclick = () => {
+            quantity++; qs('#pd-qty-val', orderBody).textContent = quantity; qs('#pd-total-price', orderBody).textContent = fmt(price * quantity);
+          };
+
+          const addCartBtn = qs('#pd-add-cart', orderBody);
+          const buyNowBtn = qs('#pd-buy-now', orderBody);
+          if (addCartBtn) addCartBtn.onclick = () => {
+            if (!selectedPkg) return toast('Chọn gói', 'error');
+            if (isOutOfStock(selectedPkg)) return toast('Hết hàng', 'error');
+            const f = collectFields();
+            if (f) addToCart(p, selectedPkg, quantity, f);
+          };
+          if (buyNowBtn) buyNowBtn.onclick = () => {
+            if (!selectedPkg) return toast('Chọn gói', 'error');
+            if (isOutOfStock(selectedPkg)) return toast('Hết hàng', 'error');
+            if (!currentUser) { toast('Đăng nhập để mua', 'error'); return location.hash = '/login'; }
+            const f = collectFields();
+            if (f) { addToCart(p, selectedPkg, quantity, f); location.hash = '/cart'; }
+          };
         };
-        const addBtn = el('button', 'btn btn-primary btn-lg btn-full mt-16', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Thêm vào giỏ hàng');
-        addBtn.onclick = () => { if (!selectedPkg) return toast('Chọn gói', 'error'); if (selectedPkg.delivery_type === 'auto' && selectedPkg.stock_count < 1) return toast('Hết hàng', 'error'); const f = collectFields(); if (f) addToCart(p, selectedPkg, 1, f); };
-        info.appendChild(addBtn);
-        const buyBtn = el('button', 'btn btn-outline btn-lg btn-full mt-8', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Mua ngay');
-        buyBtn.onclick = () => { if (!selectedPkg) return toast('Chọn gói', 'error'); if (!currentUser) { toast('Đăng nhập để mua', 'error'); return location.hash = '/login'; } const f = collectFields(); if (f) { addToCart(p, selectedPkg, 1, f); location.hash = '/cart'; } };
-        info.appendChild(buyBtn);
+        renderOrderForm();
       } else {
-        info.appendChild(el('p', 'text-muted mt-16', 'Hiện chưa có gói sản phẩm.'));
+        const noPkgCard = el('div', 'pd-card');
+        noPkgCard.innerHTML = '<div class="pd-card-title">Chọn gói sản phẩm</div><p class="text-muted">Hiện chưa có gói sản phẩm.</p>';
+        cards.appendChild(noPkgCard);
       }
 
-      detail.appendChild(imgWrap);
-      detail.appendChild(info);
-      view.appendChild(detail);
+      // ── Card 3: Mô tả sản phẩm ──
+      if (p.description) {
+        const descCard = el('div', 'pd-card');
+        descCard.innerHTML = '<div class="pd-card-title">Mô tả sản phẩm</div>';
+        const descBody = el('div', 'pd-desc-body');
+        descBody.innerHTML = p.description;
+        descCard.appendChild(descBody);
+        cards.appendChild(descCard);
+
+        // Collapsible logic
+        requestAnimationFrame(() => {
+          if (descBody.scrollHeight > 300) {
+            descBody.classList.add('collapsed');
+            const toggleBtn = el('button', 'pd-desc-toggle', 'Xem thêm');
+            toggleBtn.onclick = () => {
+              const isCollapsed = descBody.classList.toggle('collapsed');
+              toggleBtn.textContent = isCollapsed ? 'Xem thêm' : 'Thu gọn';
+            };
+            descCard.appendChild(toggleBtn);
+          }
+        });
+      }
+
+      // ── Card 4: Lưu ý ──
+      if (p.notes) {
+        const notesCard = el('div', 'pd-card pd-card-notes');
+        notesCard.innerHTML = `
+          <div class="pd-card-title pd-notes-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Lưu ý quan trọng
+          </div>
+          <div class="pd-notes-body">${p.notes}</div>
+        `;
+        cards.appendChild(notesCard);
+      }
+
+      // ── Card 5: Đánh giá ──
+      const reviewCard = el('div', 'pd-card');
+      reviewCard.innerHTML = '<div class="pd-card-title">Đánh giá</div>';
+      const reviewBody = el('div', 'pd-review-body');
+      reviewCard.appendChild(reviewBody);
+      cards.appendChild(reviewCard);
+
+      const renderReviews = () => {
+        reviewBody.innerHTML = '';
+        if (!reviewData || reviewData.total_reviews === 0) {
+          reviewBody.innerHTML = '<p class="text-muted">Chưa có đánh giá nào.</p>';
+        } else {
+          // Summary
+          const dist = reviewData.distribution || {};
+          const maxCount = Math.max(...Object.values(dist), 1);
+          reviewBody.innerHTML = `
+            <div class="pd-review-summary">
+              <div class="pd-review-big">
+                <div class="pd-review-big-num">${reviewData.avg_rating?.toFixed(1) || '—'}</div>
+                <div class="pd-review-big-stars">${starsHtml(reviewData.avg_rating || 0)}</div>
+                <div class="pd-review-big-count">${reviewData.total_reviews} đánh giá</div>
+              </div>
+              <div class="pd-review-bars">
+                ${[5,4,3,2,1].map(n => {
+                  const count = dist[n] || 0;
+                  const pct = reviewData.total_reviews > 0 ? Math.round((count / reviewData.total_reviews) * 100) : 0;
+                  return `<div class="pd-bar-row">
+                    <span class="pd-bar-label">${n}★</span>
+                    <div class="pd-bar-track"><div class="pd-bar-fill" style="width:${pct}%"></div></div>
+                    <span class="pd-bar-count">${count}</span>
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>
+          `;
+
+          // Review list
+          if (reviewData.items?.length) {
+            const list = el('div', 'pd-review-list');
+            reviewData.items.forEach(r => {
+              const item = el('div', 'pd-review-item');
+              item.innerHTML = `
+                <div class="pd-review-head">
+                  <span class="pd-review-user">${r.user_name}</span>
+                  ${r.is_verified ? '<span class="pd-badge pd-badge-green pd-badge-sm">Đã mua hàng</span>' : ''}
+                </div>
+                <div class="pd-review-stars">${starsHtml(r.rating, 14)}</div>
+                <div class="pd-review-comment">${r.comment || ''}</div>
+                <div class="pd-review-date">${r.created_at ? fmtDate(r.created_at) : ''}</div>
+              `;
+              list.appendChild(item);
+            });
+            reviewBody.appendChild(list);
+          }
+
+          // Pagination
+          if (reviewData.pages > 1) {
+            const pag = el('div', 'pd-review-pag');
+            for (let i = 1; i <= reviewData.pages; i++) {
+              const btn = el('button', 'pd-pag-btn' + (i === reviewPage ? ' active' : ''), String(i));
+              btn.onclick = async () => { await loadReviews(i); renderReviews(); };
+              pag.appendChild(btn);
+            }
+            reviewBody.appendChild(pag);
+          }
+        }
+
+        // Write review button
+        if (currentUser) {
+          const writeBtn = el('button', 'btn btn-outline mt-16', 'Viết đánh giá');
+          writeBtn.onclick = () => {
+            let modalRating = 0;
+            const modalHtml = `
+              <div class="pd-review-modal">
+                <div class="pd-review-modal-title">Viết đánh giá</div>
+                <div class="pd-review-modal-stars" id="modal-star-select">
+                  ${[1,2,3,4,5].map(i => `<span class="pd-modal-star" data-val="${i}">${ico.star}</span>`).join('')}
+                </div>
+                <textarea class="form-textarea" id="modal-review-comment" placeholder="Nhập nhận xét của bạn..." rows="4"></textarea>
+                <button class="btn btn-primary btn-lg btn-full mt-16" id="modal-review-submit" disabled>Gửi đánh giá</button>
+              </div>
+            `;
+            openModal(modalHtml, 'Viết đánh giá');
+
+            // Wire star selector
+            requestAnimationFrame(() => {
+              const starSelect = qs('#modal-star-select');
+              const submitBtn = qs('#modal-review-submit');
+              qsa('.pd-modal-star', starSelect).forEach(s => {
+                s.onclick = () => {
+                  modalRating = parseInt(s.dataset.val);
+                  qsa('.pd-modal-star', starSelect).forEach((ss, idx) => {
+                    ss.innerHTML = idx < modalRating ? ico.starFill : ico.star;
+                  });
+                  submitBtn.disabled = false;
+                };
+              });
+              submitBtn.onclick = async () => {
+                const comment = qs('#modal-review-comment').value.trim();
+                if (!modalRating) return toast('Chọn số sao', 'error');
+                try {
+                  await apiFetch('/reviews/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ product_id: p.id, rating: modalRating, comment })
+                  });
+                  toast('Đã gửi đánh giá', 'success');
+                  closeModal();
+                  await loadReviews(1);
+                  renderReviews();
+                } catch (e) { toast(e.message || 'Lỗi gửi đánh giá', 'error'); }
+              };
+            });
+          };
+          reviewBody.appendChild(writeBtn);
+        }
+      };
+      renderReviews();
+
+      // ── Card 6: Sản phẩm liên quan ──
+      if (p.related?.length) {
+        const relCard = el('div', 'pd-card');
+        relCard.innerHTML = '<div class="pd-card-title">Sản phẩm liên quan</div>';
+        const relScroll = el('div', 'pd-rel-scroll');
+        p.related.forEach(r => relScroll.appendChild(productCard(r)));
+        relCard.appendChild(relScroll);
+        cards.appendChild(relCard);
+      }
+
+      view.appendChild(cards);
     };
+
     render();
-  } catch (e) { view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>${e.message}</h3></div>`; }
+  } catch (e) {
+    view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>${e.message}</h3></div>`;
+  }
 }
 
 // CART

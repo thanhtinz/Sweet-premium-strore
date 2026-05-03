@@ -1,0 +1,22 @@
+[
+  {
+    "content": "[pd-1] Add Review model + notes field to Product, add Review API",
+    "id": "pd-1",
+    "status": "completed"
+  },
+  {
+    "content": "[pd-2] Enhance product detail API: reviews stats, related products",
+    "id": "pd-2",
+    "status": "completed"
+  },
+  {
+    "content": "[pd-3] Rewrite product detail frontend: cards layout, stock status, order form, reviews, related",
+    "id": "pd-3",
+    "status": "pending"
+  },
+  {
+    "content": "[pd-4] CSS for new product detail design",
+    "id": "pd-4",
+    "status": "pending"
+  }
+]

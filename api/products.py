@@ -3,8 +3,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from db import get_db
-from db.models import Product, ProductPackage, PackageField, StockItem, FlashSale
+from db.models import Product, ProductPackage, PackageField, StockItem, FlashSale, Review
 from datetime import datetime, timezone
+from sqlalchemy import func
 from api.auth import get_current_admin
 import re
 
@@ -23,6 +24,7 @@ class ProductCreate(BaseModel):
     slug: Optional[str] = None
     category_id: Optional[int] = None
     description: Optional[str] = None
+    notes: Optional[str] = None
     image_url: Optional[str] = None
     is_featured: bool = False
     is_active: bool = True
@@ -34,6 +36,7 @@ class ProductUpdate(BaseModel):
     slug: Optional[str] = None
     category_id: Optional[int] = None
     description: Optional[str] = None
+    notes: Optional[str] = None
     image_url: Optional[str] = None
     is_featured: Optional[bool] = None
     is_active: Optional[bool] = None
@@ -128,7 +131,9 @@ def product_to_dict(p: Product, include_packages=True, db=None) -> dict:
         "slug": p.slug,
         "category_id": p.category_id,
         "category_name": p.category.name if p.category else None,
+        "category_slug": p.category.slug if p.category else None,
         "description": p.description,
+        "notes": p.notes,
         "image_url": p.image_url,
         "is_featured": p.is_featured,
         "is_active": p.is_active,
@@ -227,7 +232,38 @@ def get_product(slug: str, db: Session = Depends(get_db)):
     p = db.query(Product).filter(Product.slug == slug, Product.is_active == True).first()
     if not p:
         raise HTTPException(status_code=404, detail="Product not found")
-    return product_to_dict(p, db=db)
+    d = product_to_dict(p, db=db)
+
+    # Review stats
+    stats = db.query(
+        func.avg(Review.rating),
+        func.count(Review.id),
+    ).filter(Review.product_id == p.id, Review.is_visible == True).first()
+    d["review_avg"] = round(float(stats[0]), 1) if stats[0] else 0
+    d["review_count"] = stats[1] or 0
+
+    # Related products (same category, up to 6)
+    related = []
+    if p.category_id:
+        rels = (
+            db.query(Product)
+            .filter(
+                Product.category_id == p.category_id,
+                Product.id != p.id,
+                Product.is_active == True,
+            )
+            .order_by(Product.sort_order)
+            .limit(6)
+            .all()
+        )
+        related = [product_to_dict(r, include_packages=False, db=db) for r in rels]
+        # Add min price from packages for each related product
+        for rp, r_model in zip(related, rels):
+            active_pkgs = [pkg for pkg in r_model.packages if pkg.is_active]
+            rp["min_price"] = min((float(pkg.price) for pkg in active_pkgs), default=None)
+    d["related"] = related
+
+    return d
 
 
 # ── Admin endpoints ────────────────────────────────────────────────────────────
@@ -246,7 +282,7 @@ def create_product(data: ProductCreate, db: Session = Depends(get_db)):
         slug = f"{slug}-{db.query(Product).count()}"
     p = Product(
         name=data.name, slug=slug, category_id=data.category_id,
-        description=data.description, image_url=data.image_url,
+        description=data.description, notes=data.notes, image_url=data.image_url,
         is_featured=data.is_featured, is_active=data.is_active,
         sort_order=data.sort_order,
     )

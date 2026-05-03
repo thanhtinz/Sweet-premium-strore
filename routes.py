@@ -21,6 +21,7 @@ from api.gift_codes import router as gift_router
 from api.affiliates import router as aff_router
 from api.blog import router as blog_router
 from api.search import router as search_router
+from api.reviews import router as reviews_router
 
 
 def get_file_hash(filepath: str) -> str:
@@ -60,6 +61,7 @@ def create_app(static_dir: str) -> FastAPI:
     api.include_router(aff_router)
     api.include_router(blog_router)
     api.include_router(search_router)
+    api.include_router(reviews_router)
 
     @api.get("/health")
     def health():
