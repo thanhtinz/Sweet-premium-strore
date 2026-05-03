@@ -12,21 +12,21 @@
   {
     "content": "[phase3] Admin Blog UI — quản lý bài viết, danh mục blog, rich text editor",
     "id": "p3-3",
-    "status": "pending"
+    "status": "completed"
   },
   {
     "content": "[phase3] Storefront Blog pages — listing, detail, sidebar categories, SEO-friendly",
     "id": "p3-4",
-    "status": "pending"
+    "status": "completed"
   },
   {
     "content": "[phase3] Search — tìm kiếm products + blog posts trên storefront",
     "id": "p3-5",
-    "status": "pending"
+    "status": "completed"
   },
   {
     "content": "[phase3] User Dashboard — profile, order history, delivered items view",
     "id": "p3-6",
-    "status": "pending"
+    "status": "completed"
   }
 ]
