@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/static/styles.css?v={{ css_hash }}" />
 </head>
 <body>
-  <!-- STOREFRONT LAYOUT: app-shell with sidebar + main-wrap -->
+  <!-- STOREFRONT LAYOUT -->
   <div class="app-shell" id="storefront-shell">
     <!-- Left: Category sidebar -->
     <aside class="sidebar" id="sidebar">
@@ -26,7 +26,7 @@
 
     <!-- Right: header + content -->
     <div class="main-wrap">
-      <!-- Top header -->
+      <!-- Top header (position:fixed) -->
       <header class="header" id="header">
         <!-- Hamburger for mobile -->
         <button class="hamburger-btn" id="hamburger" aria-label="Menu">
@@ -76,8 +76,8 @@
         </div>
       </header>
 
-      <!-- Main content area -->
-      <main class="main-content" id="main-content">
+      <!-- Page content (margin-top for fixed header) -->
+      <main class="main-content">
         <div id="app-view">
           <div class="page-loading" id="page-loading">
             <div class="spinner"></div>

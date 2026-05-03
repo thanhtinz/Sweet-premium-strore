@@ -1,0 +1,27 @@
+[
+  {
+    "content": "Fix navigate() #storefront-shell → #app-shell + hide sidebar on admin",
+    "id": "1",
+    "status": "completed"
+  },
+  {
+    "content": "Fix mobile header alignment (header-left, gap, search)",
+    "id": "2",
+    "status": "in_progress"
+  },
+  {
+    "content": "Fix responsive CSS: sidebar overlay, hamburger, auth-box→auth-card",
+    "id": "3",
+    "status": "pending"
+  },
+  {
+    "content": "Rewrite login/register UI with polished design",
+    "id": "4",
+    "status": "pending"
+  },
+  {
+    "content": "Test and verify all fixes",
+    "id": "5",
+    "status": "pending"
+  }
+]
