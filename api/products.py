@@ -3,7 +3,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from db import get_db
-from db.models import Product, ProductPackage, PackageField, StockItem
+from db.models import Product, ProductPackage, PackageField, StockItem, FlashSale
+from datetime import datetime, timezone
 from api.auth import get_current_admin
 import re
 
@@ -69,11 +70,31 @@ class FieldCreate(BaseModel):
 
 def pkg_to_dict(pkg: ProductPackage, db: Session = None) -> dict:
     stock_count = 0
+    flash_sale = None
     if db:
         stock_count = db.query(StockItem).filter(
             StockItem.package_id == pkg.id,
             StockItem.is_sold == False
         ).count()
+        now = datetime.now(timezone.utc)
+        fs = (
+            db.query(FlashSale)
+            .filter(
+                FlashSale.package_id == pkg.id,
+                FlashSale.is_active == True,
+                FlashSale.starts_at <= now,
+                FlashSale.ends_at > now,
+            )
+            .first()
+        )
+        if fs and (fs.quantity_limit == 0 or fs.quantity_sold < fs.quantity_limit):
+            flash_sale = {
+                "id": fs.id,
+                "sale_price": float(fs.sale_price),
+                "ends_at": fs.ends_at.isoformat() if fs.ends_at else None,
+                "quantity_limit": fs.quantity_limit,
+                "quantity_sold": fs.quantity_sold,
+            }
     return {
         "id": pkg.id,
         "product_id": pkg.product_id,
@@ -85,6 +106,7 @@ def pkg_to_dict(pkg: ProductPackage, db: Session = None) -> dict:
         "sort_order": pkg.sort_order,
         "is_active": pkg.is_active,
         "stock_count": stock_count,
+        "flash_sale": flash_sale,
         "fields": [
             {
                 "id": f.id,
@@ -116,7 +138,7 @@ def product_to_dict(p: Product, include_packages=True, db=None) -> dict:
     if include_packages:
         active_pkgs = [pkg for pkg in p.packages if pkg.is_active]
         d["packages"] = [pkg_to_dict(pkg, db=db) for pkg in sorted(active_pkgs, key=lambda x: x.sort_order)]
-        d["min_price"] = min((float(pkg.price) for pkg in active_pkgs), default=0)
+        d["min_price"] = min((float(pkg.price) for pkg in active_pkgs), default=None)
     return d
 
 
@@ -128,6 +150,9 @@ def list_products(
     category_slug: Optional[str] = None,
     featured: Optional[bool] = None,
     search: Optional[str] = None,
+    price_min: Optional[float] = None,
+    price_max: Optional[float] = None,
+    sort_by: Optional[str] = None,  # price_asc, price_desc, newest, name
     page: int = 1,
     limit: int = 20,
     db: Session = Depends(get_db)
@@ -139,13 +164,47 @@ def list_products(
         from db.models import Category
         cat = db.query(Category).filter(Category.slug == category_slug).first()
         if cat:
-            q = q.filter(Product.category_id == cat.id)
+            # Include children category IDs
+            child_ids = [c.id for c in db.query(Category).filter(Category.parent_id == cat.id).all()]
+            all_ids = [cat.id] + child_ids
+            q = q.filter(Product.category_id.in_(all_ids))
     if featured is not None:
         q = q.filter(Product.is_featured == featured)
     if search:
         q = q.filter(Product.name.ilike(f"%{search}%"))
+    if price_min is not None or price_max is not None:
+        from sqlalchemy import func
+        pkg_sub = db.query(
+            ProductPackage.product_id,
+            func.min(ProductPackage.price).label("min_price")
+        ).filter(ProductPackage.is_active == True).group_by(ProductPackage.product_id).subquery()
+        q = q.join(pkg_sub, Product.id == pkg_sub.c.product_id)
+        if price_min is not None:
+            q = q.filter(pkg_sub.c.min_price >= price_min)
+        if price_max is not None:
+            q = q.filter(pkg_sub.c.min_price <= price_max)
     total = q.count()
-    products = q.order_by(Product.sort_order, Product.id).offset((page - 1) * limit).limit(limit).all()
+    if sort_by == "price_asc":
+        from sqlalchemy import func
+        pkg_sub2 = db.query(
+            ProductPackage.product_id,
+            func.min(ProductPackage.price).label("min_p")
+        ).filter(ProductPackage.is_active == True).group_by(ProductPackage.product_id).subquery()
+        q = q.outerjoin(pkg_sub2, Product.id == pkg_sub2.c.product_id).order_by(pkg_sub2.c.min_p.asc())
+    elif sort_by == "price_desc":
+        from sqlalchemy import func
+        pkg_sub2 = db.query(
+            ProductPackage.product_id,
+            func.min(ProductPackage.price).label("min_p")
+        ).filter(ProductPackage.is_active == True).group_by(ProductPackage.product_id).subquery()
+        q = q.outerjoin(pkg_sub2, Product.id == pkg_sub2.c.product_id).order_by(pkg_sub2.c.min_p.desc())
+    elif sort_by == "newest":
+        q = q.order_by(Product.created_at.desc())
+    elif sort_by == "name":
+        q = q.order_by(Product.name.asc())
+    else:
+        q = q.order_by(Product.sort_order, Product.id)
+    products = q.offset((page - 1) * limit).limit(limit).all()
     return {
         "total": total,
         "page": page,

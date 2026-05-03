@@ -20,12 +20,32 @@ PAYOS_CHECKSUM_KEY = os.environ.get("PAYOS_CHECKSUM_KEY", "")
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "http://localhost:3001")
 
 
-def get_payos_client():
+def _get_payos_config(db: Session = None):
+    """Get PayOS config from env vars first, fallback to DB."""
+    client_id = PAYOS_CLIENT_ID
+    api_key = PAYOS_API_KEY
+    checksum_key = PAYOS_CHECKSUM_KEY
+    base_url = APP_BASE_URL
+    if db and (not client_id or not api_key or not checksum_key):
+        from db.models import SiteSetting
+        settings = db.query(SiteSetting).filter(
+            SiteSetting.key.in_(["payos_client_id", "payos_api_key", "payos_checksum_key", "app_base_url"])
+        ).all()
+        cfg = {s.key: s.value for s in settings}
+        client_id = client_id or cfg.get("payos_client_id", "")
+        api_key = api_key or cfg.get("payos_api_key", "")
+        checksum_key = checksum_key or cfg.get("payos_checksum_key", "")
+        base_url = cfg.get("app_base_url") or base_url
+    return client_id, api_key, checksum_key, base_url
+
+
+def get_payos_client(db: Session = None):
     from payos import PayOS
+    client_id, api_key, checksum_key, _ = _get_payos_config(db)
     return PayOS(
-        client_id=PAYOS_CLIENT_ID,
-        api_key=PAYOS_API_KEY,
-        checksum_key=PAYOS_CHECKSUM_KEY,
+        client_id=client_id,
+        api_key=api_key,
+        checksum_key=checksum_key,
     )
 
 
@@ -39,7 +59,8 @@ def create_payment_link(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    if not PAYOS_CLIENT_ID:
+    client_id, api_key, checksum_key, base_url = _get_payos_config(db)
+    if not client_id:
         raise HTTPException(status_code=503, detail="Payment not configured")
 
     order = db.query(Order).filter(
@@ -52,7 +73,7 @@ def create_payment_link(
 
     try:
         from payos import PaymentData, ItemData
-        payos = get_payos_client()
+        payos = get_payos_client(db)
 
         pkg_name = order.package.name if order.package else "Sản phẩm số"
         product_name = ""
@@ -70,8 +91,8 @@ def create_payment_link(
             amount=int(order.total_amount),
             description=f"Thanh toan {order.order_code}"[:25],
             items=[item],
-            returnUrl=f"{APP_BASE_URL}/#/orders/{order.order_code}?paid=1",
-            cancelUrl=f"{APP_BASE_URL}/#/checkout?cancelled=1",
+            returnUrl=f"{base_url}/#/orders/{order.order_code}?paid=1",
+            cancelUrl=f"{base_url}/#/checkout?cancelled=1",
             buyerEmail=order.user_email or "",
         )
 
@@ -100,10 +121,10 @@ async def payos_webhook(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
     # Verify checksum
-    if PAYOS_CHECKSUM_KEY:
+    _, _, checksum_key, _ = _get_payos_config(db)
+    if checksum_key:
         try:
-            from payos import PayOS
-            payos = get_payos_client()
+            payos = get_payos_client(db)
             payos.verifyPaymentWebhookData(payload)
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid webhook signature")
@@ -149,9 +170,10 @@ def check_payment_status(
         raise HTTPException(status_code=404, detail="Order not found")
 
     # Also check PayOS for latest status if still pending
-    if order.status == "pending" and order.payment_link_id and PAYOS_CLIENT_ID:
+    client_id, _, _, _ = _get_payos_config(db)
+    if order.status == "pending" and order.payment_link_id and client_id:
         try:
-            payos = get_payos_client()
+            payos = get_payos_client(db)
             info = payos.getPaymentLinkInfomation(orderId=order.id)
             if info.status == "PAID":
                 order.status = "paid"

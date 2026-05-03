@@ -135,11 +135,140 @@ class SiteSetting(Base):
     updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
 
 
+class Banner(Base):
+    __tablename__ = "banners"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(255), nullable=False)
+    image_url = Column(Text, nullable=False)
+    link = Column(Text)  # hash route e.g. #/category/vpn or external URL
+    banner_type = Column(String(20), default="hero")  # hero | category
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=True)  # null for social-only accounts
+    display_name = Column(String(255), nullable=True)
+    avatar_url = Column(Text, nullable=True)
+    provider = Column(String(50), default="local")  # local | google | discord
+    provider_id = Column(String(255), nullable=True)  # external user id
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+    updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
+
+
 class AdminUser(Base):
     __tablename__ = "admin_users"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(String(255), unique=True, nullable=False)  # Neon Auth user_id
+    user_id = Column(String(255), unique=True, nullable=False)  # users.id as string
     email = Column(String(255), unique=True, nullable=False)
     role = Column(String(50), default="admin")  # admin | superadmin
     created_at = Column(DateTime(timezone=True), default=now_utc)
+
+
+class FlashSale(Base):
+    __tablename__ = "flash_sales"
+
+    id = Column(Integer, primary_key=True, index=True)
+    package_id = Column(Integer, ForeignKey("product_packages.id", ondelete="CASCADE"), nullable=False)
+    sale_price = Column(Numeric(12, 2), nullable=False)
+    quantity_limit = Column(Integer, default=0)  # 0 = unlimited
+    quantity_sold = Column(Integer, default=0)
+    starts_at = Column(DateTime(timezone=True), nullable=False)
+    ends_at = Column(DateTime(timezone=True), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+
+    package = relationship("ProductPackage")
+
+
+class GiftCode(Base):
+    __tablename__ = "gift_codes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, nullable=False, index=True)
+    discount_type = Column(String(10), default="percent")  # percent | fixed
+    discount_value = Column(Numeric(12, 2), nullable=False)  # % or VND
+    min_order = Column(Numeric(12, 2), default=0)
+    max_discount = Column(Numeric(12, 2), nullable=True)  # cap for percent type
+    usage_limit = Column(Integer, default=0)  # 0 = unlimited
+    usage_count = Column(Integer, default=0)
+    starts_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+
+
+class AffiliateUser(Base):
+    __tablename__ = "affiliate_users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String(255), unique=True, nullable=False, index=True)
+    email = Column(String(255))
+    ref_code = Column(String(50), unique=True, nullable=False, index=True)
+    commission_rate = Column(Numeric(5, 2), default=5.00)  # %
+    total_earnings = Column(Numeric(12, 2), default=0)
+    total_paid = Column(Numeric(12, 2), default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+
+    referrals = relationship("AffiliateReferral", back_populates="affiliate")
+
+
+class AffiliateReferral(Base):
+    __tablename__ = "affiliate_referrals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    affiliate_id = Column(Integer, ForeignKey("affiliate_users.id"), nullable=False)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
+    order_amount = Column(Numeric(12, 2), default=0)
+    commission = Column(Numeric(12, 2), default=0)
+    status = Column(String(20), default="pending")  # pending | approved | paid
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+
+    affiliate = relationship("AffiliateUser", back_populates="referrals")
+
+
+# ── Blog ──────────────────────────────────────────────
+
+class BlogCategory(Base):
+    __tablename__ = "blog_categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    slug = Column(String(255), unique=True, nullable=False, index=True)
+    description = Column(Text)
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+
+    posts = relationship("BlogPost", back_populates="category")
+
+
+class BlogPost(Base):
+    __tablename__ = "blog_posts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    category_id = Column(Integer, ForeignKey("blog_categories.id"), nullable=True)
+    title = Column(String(500), nullable=False)
+    slug = Column(String(500), unique=True, nullable=False, index=True)
+    excerpt = Column(Text)  # short summary for listings
+    content = Column(Text, nullable=False)  # HTML content
+    thumbnail_url = Column(Text)
+    meta_title = Column(String(500))  # SEO
+    meta_description = Column(Text)  # SEO
+    is_published = Column(Boolean, default=False)
+    published_at = Column(DateTime(timezone=True), nullable=True)
+    author_id = Column(String(255), nullable=True)  # user id
+    view_count = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+    updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
+
+    category = relationship("BlogCategory", back_populates="posts")

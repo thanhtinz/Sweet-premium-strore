@@ -1,0 +1,32 @@
+[
+  {
+    "content": "[phase2] Flash Sale — model, API, countdown timer trên storefront",
+    "id": "p2-1",
+    "status": "completed"
+  },
+  {
+    "content": "[phase2] Gift Code / Coupon — model, API, áp dụng khi checkout",
+    "id": "p2-2",
+    "status": "completed"
+  },
+  {
+    "content": "[phase2] Affiliate / Referral — model, API, tracking link, commission",
+    "id": "p2-3",
+    "status": "completed"
+  },
+  {
+    "content": "[phase2] Auth tự quản — register/login, JWT, Google + Discord OAuth",
+    "id": "p2-4",
+    "status": "completed"
+  },
+  {
+    "content": "[phase2] PayOS thanh toán — cấu hình secrets, test checkout flow",
+    "id": "p2-5",
+    "status": "pending"
+  },
+  {
+    "content": "[phase2] Admin quản lý Flash Sale, Gift Code, Affiliate",
+    "id": "p2-6",
+    "status": "completed"
+  }
+]
