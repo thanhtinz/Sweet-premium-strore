@@ -134,6 +134,11 @@ img { max-width: 100%; display: block; }
   padding: 8px 12px 4px;
   margin-top: 8px;
 }
+.sidebar-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 12px;
+}
 
 /* nav-item = JS generates .nav-item and .sidebar-item */
 .nav-item, .sidebar-item {

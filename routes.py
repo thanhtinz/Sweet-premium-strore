@@ -76,7 +76,10 @@ def create_app(static_dir: str) -> FastAPI:
     @app.get("/{full_path:path}", response_class=HTMLResponse)
     def spa_fallback(request: Request, full_path: str):
         css_hash = get_file_hash(os.path.join(static_dir, "styles.css"))
-        js_hash = get_file_hash(os.path.join(static_dir, "app.js"))
+        # Combine hashes of all JS modules for cache busting
+        js_files = ["core.js", "storefront.js", "admin.js", "blog.js", "profile.js", "app.js"]
+        combined = "".join(get_file_hash(os.path.join(static_dir, f)) for f in js_files)
+        js_hash = hashlib.md5(combined.encode()).hexdigest()[:8]
         return templates.TemplateResponse(
             request, "index.html", {"css_hash": css_hash, "js_hash": js_hash}
         )
