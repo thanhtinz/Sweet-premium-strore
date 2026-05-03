@@ -12,11 +12,11 @@
   {
     "content": "[pd-3] Rewrite product detail frontend: cards layout, stock status, order form, reviews, related",
     "id": "pd-3",
-    "status": "pending"
+    "status": "completed"
   },
   {
     "content": "[pd-4] CSS for new product detail design",
     "id": "pd-4",
-    "status": "pending"
+    "status": "completed"
   }
 ]
