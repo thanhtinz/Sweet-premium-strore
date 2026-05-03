@@ -41,8 +41,8 @@ function statusBadge(status) {
 function toast(msg, type = 'info', duration = 3000) {
   const box = qs('#toast-container');
   const t = el('div', `toast toast-${type}`);
-  const icons = { success: '✓', error: '✕', info: 'ℹ', warning: '⚠' };
-  t.innerHTML = `<div class="toast-icon">${icons[type] || 'ℹ'}</div><div class="toast-text">${msg}</div>`;
+  const icons = { success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>', error: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', info: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>', warning: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' };
+  t.innerHTML = `<div class="toast-icon">${icons[type] || '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'}</div><div class="toast-text">${msg}</div>`;
   box.appendChild(t);
   setTimeout(() => t.remove(), duration);
 }
@@ -75,23 +75,26 @@ async function fetchMe() {
 }
 
 function updateAuthUI() {
-  const authBtns = qs('#auth-buttons');
-  const userMenu = qs('#user-menu');
-  const userMenuBtn = qs('#user-menu-btn');
-  const dropdownInfo = qs('#dropdown-user-info');
+  const loggedIn = qs('#dropdown-logged-in');
+  const loggedOut = qs('#dropdown-logged-out');
   const dropdownAdmin = qs('#dropdown-admin');
+  const dropdownName = qs('#dropdown-name');
+  const dropdownEmail = qs('#dropdown-email');
+  const userAvatar = qs('#user-avatar');
 
   if (currentUser) {
-    authBtns && (authBtns.style.display = 'none');
-    userMenu && (userMenu.style.display = 'block');
-    userMenuBtn && (userMenuBtn.style.display = 'flex');
+    if (loggedIn) loggedIn.style.display = '';
+    if (loggedOut) loggedOut.style.display = 'none';
     const email = currentUser.email || '';
-    if (dropdownInfo) dropdownInfo.textContent = email;
-    if (dropdownAdmin) dropdownAdmin.style.display = currentUser.is_admin ? 'block' : 'none';
+    const name = email.split('@')[0];
+    if (dropdownName) dropdownName.textContent = name;
+    if (dropdownEmail) dropdownEmail.textContent = email;
+    if (userAvatar) userAvatar.textContent = name.charAt(0).toUpperCase();
+    if (dropdownAdmin) dropdownAdmin.style.display = currentUser.is_admin ? 'flex' : 'none';
   } else {
-    authBtns && (authBtns.style.display = 'flex');
-    userMenu && (userMenu.style.display = 'none');
-    userMenuBtn && (userMenuBtn.style.display = 'none');
+    if (loggedIn) loggedIn.style.display = 'none';
+    if (loggedOut) loggedOut.style.display = '';
+    if (userAvatar) userAvatar.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
   }
 }
 
@@ -206,12 +209,12 @@ async function navigate() {
   }
 
   if (!route) {
-    view.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div><h3>Không tìm thấy trang</h3><a href="#/" class="btn btn-primary mt-12">Về trang chủ</a></div>';
+    view.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div><h3>Không tìm thấy trang</h3><a href="#/" class="btn btn-primary mt-12">Về trang chủ</a></div>';
     return;
   }
 
   try { await route.handler(view, route.params); }
-  catch (e) { view.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Lỗi tải trang</h3><p class="text-muted">${e.message}</p></div>`; }
+  catch (e) { view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>Lỗi tải trang</h3><p class="text-muted">${e.message}</p></div>`; }
 }
 
 // ── Sidebar ─────────────────────────────────────────────────────
@@ -223,12 +226,12 @@ async function loadSidebar() {
     nav.innerHTML = '<div class="sidebar-section">Danh mục</div>';
     const allItem = el('a', 'nav-item' + (location.hash === '#/' || !location.hash ? ' active' : ''));
     allItem.href = '#/';
-    allItem.innerHTML = '<div class="nav-icon">🏠</div><span>Tất cả</span>';
+    allItem.innerHTML = '<div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span>Tất cả</span>';
     nav.appendChild(allItem);
     categories.forEach(cat => {
       const item = el('a', 'nav-item');
       item.href = `#/category/${cat.slug}`;
-      const icon = cat.icon_url ? `<img src="${cat.icon_url}" alt="" style="width:18px;height:18px;object-fit:contain" />` : '📦';
+      const icon = cat.icon_url ? `<img src="${cat.icon_url}" alt="" style="width:18px;height:18px;object-fit:contain" />` : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
       item.innerHTML = `<div class="nav-icon">${icon}</div><span>${cat.name}</span>`;
       nav.appendChild(item);
     });
@@ -244,12 +247,12 @@ async function renderHome(view) {
   // Hero
   const hero = el('div', 'hero');
   hero.innerHTML = `
-    <h1>🔑 Mua sản phẩm số<br>uy tín, giá tốt</h1>
+    <h1>Mua sản phẩm số<br>uy tín, giá tốt</h1>
     <p>Tài khoản, key, gift card, phần mềm và hàng trăm sản phẩm số chất lượng cao</p>
     <div class="hero-tags">
-      <span class="hero-tag">⚡ Giao hàng tự động</span>
-      <span class="hero-tag">🔒 An toàn & uy tín</span>
-      <span class="hero-tag">💳 Thanh toán nhanh</span>
+      <span class="hero-tag"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Giao hàng tự động</span>
+      <span class="hero-tag"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> An toàn & uy tín</span>
+      <span class="hero-tag"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Thanh toán nhanh</span>
     </div>
   `;
   view.appendChild(hero);
@@ -260,7 +263,7 @@ async function renderHome(view) {
     const grid = el('div', 'category-grid mb-24');
     categories.forEach(cat => {
       const card = el('div', 'category-card');
-      const iconHtml = cat.icon_url ? `<img src="${cat.icon_url}" alt="${cat.name}" />` : `<span class="cat-emoji">📦</span>`;
+      const iconHtml = cat.icon_url ? `<img src="${cat.icon_url}" alt="${cat.name}" />` : `<span class="cat-emoji"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>`;
       card.innerHTML = `${iconHtml}<span class="category-card-name">${cat.name}</span>`;
       card.onclick = () => { location.hash = `/category/${cat.slug}`; };
       grid.appendChild(card);
@@ -273,7 +276,7 @@ async function renderHome(view) {
   try {
     const data = await apiFetch('/products/featured?limit=12');
     if (!data.length) {
-      view.appendChild(el('div', 'empty-state', '<div class="empty-state-icon">📦</div><h3>Chưa có sản phẩm nổi bật</h3>'));
+      view.appendChild(el('div', 'empty-state', '<div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><h3>Chưa có sản phẩm nổi bật</h3>'));
     } else {
       const grid = el('div', 'product-grid');
       data.forEach(p => grid.appendChild(productCard(p)));
@@ -289,13 +292,13 @@ async function renderCategory(view, { slug }) {
     view.innerHTML = '';
     view.appendChild(el('div', 'page-header', `<div class="page-title">${cat.name}</div><div class="page-subtitle">${data.total} sản phẩm</div>`));
     if (!data.items.length) {
-      view.appendChild(el('div', 'empty-state', '<div class="empty-state-icon">📦</div><h3>Danh mục này chưa có sản phẩm</h3>'));
+      view.appendChild(el('div', 'empty-state', '<div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><h3>Danh mục này chưa có sản phẩm</h3>'));
     } else {
       const grid = el('div', 'product-grid');
       data.items.forEach(p => grid.appendChild(productCard(p)));
       view.appendChild(grid);
     }
-  } catch (e) { view.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>${e.message}</h3></div>`; }
+  } catch (e) { view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>${e.message}</h3></div>`; }
 }
 
 async function renderSearch(view) {
@@ -306,7 +309,7 @@ async function renderSearch(view) {
   try {
     const data = await apiFetch(`/products/?search=${encodeURIComponent(q)}&limit=40`);
     if (!data.items.length) {
-      view.innerHTML += '<div class="empty-state"><div class="empty-state-icon">🔍</div><h3>Không tìm thấy kết quả</h3></div>';
+      view.innerHTML += '<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div><h3>Không tìm thấy kết quả</h3></div>';
     } else {
       const grid = el('div', 'product-grid');
       data.items.forEach(p => grid.appendChild(productCard(p)));
@@ -319,7 +322,7 @@ function productCard(p) {
   const card = el('div', 'product-card');
   const imgHtml = p.image_url
     ? `<img class="product-card-img" src="${p.image_url}" alt="${p.name}" loading="lazy" />`
-    : `<div class="product-card-img-placeholder">📦</div>`;
+    : `<div class="product-card-img-placeholder"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>`;
   card.innerHTML = `
     ${imgHtml}
     <div class="product-card-body">
@@ -346,7 +349,7 @@ async function renderProduct(view, { slug }) {
       const detail = el('div', 'product-detail-grid');
       // Image
       const imgWrap = el('div', 'product-detail-img');
-      imgWrap.innerHTML = p.image_url ? `<img src="${p.image_url}" alt="${p.name}" />` : '<div class="product-detail-img-ph">📦</div>';
+      imgWrap.innerHTML = p.image_url ? `<img src="${p.image_url}" alt="${p.name}" />` : '<div class="product-detail-img-ph"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>';
       // Info
       const info = el('div', 'product-detail-info');
       info.innerHTML = `
@@ -362,7 +365,7 @@ async function renderProduct(view, { slug }) {
         p.packages.forEach(pkg => {
           const item = el('div', 'package-item' + (selectedPkg?.id === pkg.id ? ' selected' : ''));
           const stockInfo = pkg.delivery_type === 'auto'
-            ? `<div class="pkg-stock">✓ ${pkg.stock_count} có sẵn</div>`
+            ? `<div class="pkg-stock"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ${pkg.stock_count} có sẵn</div>`
             : `<div class="pkg-stock manual">Giao thủ công</div>`;
           item.innerHTML = `
             <div><div class="pkg-name">${pkg.name}</div><div class="pkg-desc">${pkg.description || ''}</div>${stockInfo}</div>
@@ -405,10 +408,10 @@ async function renderProduct(view, { slug }) {
           });
           return valid ? fieldVals : null;
         };
-        const addBtn = el('button', 'btn btn-primary btn-lg btn-full mt-16', '🛒 Thêm vào giỏ hàng');
+        const addBtn = el('button', 'btn btn-primary btn-lg btn-full mt-16', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Thêm vào giỏ hàng');
         addBtn.onclick = () => { if (!selectedPkg) return toast('Chọn gói', 'error'); if (selectedPkg.delivery_type === 'auto' && selectedPkg.stock_count < 1) return toast('Hết hàng', 'error'); const f = collectFields(); if (f) addToCart(p, selectedPkg, 1, f); };
         info.appendChild(addBtn);
-        const buyBtn = el('button', 'btn btn-outline btn-lg btn-full mt-8', '⚡ Mua ngay');
+        const buyBtn = el('button', 'btn btn-outline btn-lg btn-full mt-8', '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Mua ngay');
         buyBtn.onclick = () => { if (!selectedPkg) return toast('Chọn gói', 'error'); if (!currentUser) { toast('Đăng nhập để mua', 'error'); return location.hash = '/login'; } const f = collectFields(); if (f) { addToCart(p, selectedPkg, 1, f); location.hash = '/cart'; } };
         info.appendChild(buyBtn);
       } else {
@@ -420,15 +423,15 @@ async function renderProduct(view, { slug }) {
       view.appendChild(detail);
     };
     render();
-  } catch (e) { view.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>${e.message}</h3></div>`; }
+  } catch (e) { view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>${e.message}</h3></div>`; }
 }
 
 // CART
 function renderCart(view) {
   view.innerHTML = '';
-  view.appendChild(el('div', 'page-header', '<div class="page-title">🛒 Giỏ hàng</div>'));
+  view.appendChild(el('div', 'page-header', '<div class="page-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Giỏ hàng</div>'));
   if (!cart.length) {
-    view.appendChild(el('div', 'empty-state', '<div class="empty-state-icon">🛒</div><h3>Giỏ hàng trống</h3><a href="#/" class="btn btn-primary mt-12">Tiếp tục mua sắm</a>'));
+    view.appendChild(el('div', 'empty-state', '<div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div><h3>Giỏ hàng trống</h3><a href="#/" class="btn btn-primary mt-12">Tiếp tục mua sắm</a>'));
     return;
   }
   const grid = el('div', 'cart-layout');
@@ -436,13 +439,13 @@ function renderCart(view) {
   cart.forEach(item => {
     const card = el('div', 'cart-item');
     card.innerHTML = `
-      ${item.product_img ? `<div class="cart-item-img"><img src="${item.product_img}" alt="" /></div>` : `<div class="cart-item-img">📦</div>`}
+      ${item.product_img ? `<div class="cart-item-img"><img src="${item.product_img}" alt="" /></div>` : `<div class="cart-item-img"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>`}
       <div class="cart-item-info">
         <div class="cart-item-name">${item.product_name}</div>
         <div class="cart-item-pkg">Gói: ${item.pkg_name}</div>
         <div class="cart-item-price">${fmt(item.pkg_price)}</div>
       </div>
-      <button class="cart-item-remove" data-pkg="${item.pkg_id}" title="Xóa">✕</button>
+      <button class="cart-item-remove" data-pkg="${item.pkg_id}" title="Xóa"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     `;
     itemsCol.appendChild(card);
   });
@@ -469,7 +472,7 @@ async function renderCheckout(view) {
   if (!cart.length) return location.hash = '/cart';
   if (!currentUser) { toast('Đăng nhập', 'error'); return location.hash = '/login'; }
   view.innerHTML = '';
-  view.appendChild(el('div', 'page-header', '<div class="page-title">💳 Thanh toán</div>'));
+  view.appendChild(el('div', 'page-header', '<div class="page-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Thanh toán</div>'));
   const grid = el('div', 'checkout-grid');
   const left = el('div');
   left.innerHTML = `
@@ -483,7 +486,7 @@ async function renderCheckout(view) {
     <div class="card"><div class="card-body">
       <div class="fw-600 mb-12">Phương thức thanh toán</div>
       <div class="payment-option selected">
-        <div class="payment-option-icon">🏦</div>
+        <div class="payment-option-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg></div>
         <div><div class="payment-option-name">PayOS — Chuyển khoản</div><div class="payment-option-desc">QR code, tất cả ngân hàng VN</div></div>
       </div>
       <button class="btn btn-primary btn-lg btn-full mt-16" id="btn-pay">Tạo đơn & Thanh toán</button>
@@ -522,8 +525,8 @@ async function renderOrders(view) {
   try {
     const data = await apiFetch('/orders/my');
     view.innerHTML = '';
-    view.appendChild(el('div', 'page-header', `<div class="page-title">📋 Đơn hàng của tôi</div><div class="page-subtitle">${data.total} đơn</div>`));
-    if (!data.items.length) { view.appendChild(el('div', 'empty-state', '<div class="empty-state-icon">📋</div><h3>Chưa có đơn hàng</h3><a href="#/" class="btn btn-primary mt-12">Mua sắm ngay</a>')); return; }
+    view.appendChild(el('div', 'page-header', `<div class="page-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Đơn hàng của tôi</div><div class="page-subtitle">${data.total} đơn</div>`));
+    if (!data.items.length) { view.appendChild(el('div', 'empty-state', '<div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></div><h3>Chưa có đơn hàng</h3><a href="#/" class="btn btn-primary mt-12">Mua sắm ngay</a>')); return; }
     data.items.forEach(o => {
       const card = el('div', 'order-card');
       card.innerHTML = `
@@ -533,11 +536,11 @@ async function renderOrders(view) {
         </div>
         <div class="text-sm">${o.product_name || ''} — <span class="text-muted">${o.package_name || ''}</span></div>
         <div class="fw-700 text-primary mt-8">${fmt(o.total_amount)}</div>
-        ${o.status === 'completed' && o.delivery_data ? `<div class="delivery-box"><div class="delivery-box-title">✅ Dữ liệu nhận hàng</div><div class="delivery-data">${o.delivery_data}</div><button class="btn-copy" onclick="navigator.clipboard.writeText(\`${o.delivery_data}\`).then(()=>toast('Đã sao chép','success'))">📋 Copy</button></div>` : ''}
+        ${o.status === 'completed' && o.delivery_data ? `<div class="delivery-box"><div class="delivery-box-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Dữ liệu nhận hàng</div><div class="delivery-data">${o.delivery_data}</div><button class="btn-copy" onclick="navigator.clipboard.writeText(\`${o.delivery_data}\`).then(()=>toast('Đã sao chép','success'))"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>` : ''}
       `;
       view.appendChild(card);
     });
-  } catch (e) { view.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>${e.message}</h3></div>`; }
+  } catch (e) { view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>${e.message}</h3></div>`; }
 }
 
 // ORDER DETAIL
@@ -560,12 +563,12 @@ async function renderOrderDetail(view, { code }) {
         <div class="order-meta-item"><div class="order-meta-label">Thanh toán</div><div class="order-meta-value">${d.payment_method?.toUpperCase() || '—'}</div></div>
         <div class="order-meta-item"><div class="order-meta-label">Ngày tạo</div><div class="order-meta-value">${fmtDate(d.created_at)}</div></div>
       </div>
-      ${d.status === 'completed' && d.delivery_data ? `<div class="delivery-box"><div class="delivery-box-title">✅ Dữ liệu nhận hàng</div><div class="delivery-data">${d.delivery_data}</div><button class="btn-copy" onclick="navigator.clipboard.writeText(\`${d.delivery_data}\`).then(()=>toast('Đã sao chép','success'))">📋 Copy</button></div>` : ''}
-      ${d.status === 'pending' ? `<div class="card mt-12 p-16" style="border-color:var(--yellow);background:var(--yellow-light)"><p class="text-sm" style="color:var(--yellow)">⏳ Đang chờ thanh toán. Trạng thái sẽ tự cập nhật.</p><button class="btn btn-sm btn-ghost mt-8" id="btn-check-status">🔄 Kiểm tra lại</button></div>` : ''}
+      ${d.status === 'completed' && d.delivery_data ? `<div class="delivery-box"><div class="delivery-box-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Dữ liệu nhận hàng</div><div class="delivery-data">${d.delivery_data}</div><button class="btn-copy" onclick="navigator.clipboard.writeText(\`${d.delivery_data}\`).then(()=>toast('Đã sao chép','success'))"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>` : ''}
+      ${d.status === 'pending' ? `<div class="card mt-12 p-16" style="border-color:var(--yellow);background:var(--yellow-light)"><p class="text-sm" style="color:var(--yellow)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Đang chờ thanh toán. Trạng thái sẽ tự cập nhật.</p><button class="btn btn-sm btn-ghost mt-8" id="btn-check-status"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Kiểm tra lại</button></div>` : ''}
     `;
     view.appendChild(card);
     qs('#btn-check-status', card)?.addEventListener('click', () => renderOrderDetail(view, { code }));
-  } catch (e) { view.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>${e.message}</h3></div>`; }
+  } catch (e) { view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>${e.message}</h3></div>`; }
 }
 
 // LOGIN
@@ -649,23 +652,24 @@ function renderRegister(view) {
   const page = el('div', 'auth-page');
   page.innerHTML = `
     <div class="auth-card">
-      <div class="auth-logo">
-        <div class="auth-logo-icon">🔑</div>
-        <div class="auth-logo-text">Shop<span>Key</span></div>
+      <div class="auth-card-header">
+        <div class="auth-logo-mark">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+        </div>
+        <h1 class="auth-title">Tạo tài khoản</h1>
+        <p class="auth-subtitle">Đăng ký miễn phí, chỉ mất 30 giây.</p>
       </div>
-      <h1 class="auth-title">Tạo tài khoản</h1>
-      <p class="auth-sub">Đăng ký miễn phí, chỉ mất 30 giây.</p>
       <form id="register-form" class="auth-form">
         <div class="form-group">
           <label class="form-label" for="reg-email">Email</label>
-          <div class="input-wrap">
+          <div class="input-icon-wrap">
             <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
             <input type="email" class="form-input has-icon" id="reg-email" placeholder="you@example.com" required autocomplete="email" />
           </div>
         </div>
         <div class="form-group">
           <label class="form-label" for="reg-pwd">Mật khẩu</label>
-          <div class="input-wrap">
+          <div class="input-icon-wrap">
             <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             <input type="password" class="form-input has-icon" id="reg-pwd" placeholder="Tối thiểu 8 ký tự" minlength="8" required autocomplete="new-password" />
           </div>
@@ -673,7 +677,7 @@ function renderRegister(view) {
         </div>
         <div class="form-group">
           <label class="form-label" for="reg-pwd2">Xác nhận mật khẩu</label>
-          <div class="input-wrap">
+          <div class="input-icon-wrap">
             <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             <input type="password" class="form-input has-icon" id="reg-pwd2" placeholder="Nhập lại mật khẩu" required autocomplete="new-password" />
           </div>
@@ -755,7 +759,7 @@ function renderAdminShell(wrap) {
       <aside class="admin-sidebar" id="admin-sidebar">
         <div class="sidebar-logo">
           <a href="#/admin">
-            <div class="sidebar-logo-icon">🔑</div>
+            <div class="sidebar-logo-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div>
             <div class="sidebar-logo-text">Admin <span>Panel</span></div>
           </a>
         </div>
@@ -812,12 +816,12 @@ async function renderAdmin(view) {
     content.innerHTML = `
       <div class="page-header"><div class="page-title">Dashboard</div></div>
       <div class="stats-grid">
-        <div class="stat-card"><div class="stat-icon purple">📦</div><div class="stat-info"><div class="stat-label">Tổng đơn</div><div class="stat-value">${s.total_orders}</div></div></div>
-        <div class="stat-card"><div class="stat-icon yellow">⏳</div><div class="stat-info"><div class="stat-label">Chờ xử lý</div><div class="stat-value">${s.pending_orders}</div></div></div>
-        <div class="stat-card"><div class="stat-icon green">✓</div><div class="stat-info"><div class="stat-label">Hoàn thành</div><div class="stat-value">${s.completed_orders}</div></div></div>
-        <div class="stat-card"><div class="stat-icon blue">🛍️</div><div class="stat-info"><div class="stat-label">Sản phẩm</div><div class="stat-value">${s.total_products}</div></div></div>
-        <div class="stat-card"><div class="stat-icon cyan">🗄️</div><div class="stat-info"><div class="stat-label">Kho hàng</div><div class="stat-value">${s.total_stock_available}</div></div></div>
-        <div class="stat-card"><div class="stat-icon purple">💰</div><div class="stat-info"><div class="stat-label">Doanh thu</div><div class="stat-value">${fmt(s.total_revenue)}</div></div></div>
+        <div class="stat-card"><div class="stat-icon purple"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><div class="stat-info"><div class="stat-label">Tổng đơn</div><div class="stat-value">${s.total_orders}</div></div></div>
+        <div class="stat-card"><div class="stat-icon yellow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="stat-info"><div class="stat-label">Chờ xử lý</div><div class="stat-value">${s.pending_orders}</div></div></div>
+        <div class="stat-card"><div class="stat-icon green"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div class="stat-info"><div class="stat-label">Hoàn thành</div><div class="stat-value">${s.completed_orders}</div></div></div>
+        <div class="stat-card"><div class="stat-icon blue"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div><div class="stat-info"><div class="stat-label">Sản phẩm</div><div class="stat-value">${s.total_products}</div></div></div>
+        <div class="stat-card"><div class="stat-icon cyan"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div><div class="stat-info"><div class="stat-label">Kho hàng</div><div class="stat-value">${s.total_stock_available}</div></div></div>
+        <div class="stat-card"><div class="stat-icon purple"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="stat-info"><div class="stat-label">Doanh thu</div><div class="stat-value">${fmt(s.total_revenue)}</div></div></div>
       </div>
       <div class="card"><div class="card-header"><div class="card-title">Đơn hàng gần đây</div></div>
       <div class="table-wrap" style="border:none;box-shadow:none;border-radius:0">
@@ -922,7 +926,7 @@ async function showPackagesModal(productId, productName) {
   const prod = await apiFetch('/products/admin/all').then(ps => ps.find(p => p.id === productId));
   const packages = prod?.packages || [];
   const renderPkgList = () => packages.map(pkg => `
-    <div class="package-item mb-8"><div><div class="pkg-name">${pkg.name}</div><div class="pkg-desc">${pkg.delivery_type === 'auto' ? '⚡ Tự động' : '👤 Thủ công'} • Kho: ${pkg.stock_count}</div></div>
+    <div class="package-item mb-8"><div><div class="pkg-name">${pkg.name}</div><div class="pkg-desc">${pkg.delivery_type === 'auto' ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Tự động' : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Thủ công'} • Kho: ${pkg.stock_count}</div></div>
     <div style="text-align:right"><div class="pkg-price">${fmt(pkg.price)}</div><button class="tbl-btn tbl-delete mt-4" data-delpkg="${pkg.id}">Xóa</button></div></div>
   `).join('');
 
@@ -988,7 +992,7 @@ function showDeliverModal(orderId, refresh) {
       <div class="form-group"><label class="form-label">Dữ liệu giao hàng<span class="req">*</span></label><textarea class="form-textarea" id="deliver-data" rows="6" placeholder="username: ...\npassword: ..." required></textarea><div class="form-hint">Thông tin giao cho khách</div></div>
       <div class="form-group"><label class="form-label">Ghi chú</label><input class="form-input" id="deliver-note" placeholder="Hướng dẫn..." /></div>
       <div id="deliver-err" class="form-error mb-12" style="display:none"></div>
-      <div class="flex gap-8"><button type="submit" class="btn btn-success flex-1">✓ Xác nhận giao</button><button type="button" class="btn btn-ghost" id="deliver-cancel">Hủy</button></div>
+      <div class="flex gap-8"><button type="submit" class="btn btn-success flex-1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Xác nhận giao</button><button type="button" class="btn btn-ghost" id="deliver-cancel">Hủy</button></div>
     </form>
   `, 'Giao hàng thủ công');
   qs('#deliver-cancel').onclick = closeModal;
@@ -1012,7 +1016,7 @@ async function renderAdminStock(view) {
         <div class="fw-600 mb-8">Chọn gói</div>
         ${autoProducts.length ? autoProducts.map(p => `<div class="card mb-8 p-16"><div class="fw-600 mb-8">${p.name}</div>${p.packages.filter(pk => pk.delivery_type === 'auto').map(pk => `<button class="btn btn-ghost btn-sm btn-full mb-4" data-viewstock="${pk.id}" data-pkgname="${encodeURIComponent(pk.name)}">${pk.name} — Kho: ${pk.stock_count}</button>`).join('')}</div>`).join('') : '<p class="text-muted">Chưa có gói tự động.</p>'}
       </div>
-      <div style="flex:2;min-width:300px" id="stock-detail"><div class="empty-state"><div class="empty-state-icon">📦</div><h3>Chọn gói để xem kho</h3></div></div>
+      <div style="flex:2;min-width:300px" id="stock-detail"><div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><h3>Chọn gói để xem kho</h3></div></div>
     </div>
   `;
   qsa('[data-viewstock]', content).forEach(btn => { btn.onclick = () => showStockDetail(parseInt(btn.dataset.viewstock), decodeURIComponent(btn.dataset.pkgname)); });
