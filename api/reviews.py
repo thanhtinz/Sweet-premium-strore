@@ -8,7 +8,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from db import get_db
-from db.models import Review, Product, Order
+from api.sanitize import sanitize_text
+from db.models import Review, Product, Order, ProductPackage
 from api.auth import get_current_user
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
@@ -128,12 +129,13 @@ def create_review(
         raise HTTPException(400, "Bạn đã đánh giá sản phẩm này rồi")
 
     # Check if user bought this product (verified purchase)
+    product_package_ids = db.query(ProductPackage.id).filter(
+        ProductPackage.product_id == data.product_id
+    ).subquery()
     is_verified = db.query(Order).filter(
         Order.user_id == user["user_id"],
         Order.status == "completed",
-        Order.package_id.in_(
-            db.query(Product.id).filter(Product.id == data.product_id)
-        ),
+        Order.package_id.in_(product_package_ids),
     ).first() is not None
 
     review = Review(
@@ -141,7 +143,7 @@ def create_review(
         user_id=user["user_id"],
         user_name=user.get("email", "").split("@")[0],
         rating=data.rating,
-        comment=data.comment,
+        comment=sanitize_text(data.comment) if data.comment else None,
         is_verified=is_verified,
     )
     db.add(review)

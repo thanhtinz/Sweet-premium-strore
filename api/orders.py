@@ -221,7 +221,7 @@ def auto_deliver(order: Order, db: Session):
     items = db.query(StockItem).filter(
         StockItem.package_id == order.package_id,
         StockItem.is_sold == False
-    ).limit(order.quantity).all()
+    ).with_for_update(skip_locked=True).limit(order.quantity).all()
 
     if len(items) < order.quantity:
         order.status = "processing"

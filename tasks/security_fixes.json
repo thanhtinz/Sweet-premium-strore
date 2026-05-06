@@ -1,0 +1,32 @@
+[
+  {
+    "content": "[fix] Announcement UI: card wrapper + rich HTML editor trong admin",
+    "id": "1",
+    "status": "completed"
+  },
+  {
+    "content": "[critical] make-admin endpoint: fail closed khi ADMIN_SECRET chưa set",
+    "id": "2",
+    "status": "completed"
+  },
+  {
+    "content": "[critical] support.py: thêm auth cho tất cả admin/ticket endpoints",
+    "id": "3",
+    "status": "completed"
+  },
+  {
+    "content": "[critical] oauth.py: thêm admin auth + mask secrets",
+    "id": "4",
+    "status": "completed"
+  },
+  {
+    "content": "[high] XSS: sanitize HTML content (announcements, blog, support pages, reviews)",
+    "id": "5",
+    "status": "completed"
+  },
+  {
+    "content": "[high] orders.py auto-delivery race condition + reviews verified logic",
+    "id": "6",
+    "status": "completed"
+  }
+]

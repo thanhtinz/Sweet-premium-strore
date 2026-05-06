@@ -163,15 +163,16 @@ async def balance_webhook(request: Request, db: Session = Depends(get_db)):
     except Exception:
         raise HTTPException(400, "Invalid JSON")
 
-    # Verify signature
+    # Verify signature — FAIL CLOSED: reject if checksum key is not configured
     from api.payment import get_payos_client, _get_payos_config
     _, _, checksum_key, _ = _get_payos_config(db)
-    if checksum_key:
-        try:
-            payos = get_payos_client(db)
-            payos.verifyPaymentWebhookData(payload)
-        except Exception:
-            raise HTTPException(400, "Invalid webhook signature")
+    if not checksum_key:
+        raise HTTPException(403, "Webhook signature verification not configured")
+    try:
+        payos = get_payos_client(db)
+        payos.verifyPaymentWebhookData(payload)
+    except Exception:
+        raise HTTPException(400, "Invalid webhook signature")
 
     data = payload.get("data", {})
     order_code = data.get("orderCode")
@@ -180,8 +181,11 @@ async def balance_webhook(request: Request, db: Session = Depends(get_db)):
     if not order_code:
         return {"ok": True}
 
-    # Map back to transaction ID
-    txn_id = int(order_code) - 900000
+    # Map back to transaction ID — validate type safely
+    try:
+        txn_id = int(order_code) - 900000
+    except (ValueError, TypeError):
+        return {"ok": True}  # Not a topup order code
     if txn_id <= 0:
         return {"ok": True}  # Not a topup transaction
 
@@ -261,10 +265,24 @@ def affiliate_withdraw(
     db: Session = Depends(get_db),
 ):
     uid = int(current_user["user_id"])
-    aff = db.query(AffiliateUser).filter(AffiliateUser.user_id == str(uid)).first()
+
+    # Lock BOTH affiliate and user rows to prevent race conditions
+    aff = db.query(AffiliateUser).filter(
+        AffiliateUser.user_id == str(uid)
+    ).with_for_update().first()
     if not aff:
         raise HTTPException(404, "Bạn chưa tham gia chương trình giới thiệu")
 
+    # Check for existing pending withdrawal
+    existing_pending = db.query(BalanceTransaction).filter(
+        BalanceTransaction.user_id == uid,
+        BalanceTransaction.type == "affiliate_withdraw",
+        BalanceTransaction.status == "pending",
+    ).first()
+    if existing_pending:
+        raise HTTPException(400, "Bạn đã có yêu cầu rút đang chờ duyệt")
+
+    # Recompute available AFTER acquiring lock
     available = float(aff.total_earnings or 0) - float(aff.total_paid or 0)
     if available <= 0:
         raise HTTPException(400, "Không có hoa hồng để rút")
@@ -273,20 +291,13 @@ def affiliate_withdraw(
     if withdraw_amount < 1000:
         raise HTTPException(400, "Số tiền rút tối thiểu 1,000đ")
 
-    # Row-level lock user
-    user = db.query(User).filter(User.id == uid).with_for_update().first()
-    if not user:
-        raise HTTPException(404, "User not found")
-
-    user.balance = Decimal(user.balance or 0) + Decimal(withdraw_amount)
-    aff.total_paid = Decimal(aff.total_paid or 0) + Decimal(withdraw_amount)
-
+    # Create PENDING transaction — admin must approve
     txn = BalanceTransaction(
         user_id=uid,
         amount=Decimal(withdraw_amount),
-        balance_after=user.balance,
+        balance_after=Decimal(0),  # will be set on approval
         type="affiliate_withdraw",
-        status="completed",
+        status="pending",
         reference=f"affiliate:{aff.id}",
         description=f"Rút hoa hồng giới thiệu {withdraw_amount:,}đ",
         ip_address=_get_client_ip(request),
@@ -297,12 +308,101 @@ def affiliate_withdraw(
     return {
         "success": True,
         "amount": withdraw_amount,
-        "new_balance": float(user.balance),
-        "affiliate_remaining": float(aff.total_earnings or 0) - float(aff.total_paid or 0),
+        "status": "pending",
+        "message": "Yêu cầu rút hoa hồng đã được gửi, vui lòng chờ admin duyệt.",
     }
 
 
 # ── Admin endpoints ──
+
+@router.get("/admin/withdrawals", dependencies=[Depends(get_current_admin)])
+def admin_list_withdrawals(
+    status: str = Query("pending"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    q = db.query(BalanceTransaction).filter(
+        BalanceTransaction.type == "affiliate_withdraw",
+    )
+    if status != "all":
+        q = q.filter(BalanceTransaction.status == status)
+    total = q.count()
+    items = q.order_by(BalanceTransaction.created_at.desc()) \
+             .offset((page - 1) * limit).limit(limit).all()
+    user_ids = {t.user_id for t in items}
+    users = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()} if user_ids else {}
+    return {
+        "total": total,
+        "items": [{
+            **_txn_to_dict(t),
+            "user_email": users[t.user_id].email if t.user_id in users else "",
+            "user_name": users[t.user_id].display_name if t.user_id in users else "",
+        } for t in items],
+    }
+
+
+@router.post("/admin/withdrawals/{txn_id}/approve")
+def admin_approve_withdrawal(
+    txn_id: int,
+    request: Request,
+    current_user: dict = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    txn = db.query(BalanceTransaction).filter(
+        BalanceTransaction.id == txn_id,
+        BalanceTransaction.type == "affiliate_withdraw",
+        BalanceTransaction.status == "pending",
+    ).first()
+    if not txn:
+        raise HTTPException(404, "Yêu cầu không tồn tại hoặc đã được xử lý")
+
+    # Lock affiliate and user rows
+    aff = db.query(AffiliateUser).filter(
+        AffiliateUser.user_id == str(txn.user_id)
+    ).with_for_update().first()
+
+    user = db.query(User).filter(User.id == txn.user_id).with_for_update().first()
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    # Verify affiliate still has enough earnings
+    if aff:
+        available = float(aff.total_earnings or 0) - float(aff.total_paid or 0)
+        if available < float(txn.amount):
+            raise HTTPException(400, f"Hoa hồng khả dụng ({available:,.0f}đ) không đủ cho yêu cầu ({float(txn.amount):,.0f}đ)")
+        aff.total_paid = Decimal(aff.total_paid or 0) + txn.amount
+
+    # Credit balance
+    user.balance = Decimal(user.balance or 0) + txn.amount
+    txn.balance_after = user.balance
+    txn.status = "completed"
+    txn.description = (txn.description or "") + f" [Duyệt bởi admin:{current_user['user_id']}]"
+
+    db.commit()
+    return {"success": True, "new_balance": float(user.balance)}
+
+
+@router.post("/admin/withdrawals/{txn_id}/reject")
+def admin_reject_withdrawal(
+    txn_id: int,
+    request: Request,
+    current_user: dict = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    txn = db.query(BalanceTransaction).filter(
+        BalanceTransaction.id == txn_id,
+        BalanceTransaction.type == "affiliate_withdraw",
+        BalanceTransaction.status == "pending",
+    ).first()
+    if not txn:
+        raise HTTPException(404, "Yêu cầu không tồn tại hoặc đã được xử lý")
+
+    txn.status = "failed"
+    txn.description = (txn.description or "") + f" [Từ chối bởi admin:{current_user['user_id']}]"
+    db.commit()
+    return {"success": True}
+
 
 @router.get("/admin/users", dependencies=[Depends(get_current_admin)])
 def admin_list_users_balance(

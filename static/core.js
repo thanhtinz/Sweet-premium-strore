@@ -96,6 +96,7 @@ function updateAuthUI() {
   const dropdownAdmin = qs('#dropdown-admin');
   const dropdownName = qs('#dropdown-name');
   const dropdownEmail = qs('#dropdown-email');
+  const dropdownBalance = qs('#dropdown-balance');
   const userAvatar = qs('#user-avatar');
 
   if (currentUser) {
@@ -105,6 +106,10 @@ function updateAuthUI() {
     const email = currentUser.email || '';
     if (dropdownName) dropdownName.textContent = name;
     if (dropdownEmail) dropdownEmail.textContent = email;
+    if (dropdownBalance) {
+      const bal = currentUser.balance || 0;
+      dropdownBalance.textContent = `Số dư: ${bal.toLocaleString('vi-VN')}đ`;
+    }
     if (userAvatar) {
       if (currentUser.avatar_url) {
         userAvatar.innerHTML = `<img src="${currentUser.avatar_url}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover" />`;

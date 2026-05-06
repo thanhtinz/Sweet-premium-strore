@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from api.sanitize import sanitize_html, sanitize_text
 
 from db import get_db
 from db.models import Announcement
@@ -90,8 +91,8 @@ def admin_create_announcement(
     db: Session = Depends(get_db),
 ):
     ann = Announcement(
-        title=data.title,
-        content=data.content,
+        title=sanitize_text(data.title),
+        content=sanitize_html(data.content),
         type=data.type,
         is_active=data.is_active,
         sort_order=data.sort_order,
@@ -112,8 +113,8 @@ def admin_update_announcement(
     ann = db.query(Announcement).get(ann_id)
     if not ann:
         raise HTTPException(404, "Announcement not found")
-    ann.title = data.title
-    ann.content = data.content
+    ann.title = sanitize_text(data.title)
+    ann.content = sanitize_html(data.content)
     ann.type = data.type
     ann.is_active = data.is_active
     ann.sort_order = data.sort_order

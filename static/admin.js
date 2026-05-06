@@ -1486,6 +1486,7 @@ function showGiftCodeModal(gc, onDone) {
       </div>
       <div class="form-group"><label class="form-label"><input type="checkbox" id="gc-active" ${gc?.is_active !== false ? 'checked' : ''} /> Active</label></div>
       <div class="form-group"><label class="form-label"><input type="checkbox" id="gc-public" ${gc?.is_public ? 'checked' : ''} /> Hiện trên trang Ưu đãi</label></div>
+      <div class="form-group"><label class="form-label">Mô tả (hiện trên trang ưu đãi)</label><textarea class="form-input" id="gc-desc" rows="2" placeholder="VD: Áp dụng cho tất cả sản phẩm...">${gc?.description || ''}</textarea></div>
       <div id="gc-form-err" class="form-error mb-12" style="display:none"></div>
       <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">${isEdit ? 'Cập nhật' : 'Tạo mới'}</button><button type="button" class="btn btn-ghost" id="gc-cancel">Hủy</button></div>
     </form>
@@ -1504,6 +1505,7 @@ function showGiftCodeModal(gc, onDone) {
       expires_at: qs('#gc-exp').value || null,
       is_active: qs('#gc-active').checked,
       is_public: qs('#gc-public').checked,
+      description: qs('#gc-desc').value.trim() || null,
     };
     try {
       if (isEdit) await apiFetch(`/gift-codes/admin/${gc.id}`, { method: 'PUT', body: JSON.stringify(body) });
@@ -2228,8 +2230,20 @@ function showAnnouncementModal(ann, onDone) {
         <input type="text" class="form-input" id="ann-title" value="${ann?.title || ''}" required placeholder="Tiêu đề thông báo..." />
       </div>
       <div class="form-group">
-        <label class="form-label">Nội dung</label>
-        <textarea class="form-textarea" id="ann-content" rows="4" required placeholder="Nội dung thông báo...">${ann?.content || ''}</textarea>
+        <label class="form-label">Nội dung <span class="text-muted text-sm">(hỗ trợ HTML)</span></label>
+        <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap;" id="ann-toolbar">
+          <button type="button" class="btn btn-ghost btn-sm" data-insert="bold" title="In đậm"><b>B</b></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-insert="italic" title="In nghiêng"><i>I</i></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-insert="link" title="Chèn link">🔗</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-insert="img" title="Chèn ảnh">🖼️</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-insert="ul" title="Danh sách">• List</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-insert="h3" title="Heading">H3</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-insert="quote" title="Trích dẫn">❝</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-insert="br" title="Xuống dòng">↵</button>
+        </div>
+        <textarea class="form-textarea" id="ann-content" rows="8" required placeholder="Nội dung thông báo... Hỗ trợ HTML: <b>, <i>, <a>, <img>, <ul>, <h3>, <blockquote>...">${ann?.content || ''}</textarea>
+        <div class="text-sm text-muted" style="margin-top:4px;">Preview:</div>
+        <div id="ann-preview" style="border:1px solid var(--border);border-radius:var(--radius);padding:12px;min-height:40px;font-size:13px;line-height:1.6;margin-top:4px;background:var(--bg-page);"></div>
       </div>
       <div class="form-row form-row-2">
         <div class="form-group">
@@ -2258,6 +2272,35 @@ function showAnnouncementModal(ann, onDone) {
       </div>
     </form>
   `);
+
+  // Toolbar insert helpers
+  const ta = qs('#ann-content');
+  const preview = qs('#ann-preview');
+  const updatePreview = () => { preview.innerHTML = ta.value; };
+  ta.oninput = updatePreview;
+  updatePreview();
+
+  qsa('#ann-toolbar [data-insert]').forEach(btn => {
+    btn.onclick = () => {
+      const s = ta.selectionStart, e = ta.selectionEnd, sel = ta.value.substring(s, e);
+      const inserts = {
+        bold: [`<b>`, sel || 'text', `</b>`],
+        italic: [`<i>`, sel || 'text', `</i>`],
+        link: [`<a href="`, sel || 'https://...', `">link text</a>`],
+        img: [`<img src="`, sel || 'https://...image.jpg', `" alt="ảnh" />`],
+        ul: [`<ul>\n  <li>`, sel || 'item 1', `</li>\n  <li>item 2</li>\n</ul>`],
+        h3: [`<h3>`, sel || 'Heading', `</h3>`],
+        quote: [`<blockquote>`, sel || 'Trích dẫn...', `</blockquote>`],
+        br: [`<br>\n`, '', ``],
+      };
+      const [pre, mid, post] = inserts[btn.dataset.insert] || ['', '', ''];
+      const text = pre + mid + post;
+      ta.setRangeText(text, s, e, 'end');
+      ta.focus();
+      updatePreview();
+    };
+  });
+
   qs('#ann-cancel').onclick = closeModal;
   qs('#ann-form').onsubmit = async (e) => {
     e.preventDefault();
@@ -2292,11 +2335,14 @@ async function renderAdminBalance(view) {
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
 
   try {
-    const [usersData, txnData, auditData] = await Promise.all([
+    const [usersData, txnData, auditData, withdrawData] = await Promise.all([
       apiFetch('/balance/admin/users?limit=100'),
       apiFetch('/balance/admin/transactions?limit=30'),
       apiFetch('/balance/admin/audit').catch(() => ({ ok: true, mismatches: [] })),
+      apiFetch('/balance/admin/withdrawals?status=pending'),
     ]);
+    const pendingCount = withdrawData.total || 0;
+    const activeTab = content.dataset.tab || 'users';
 
     content.innerHTML = `
       <div class="page-header">
@@ -2304,12 +2350,15 @@ async function renderAdminBalance(view) {
         ${!auditData.ok ? `<span class="badge" style="background:#ef4444;color:#fff;">⚠ ${auditData.mismatches.length} bất thường</span>` : '<span class="badge" style="background:#10b981;color:#fff;">✓ Hệ thống OK</span>'}
       </div>
 
-      <div style="display:flex;gap:8px;margin-bottom:16px;">
-        <button class="btn btn-sm ${!content.dataset.tab || content.dataset.tab === 'users' ? 'btn-primary' : 'btn-ghost'}" data-tab-btn="users">Người dùng</button>
-        <button class="btn btn-sm ${content.dataset.tab === 'txn' ? 'btn-primary' : 'btn-ghost'}" data-tab-btn="txn">Giao dịch</button>
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <button class="btn btn-sm ${activeTab === 'users' ? 'btn-primary' : 'btn-ghost'}" data-tab-btn="users">Người dùng</button>
+        <button class="btn btn-sm ${activeTab === 'txn' ? 'btn-primary' : 'btn-ghost'}" data-tab-btn="txn">Giao dịch</button>
+        <button class="btn btn-sm ${activeTab === 'withdraw' ? 'btn-primary' : 'btn-ghost'}" data-tab-btn="withdraw">
+          Yêu cầu rút ${pendingCount > 0 ? `<span class="badge" style="background:#ef4444;color:#fff;margin-left:6px;font-size:11px;padding:1px 6px;border-radius:10px;">${pendingCount}</span>` : ''}
+        </button>
       </div>
 
-      <div id="balance-tab-users" style="${content.dataset.tab === 'txn' ? 'display:none' : ''}">
+      <div id="balance-tab-users" style="${activeTab !== 'users' ? 'display:none' : ''}">
         <div class="table-wrap"><table>
           <thead><tr><th>ID</th><th>Email</th><th>Tên</th><th>Số dư</th><th></th></tr></thead>
           <tbody>
@@ -2326,7 +2375,7 @@ async function renderAdminBalance(view) {
         </table></div>
       </div>
 
-      <div id="balance-tab-txn" style="${content.dataset.tab !== 'txn' ? 'display:none' : ''}">
+      <div id="balance-tab-txn" style="${activeTab !== 'txn' ? 'display:none' : ''}">
         <div class="table-wrap"><table>
           <thead><tr><th>Thời gian</th><th>User</th><th>Loại</th><th>Số tiền</th><th>Sau GD</th><th>Mô tả</th></tr></thead>
           <tbody>
@@ -2345,18 +2394,74 @@ async function renderAdminBalance(view) {
           </tbody>
         </table></div>
       </div>
+
+      <div id="balance-tab-withdraw" style="${activeTab !== 'withdraw' ? 'display:none' : ''}">
+        ${pendingCount === 0 ? '<div class="empty-state" style="padding:32px 0;"><p class="text-muted">Không có yêu cầu rút nào đang chờ duyệt</p></div>' : `
+        <div class="table-wrap"><table>
+          <thead><tr><th>Thời gian</th><th>User</th><th>Số tiền</th><th>Trạng thái</th><th>Mô tả</th><th style="width:140px"></th></tr></thead>
+          <tbody>
+            ${withdrawData.items.map(w => `
+              <tr id="wd-row-${w.id}">
+                <td class="text-sm text-muted">${fmtDate(w.created_at)}</td>
+                <td class="text-sm">${w.user_email || w.user_name || w.user_id}</td>
+                <td class="fw-700" style="color:#f59e0b">${fmt(w.amount)}</td>
+                <td><span class="badge" style="background:#f59e0b;color:#fff;">Chờ duyệt</span></td>
+                <td class="text-sm text-muted">${w.description || '—'}</td>
+                <td>
+                  <div style="display:flex;gap:4px;">
+                    <button class="tbl-btn" style="color:#10b981;" data-approve-wd="${w.id}" title="Duyệt">✓ Duyệt</button>
+                    <button class="tbl-btn" style="color:#ef4444;" data-reject-wd="${w.id}" title="Từ chối">✗ Từ chối</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table></div>
+        `}
+      </div>
     `;
 
     // Tab switching
+    const tabs = ['users', 'txn', 'withdraw'];
     qsa('[data-tab-btn]', content).forEach(btn => {
       btn.onclick = () => {
         const tab = btn.dataset.tabBtn;
         content.dataset.tab = tab;
-        qs('#balance-tab-users', content).style.display = tab === 'users' ? '' : 'none';
-        qs('#balance-tab-txn', content).style.display = tab === 'txn' ? '' : 'none';
+        tabs.forEach(t => {
+          const el = qs(`#balance-tab-${t}`, content);
+          if (el) el.style.display = t === tab ? '' : 'none';
+        });
         qsa('[data-tab-btn]', content).forEach(b => {
           b.className = `btn btn-sm ${b.dataset.tabBtn === tab ? 'btn-primary' : 'btn-ghost'}`;
         });
+      };
+    });
+
+    // Approve withdrawal
+    qsa('[data-approve-wd]', content).forEach(btn => {
+      btn.onclick = async () => {
+        if (!confirm('Duyệt yêu cầu rút hoa hồng này? Số tiền sẽ được cộng vào số dư người dùng.')) return;
+        try {
+          btn.disabled = true;
+          await apiFetch(`/balance/admin/withdrawals/${btn.dataset.approveWd}/approve`, { method: 'POST' });
+          toast('Đã duyệt yêu cầu rút', 'success');
+          content.dataset.tab = 'withdraw';
+          renderAdminBalance(view);
+        } catch (err) { toast(err.message, 'error'); btn.disabled = false; }
+      };
+    });
+
+    // Reject withdrawal
+    qsa('[data-reject-wd]', content).forEach(btn => {
+      btn.onclick = async () => {
+        if (!confirm('Từ chối yêu cầu rút hoa hồng này?')) return;
+        try {
+          btn.disabled = true;
+          await apiFetch(`/balance/admin/withdrawals/${btn.dataset.rejectWd}/reject`, { method: 'POST' });
+          toast('Đã từ chối yêu cầu', 'success');
+          content.dataset.tab = 'withdraw';
+          renderAdminBalance(view);
+        } catch (err) { toast(err.message, 'error'); btn.disabled = false; }
       };
     });
 

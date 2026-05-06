@@ -110,13 +110,15 @@ async function renderHome(view) {
   const announcements = announcementsData?.items || [];
   if (announcements.length) {
     const annSection = el('div', 'ann-section');
+    const hasMore = announcements.length > 1;
     annSection.innerHTML = `
       <div class="ann-header">
         <div class="ann-title"><i class="fa-solid fa-bullhorn"></i> Thông báo</div>
+        ${hasMore ? `<button class="ann-toggle-btn" id="ann-toggle"><span class="ann-toggle-count">${announcements.length - 1} thông báo khác</span> <i class="fa-solid fa-chevron-down"></i></button>` : ''}
       </div>
-      <div class="ann-scroll">
-        ${announcements.map(a => `
-          <div class="ann-card-v2">
+      <div class="ann-scroll ${hasMore ? 'ann-collapsed' : ''}" id="ann-list">
+        ${announcements.map((a, i) => `
+          <div class="ann-card-v2 ${hasMore && i > 0 ? 'ann-hidden-card' : ''}">
             <div class="ann-card-header">
               <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin&backgroundColor=e2e8f0" class="ann-avatar" alt="Admin" />
               <div class="ann-author-info">
@@ -133,6 +135,21 @@ async function renderHome(view) {
       </div>
     `;
     frag.appendChild(annSection);
+
+    if (hasMore) {
+      const toggleBtn = annSection.querySelector('#ann-toggle');
+      const list = annSection.querySelector('#ann-list');
+      let expanded = false;
+      toggleBtn.onclick = () => {
+        expanded = !expanded;
+        list.classList.toggle('ann-collapsed', !expanded);
+        list.querySelectorAll('.ann-hidden-card').forEach(c => c.style.display = expanded ? '' : 'none');
+        toggleBtn.querySelector('i').className = expanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+        toggleBtn.querySelector('.ann-toggle-count').textContent = expanded ? 'Thu gọn' : `${announcements.length - 1} thông báo khác`;
+      };
+      // Initially hide extra cards
+      annSection.querySelectorAll('.ann-hidden-card').forEach(c => c.style.display = 'none');
+    }
   }
 
   // ── Category Tabs + Subcategory Grid ──────────────────────
@@ -1352,6 +1369,7 @@ async function renderOffers(view) {
         : `Giảm ${fmt(gc.discount_value)}`;
       
       const details = [];
+      if (gc.description) details.push(gc.description);
       if (gc.min_order > 0) details.push(`Đơn tối thiểu ${fmt(gc.min_order)}`);
       if (gc.max_discount && gc.discount_type === 'percent') details.push(`Giảm tối đa ${fmt(gc.max_discount)}`);
       if (gc.expires_at) details.push(`HSD: ${fmtDate(gc.expires_at)}`);

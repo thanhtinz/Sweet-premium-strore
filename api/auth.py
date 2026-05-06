@@ -25,7 +25,11 @@ from db.models import User, AdminUser
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 # ── Config ──────────────────────────────────────────────────
-JWT_SECRET = os.environ.get("JWT_SECRET", secrets.token_hex(32))
+JWT_SECRET = os.environ.get("JWT_SECRET")
+if not JWT_SECRET:
+    import warnings
+    JWT_SECRET = secrets.token_hex(32)
+    warnings.warn("JWT_SECRET not set! Using random key — tokens will invalidate on restart. Set JWT_SECRET env var for production.", stacklevel=1)
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_DAYS = 30
 
@@ -85,7 +89,8 @@ def _user_dict(user: User, is_admin: bool = False, role: str = None) -> dict:
         "provider": user.provider,
         "is_admin": is_admin,
         "role": role,
-        "2fa_enabled": bool(user.two_factor_secret)
+        "2fa_enabled": bool(user.two_factor_secret),
+        "balance": float(user.balance or 0),
     }
 
 
@@ -443,7 +448,11 @@ def _social_login_finish(db: Session, provider: str, provider_id: str,
 # ── Admin bootstrap ─────────────────────────────────────────
 @router.post("/make-admin")
 def make_admin(data: dict, db: Session = Depends(get_db)):
-    secret = os.environ.get("ADMIN_SECRET", "changeme123")
+    secret = os.environ.get("ADMIN_SECRET")
+    if not secret:
+        raise HTTPException(status_code=503, detail="ADMIN_SECRET not configured. Set it as an environment variable.")
+    if len(secret) < 16 or secret in ("changeme123", "admin", "secret", "password"):
+        raise HTTPException(status_code=503, detail="ADMIN_SECRET is too weak. Use a strong random string.")
     if data.get("secret") != secret:
         raise HTTPException(status_code=403, detail="Invalid secret")
     user_id = data.get("user_id")

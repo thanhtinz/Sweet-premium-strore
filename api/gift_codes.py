@@ -38,6 +38,7 @@ def get_public_codes(db: Session = Depends(get_db)):
             "expires_at": gc.expires_at.isoformat() if gc.expires_at else None,
             "usage_limit": gc.usage_limit,
             "usage_count": gc.usage_count,
+            "description": gc.description,
         })
     return valid_codes
 
@@ -104,6 +105,7 @@ class GiftCodeCreate(BaseModel):
     expires_at: Optional[str] = None
     is_active: bool = True
     is_public: bool = False
+    description: Optional[str] = None
 
 
 @router.get("/admin/list", dependencies=[Depends(get_current_admin)])
@@ -128,6 +130,7 @@ def create_gift_code(body: GiftCodeCreate, db: Session = Depends(get_db)):
         expires_at=datetime.fromisoformat(body.expires_at) if body.expires_at else None,
         is_active=body.is_active,
         is_public=body.is_public,
+        description=body.description,
     )
     db.add(gc)
     db.commit()
@@ -150,6 +153,7 @@ def update_gift_code(gid: int, body: GiftCodeCreate, db: Session = Depends(get_d
     gc.expires_at = datetime.fromisoformat(body.expires_at) if body.expires_at else None
     gc.is_active = body.is_active
     gc.is_public = body.is_public
+    gc.description = body.description
     db.commit()
     db.refresh(gc)
     return _to_dict(gc)
@@ -179,4 +183,5 @@ def _to_dict(gc: GiftCode):
         "expires_at": gc.expires_at.isoformat() if gc.expires_at else None,
         "is_active": gc.is_active,
         "is_public": gc.is_public,
+        "description": gc.description,
     }

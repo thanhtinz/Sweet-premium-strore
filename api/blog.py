@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import func
+from api.sanitize import sanitize_html, sanitize_text
 from sqlalchemy.orm import Session
 
 from db import get_db
@@ -245,13 +246,13 @@ def admin_create_blog_post(
 
     post = BlogPost(
         category_id=data.category_id,
-        title=data.title,
+        title=sanitize_text(data.title),
         slug=slug,
-        excerpt=data.excerpt,
-        content=data.content,
+        excerpt=sanitize_text(data.excerpt) if data.excerpt else None,
+        content=sanitize_html(data.content),
         thumbnail_url=data.thumbnail_url,
-        meta_title=data.meta_title or data.title,
-        meta_description=data.meta_description or (data.excerpt or "")[:160],
+        meta_title=sanitize_text(data.meta_title or data.title),
+        meta_description=sanitize_text(data.meta_description or (data.excerpt or "")[:160]),
         is_published=data.is_published,
         published_at=now,
         author_id=admin.get("user_id") if isinstance(admin, dict) else None,
@@ -272,16 +273,16 @@ def admin_update_blog_post(
         raise HTTPException(404, "Post not found")
 
     post.category_id = data.category_id
-    post.title = data.title
+    post.title = sanitize_text(data.title)
     if data.slug and data.slug != post.slug:
         if db.query(BlogPost).filter(BlogPost.slug == data.slug, BlogPost.id != post_id).first():
             raise HTTPException(400, "Slug already taken")
         post.slug = data.slug
-    post.excerpt = data.excerpt
-    post.content = data.content
+    post.excerpt = sanitize_text(data.excerpt) if data.excerpt else None
+    post.content = sanitize_html(data.content)
     post.thumbnail_url = data.thumbnail_url
-    post.meta_title = data.meta_title or data.title
-    post.meta_description = data.meta_description or (data.excerpt or "")[:160]
+    post.meta_title = sanitize_text(data.meta_title or data.title)
+    post.meta_description = sanitize_text(data.meta_description or (data.excerpt or "")[:160])
 
     # Handle publish state change
     if data.is_published and not post.is_published:

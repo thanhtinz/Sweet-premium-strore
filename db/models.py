@@ -228,6 +228,7 @@ class GiftCode(Base):
     expires_at = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, default=True)
     is_public = Column(Boolean, default=False)  # Show on UI
+    description = Column(String(500), nullable=True)  # shown on offers page
     created_at = Column(DateTime(timezone=True), default=now_utc)
 
 

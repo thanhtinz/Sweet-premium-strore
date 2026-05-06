@@ -549,7 +549,7 @@ async function renderUserAffiliates(view) {
           </div>
         `);
         qs('#wd-cancel').onclick = closeModal;
-        qs('#wd-submit').onclick = () => {
+        qs('#wd-submit').onclick = async () => {
           const amount = parseFloat(qs('#wd-amount').value);
           const info = qs('#wd-info').value.trim();
           if (!amount || amount <= 0) {
@@ -561,8 +561,18 @@ async function renderUserAffiliates(view) {
           if (!info) {
             const e = qs('#wd-err'); e.textContent = 'Nhập thông tin tài khoản nhận'; e.style.display = 'block'; return;
           }
-          closeModal();
-          toast('Yêu cầu rút tiền đã được gửi! Chúng tôi sẽ xử lý trong 1-3 ngày làm việc.', 'success');
+          try {
+            qs('#wd-submit').disabled = true;
+            qs('#wd-submit').textContent = 'Đang gửi...';
+            await apiFetch('/balance/affiliate-withdraw', { method: 'POST', body: JSON.stringify({ amount: Math.floor(amount) }) });
+            closeModal();
+            toast('Yêu cầu rút tiền đã được gửi! Vui lòng chờ admin duyệt.', 'success');
+            renderUserAffiliates(view);
+          } catch (err) {
+            const e = qs('#wd-err'); e.textContent = err.message; e.style.display = 'block';
+            qs('#wd-submit').disabled = false;
+            qs('#wd-submit').textContent = 'Gửi yêu cầu';
+          }
         };
       };
     }

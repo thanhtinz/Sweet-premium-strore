@@ -1,7 +1,7 @@
 import hashlib
 import os
 
-from fastapi import FastAPI, APIRouter, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -87,6 +87,16 @@ def create_app(static_dir: str) -> FastAPI:
     # SPA fallback — all non-API routes serve index.html
     @app.get("/{full_path:path}", response_class=HTMLResponse)
     def spa_fallback(request: Request, full_path: str):
+        # API paths that hit the catch-all need trailing slash redirect
+        if full_path.startswith("api/") or full_path == "api":
+            from fastapi.responses import RedirectResponse, JSONResponse
+            # Only redirect if path doesn't already end with /
+            path = request.url.path
+            if not path.endswith("/"):
+                target = str(request.url).replace(path, path + "/", 1)
+                return RedirectResponse(url=target, status_code=307)
+            # Already has slash but still no route matched — return 404
+            return JSONResponse({"detail": "Not found"}, status_code=404)
         css_hash = get_file_hash(os.path.join(static_dir, "styles.css"))
         # Combine hashes of all JS modules for cache busting
         js_files = ["core.js", "storefront.js", "admin.js", "admin-bot.js", "admin-mobile.js", "blog.js", "profile.js", "app.js"]
