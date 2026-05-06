@@ -11,7 +11,13 @@ function renderAdminShell(wrap) {
     qsa('.admin-nav-item', wrap).forEach(btn => {
       const href = btn.dataset.href;
       if (!href) return;
-      btn.classList.toggle('active', href === hash);
+      const isActive = href === hash;
+      btn.classList.toggle('active', isActive);
+      // Auto-open the <details> containing the active item
+      if (isActive) {
+        const details = btn.closest('details.admin-nav-details');
+        if (details) details.open = true;
+      }
     });
     return;
   }
