@@ -30,14 +30,18 @@ const routes = {
   '/admin/affiliates': renderAdminAffiliates,
   '/admin/blog': renderAdminBlog,
   '/admin/support-pages': renderAdminSupportPages,
+  '/admin/announcements': renderAdminAnnouncements,
   '/admin/tickets': renderAdminTickets,
+  '/admin/bot-config': renderAdminBotConfig,
+  '/admin/payments': renderAdminPayments,
   '/blog': renderBlogList,
   '/blog/:slug': renderBlogPost,
   '/profile': renderProfile,
+  '/affiliate': renderUserAffiliates,
   '/support': renderSupportHome,
-  '/support/:slug': (view, { slug }) => renderSupportPage(slug),
-  '/support/tickets/:ticketId': (view, { ticketId }) => renderTicketDetail(ticketId),
   '/support/tickets': renderUserTickets,
+  '/support/tickets/:ticketId': (view, { ticketId }) => renderTicketDetail(ticketId),
+  '/support/:slug': (view, { slug }) => renderSupportPage(slug),
 };
 
 function parseRoute(hash) {
@@ -58,6 +62,15 @@ function parseRoute(hash) {
 async function navigate() {
   const hash = location.hash || '#/';
   let view = qs('#app-view');
+  
+  // Safety: if #app-view was destroyed (e.g. by a bad render), recreate it
+  if (!view) {
+    const main = qs('.main-content');
+    if (main) {
+      main.innerHTML = '<div id="app-view"></div>';
+      view = qs('#app-view');
+    } else return;
+  }
   
   // Clone to detach any pending async appends from previous route
   const newView = view.cloneNode(false);
@@ -121,7 +134,8 @@ async function loadSidebar() {
     categories.forEach(cat => {
       const item = el('a', 'nav-item');
       item.href = `#/all?cat=${cat.slug}`;
-      const icon = cat.icon_url ? `<img src="${cat.icon_url}" alt="" style="width:18px;height:18px;object-fit:contain" />` : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
+      const iconUrl = cat.image_url || cat.icon_url;
+      const icon = iconUrl ? `<img src="${iconUrl}" alt="" style="width:18px;height:18px;object-fit:contain;border-radius:2px;" />` : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
       item.innerHTML = `<div class="nav-icon">${icon}</div><span>${cat.name}</span>`;
       nav.appendChild(item);
     });
@@ -145,6 +159,13 @@ async function loadSidebar() {
     blogItem.href = '#/blog';
     blogItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-newspaper"></i></div><span>Blog</span>';
     nav.appendChild(blogItem);
+
+    if (currentUser) {
+      const affItem = el('a', 'nav-item' + (location.hash === '#/affiliate' ? ' active' : ''));
+      affItem.href = '#/affiliate';
+      affItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-user-group"></i></div><span>Giới thiệu bạn bè</span>';
+      nav.appendChild(affItem);
+    }
   } catch (_) {}
 }
 
@@ -154,6 +175,19 @@ async function loadSidebar() {
 // ═══════════════════════════════════════════════════════════════
 async function init() {
   loadToken();
+
+  // Capture affiliate ref code from URL (?ref=CODE)
+  try {
+    const urlParams = new URLSearchParams(location.search);
+    const refCode = urlParams.get('ref');
+    if (refCode) {
+      localStorage.setItem('aff_ref_code', refCode);
+      // Clean URL without reloading
+      const cleanUrl = new URL(location);
+      cleanUrl.searchParams.delete('ref');
+      history.replaceState(null, '', cleanUrl);
+    }
+  } catch (_) {}
   await fetchMe();
   updateAuthUI();
   updateCartCount();
@@ -165,12 +199,36 @@ async function init() {
   try {
     appSettings = await apiFetch('/admin/settings/public').catch(() => ({}));
     
-    // Update footer with settings
+    // Update site name / logo in header and footer
+    const logoUrl = appSettings.logo_url || appSettings.site_logo;
     if (appSettings.site_name) {
       document.title = appSettings.site_name;
-      const n1 = qs('#f-site-name'); if (n1) n1.textContent = appSettings.site_name;
-      const n2 = qs('#f-site-copy'); if (n2) n2.textContent = appSettings.site_name;
     }
+    // Header logo-link: show logo image or site name text
+    const logoLink = qs('#logo-link');
+    if (logoLink) {
+      if (logoUrl) {
+        logoLink.innerHTML = `<img src="${logoUrl}" alt="${appSettings.site_name || 'Logo'}" style="height: 28px; width: auto; object-fit: contain;">`;
+      } else if (appSettings.site_name) {
+        const logoText = logoLink.querySelector('.logo-text');
+        if (logoText) logoText.textContent = appSettings.site_name;
+      }
+    }
+    // Footer site name: show logo image or text
+    const fSiteName = qs('#f-site-name');
+    if (fSiteName) {
+      if (logoUrl) {
+        fSiteName.innerHTML = `<img src="${logoUrl}" alt="${appSettings.site_name || 'Logo'}" style="height: 24px; width: auto; object-fit: contain; vertical-align: middle;">`;
+      } else {
+        fSiteName.textContent = appSettings.site_name || 'ShopKey';
+      }
+    }
+    // Footer copyright text
+    const fSiteCopy = qs('#f-site-copy');
+    if (fSiteCopy) {
+      fSiteCopy.innerHTML = appSettings.copyright_text || `Copyright © ${new Date().getFullYear()} ${appSettings.site_name || 'ShopKey'}. All rights reserved.`;
+    }
+    // Footer description
     if (appSettings.site_description) {
       const desc = qs('#f-site-desc');
       if (desc) desc.textContent = appSettings.site_description;

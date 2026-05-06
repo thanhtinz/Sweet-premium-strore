@@ -52,7 +52,7 @@ async function renderBlogList(view) {
     items.forEach(post => {
       const card = el('div', 'blog-card');
       card.innerHTML = `
-        ${post.thumbnail_url ? `<div class="blog-card-img"><img src="${post.thumbnail_url}" alt="${post.title}" loading="lazy" /></div>` : '<div class="blog-card-img blog-card-img-placeholder"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>'}
+        ${post.thumbnail_url ? `<div class="blog-card-img"><img src="${post.thumbnail_url}" alt="${post.title}" loading="lazy" decoding="async" /></div>` : '<div class="blog-card-img blog-card-img-placeholder"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>'}
         <div class="blog-card-body">
           ${post.category_name ? `<span class="badge badge-blue mb-4">${post.category_name}</span>` : ''}
           <div class="blog-card-title">${post.title}</div>
@@ -101,7 +101,7 @@ async function renderBlogPost(view, { slug }) {
           ${post.view_count != null ? `<span>· ${post.view_count} lượt xem</span>` : ''}
         </div>
       </div>
-      ${post.thumbnail_url ? `<div class="blog-article-thumbnail"><img src="${post.thumbnail_url}" alt="${post.title}" /></div>` : ''}
+      ${post.thumbnail_url ? `<div class="blog-article-thumbnail"><img src="${post.thumbnail_url}" alt="${post.title}" loading="lazy" decoding="async" /></div>` : ''}
       <div class="blog-article-content">${post.content || ''}</div>
     `;
     view.appendChild(article);

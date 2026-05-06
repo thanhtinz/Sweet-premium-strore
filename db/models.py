@@ -18,6 +18,7 @@ class Category(Base):
     name = Column(String(255), nullable=False)
     slug = Column(String(255), unique=True, nullable=False, index=True)
     icon_url = Column(Text)
+    image_url = Column(String(500), nullable=True)
     parent_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
@@ -70,6 +71,8 @@ class ProductPackage(Base):
     original_price = Column(Numeric(12, 2))
     description = Column(Text)
     delivery_type = Column(String(20), default="manual")  # manual | auto
+    is_stock_managed = Column(Boolean, default=False)  # toggle kho cho gói thủ công
+    stock_quantity = Column(Integer, default=0)  # số lượng tồn kho (cho gói bật quản lý kho)
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=now_utc)
@@ -363,3 +366,18 @@ class TicketMessage(Base):
     created_at = Column(DateTime(timezone=True), default=now_utc)
 
     ticket = relationship("SupportTicket", back_populates="messages")
+
+
+# ── Announcements ─────────────────────────────────────
+
+class Announcement(Base):
+    __tablename__ = "announcements"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(500), nullable=False)
+    content = Column(Text, nullable=False)
+    type = Column(String(30), default="info")  # info | warning | promo | update
+    is_active = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+    updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)

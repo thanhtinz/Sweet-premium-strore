@@ -5,20 +5,42 @@
 async function renderHome(view) {
   view.innerHTML = '';
 
-  // ── Banner Slider ────────────────────────────────────────
-  let banners = [];
-  try { banners = await apiFetch('/banners/'); } catch (_) {}
+  // ── Parallel API calls ───────────────────────────────────
+  const [banners, flashSales, featuredData, announcementsData] = await Promise.all([
+    apiFetch('/banners/').catch(() => []),
+    apiFetch('/flash-sales/active').catch(() => []),
+    apiFetch('/products/featured?limit=12').catch(() => []),
+    apiFetch('/announcements/').catch(() => ({ items: [] }))
+  ]);
+
+  // Also fetch home category products in parallel
+  let homeCatProducts = {};
+  if (appSettings.home_categories) {
+    const slugs = appSettings.home_categories.split(',').map(s => s.trim()).filter(Boolean);
+    const catFetches = slugs.map(slug =>
+      apiFetch(`/products/?category_slug=${slug}&limit=8`)
+        .then(data => ({ slug, data }))
+        .catch(() => ({ slug, data: null }))
+    );
+    const catResults = await Promise.all(catFetches);
+    catResults.forEach(r => { if (r.data) homeCatProducts[r.slug] = r.data; });
+  }
+
   const heroBanners = banners.filter(b => b.banner_type === 'hero');
   const catBanners = banners.filter(b => b.banner_type === 'category');
 
+  // ── Build all DOM in a fragment to minimize reflows ──────
+  const frag = document.createDocumentFragment();
+
+  // ── Banner Slider ────────────────────────────────────────
   if (heroBanners.length) {
     const slider = el('div', 'banner-slider');
     const track = el('div', 'banner-track');
     heroBanners.forEach((b, i) => {
       const slide = el('div', `banner-slide${i === 0 ? ' active' : ''}`);
       const inner = b.link
-        ? `<a href="${b.link}"><img src="${b.image_url}" alt="${b.title}" /></a>`
-        : `<img src="${b.image_url}" alt="${b.title}" />`;
+        ? `<a href="${b.link}"><img src="${b.image_url}" alt="${b.title}" loading="lazy" decoding="async" /></a>`
+        : `<img src="${b.image_url}" alt="${b.title}" loading="lazy" decoding="async" />`;
       slide.innerHTML = inner;
       track.appendChild(slide);
     });
@@ -52,7 +74,7 @@ async function renderHome(view) {
       slider.onmouseenter = () => clearInterval(autoTimer);
       slider.onmouseleave = () => { autoTimer = setInterval(() => go(cur + 1), 5000); };
     }
-    view.appendChild(slider);
+    frag.appendChild(slider);
   }
 
   // ── Category Banners Grid ────────────────────────────────
@@ -61,12 +83,12 @@ async function renderHome(view) {
     catBanners.forEach(b => {
       const card = el('div', 'banner-card');
       const inner = b.link
-        ? `<a href="${b.link}"><img src="${b.image_url}" alt="${b.title}" /></a>`
-        : `<img src="${b.image_url}" alt="${b.title}" />`;
+        ? `<a href="${b.link}"><img src="${b.image_url}" alt="${b.title}" loading="lazy" decoding="async" /></a>`
+        : `<img src="${b.image_url}" alt="${b.title}" loading="lazy" decoding="async" />`;
       card.innerHTML = inner;
       grid.appendChild(card);
     });
-    view.appendChild(grid);
+    frag.appendChild(grid);
   }
 
   // ── Fallback hero if no banners ──────────────────────────
@@ -81,7 +103,36 @@ async function renderHome(view) {
         <span class="hero-tag">${ico.card} Thanh toán nhanh</span>
       </div>
     `;
-    view.appendChild(hero);
+    frag.appendChild(hero);
+  }
+
+  // ── Announcements ────────────────────────────────────────
+  const announcements = announcementsData?.items || [];
+  if (announcements.length) {
+    const annSection = el('div', 'ann-section');
+    annSection.innerHTML = `
+      <div class="ann-header">
+        <div class="ann-title"><i class="fa-solid fa-bullhorn"></i> Thông báo</div>
+      </div>
+      <div class="ann-scroll">
+        ${announcements.map(a => `
+          <div class="ann-card-v2">
+            <div class="ann-card-header">
+              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin&backgroundColor=e2e8f0" class="ann-avatar" alt="Admin" />
+              <div class="ann-author-info">
+                <div class="ann-author-name">Quản Trị Viên <i class="fa-solid fa-circle-check" style="color: #1d9bf0;"></i></div>
+                <div class="ann-date">${new Date(a.created_at).toLocaleString('vi-VN')}</div>
+              </div>
+            </div>
+            <div class="ann-card-content">
+              ${a.title ? `<div class="ann-content-title">${a.title}</div>` : ''}
+              <div class="ann-content-body">${a.content}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    frag.appendChild(annSection);
   }
 
   // ── Category Tabs + Subcategory Grid ──────────────────────
@@ -95,7 +146,8 @@ async function renderHome(view) {
     pills.appendChild(allPill);
     categories.forEach(cat => {
       const pill = el('button', 'cat-pill');
-      const iconHtml = cat.icon_url ? `<img src="${cat.icon_url}" alt="" />` : ico.box;
+      const iconUrl = cat.image_url || cat.icon_url;
+      const iconHtml = iconUrl ? `<img src="${iconUrl}" alt="" loading="lazy" decoding="async" style="width:16px;height:16px;object-fit:contain;border-radius:2px;margin-right:4px;" />` : ico.box;
       pill.innerHTML = `${iconHtml} <span>${cat.name}</span>`;
       pill.dataset.slug = cat.slug;
       pills.appendChild(pill);
@@ -122,7 +174,7 @@ async function renderHome(view) {
         children.forEach(sub => {
           const card = el('div', 'subcat-card');
           const iconHtml = sub.icon_url
-            ? `<img src="${sub.icon_url}" alt="${sub.name}" />`
+            ? `<img src="${sub.icon_url}" alt="${sub.name}" loading="lazy" decoding="async" />`
             : `<div class="subcat-icon">${ico.box}</div>`;
           card.innerHTML = `${iconHtml}<span class="subcat-name">${sub.name}</span>`;
           card.onclick = () => {
@@ -145,83 +197,76 @@ async function renderHome(view) {
     // Initial render — show all
     renderSubcats('');
 
-    view.appendChild(catSection);
+    frag.appendChild(catSection);
   }
 
   // ── Flash Sale ───────────────────────────────────────────
-  try {
-    const flashSales = await apiFetch('/flash-sales/active');
-    if (flashSales.length) {
-      const section = el('div', 'flash-sale-section');
-      section.innerHTML = `<div class="section-title">${ico.zap} Flash Sale</div>`;
-      const row = el('div', 'flash-sale-row');
-      flashSales.forEach(fs => {
-        const card = el('div', 'flash-card');
-        const discount = fs.original_price ? Math.round((1 - fs.sale_price / fs.original_price) * 100) : 0;
-        const sold = fs.sold_count || 0;
-        const total = fs.quantity_limit || 0;
-        const progressPct = total > 0 ? Math.min((sold / total) * 100, 100) : 0;
-        const endMs = new Date(fs.ends_at).getTime();
-        const cardHtml = `
-          ${fs.product_image ? `<img class="flash-card-img" src="${fs.product_image}" alt="${fs.product_name || ''}" />` : '<div class="flash-card-img flash-card-img-ph">' + ico.box + '</div>'}
-          <div class="flash-card-body">
-            <div class="flash-card-name">${fs.product_name || 'Sản phẩm'}</div>
-            <div class="flash-card-prices">
-              <span class="flash-price-sale">${fmt(fs.sale_price)}</span>
-              ${fs.original_price ? `<span class="flash-price-original">${fmt(fs.original_price)}</span>` : ''}
-            </div>
-            ${discount ? `<span class="flash-badge">-${discount}%</span>` : ''}
-            <div class="flash-countdown" data-end="${fs.ends_at}">--:--:--</div>
-            ${total > 0 ? `<div class="flash-progress"><div class="flash-progress-bar" style="width:${progressPct}%"></div></div><div class="flash-progress-text">Đã bán ${sold}/${total}</div>` : ''}
+  if (flashSales.length) {
+    const section = el('div', 'flash-sale-section');
+    section.innerHTML = `<div class="section-title">${ico.zap} Flash Sale</div>`;
+    const row = el('div', 'flash-sale-row');
+    flashSales.forEach(fs => {
+      const card = el('div', 'flash-card');
+      const discount = fs.original_price ? Math.round((1 - fs.sale_price / fs.original_price) * 100) : 0;
+      const sold = fs.sold_count || 0;
+      const total = fs.quantity_limit || 0;
+      const progressPct = total > 0 ? Math.min((sold / total) * 100, 100) : 0;
+      const cardHtml = `
+        ${fs.product_image ? `<img class="flash-card-img" src="${fs.product_image}" alt="${fs.product_name || ''}" loading="lazy" decoding="async" />` : '<div class="flash-card-img flash-card-img-ph">' + ico.box + '</div>'}
+        <div class="flash-card-body">
+          <div class="flash-card-name">${fs.product_name || 'Sản phẩm'}</div>
+          <div class="flash-card-prices">
+            <span class="flash-price-sale">${fmt(fs.sale_price)}</span>
+            ${fs.original_price ? `<span class="flash-price-original">${fmt(fs.original_price)}</span>` : ''}
           </div>
-        `;
-        card.innerHTML = cardHtml;
-        card.onclick = () => { if (fs.product_slug) location.hash = `/product/${fs.product_slug}`; };
-        row.appendChild(card);
-      });
-      section.appendChild(row);
-      view.appendChild(section);
+          ${discount ? `<span class="flash-badge">-${discount}%</span>` : ''}
+          <div class="flash-countdown" data-end="${fs.ends_at}">--:--:--</div>
+          ${total > 0 ? `<div class="flash-progress"><div class="flash-progress-bar" style="width:${progressPct}%"></div></div><div class="flash-progress-text">Đã bán ${sold}/${total}</div>` : ''}
+        </div>
+      `;
+      card.innerHTML = cardHtml;
+      card.onclick = () => { if (fs.product_slug) location.hash = `/product/${fs.product_slug}`; };
+      row.appendChild(card);
+    });
+    section.appendChild(row);
+    frag.appendChild(section);
 
-      // Countdown timers
-      const updateCountdowns = () => {
-        qsa('.flash-countdown', section).forEach(el => {
-          const end = new Date(el.dataset.end).getTime();
-          const diff = end - Date.now();
-          if (diff <= 0) { el.textContent = 'Hết hạn'; return; }
-          const h = String(Math.floor(diff / 3600000)).padStart(2, '0');
-          const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
-          const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
-          el.textContent = `${h}:${m}:${s}`;
-        });
-      };
-      updateCountdowns();
-      const cdInterval = setInterval(updateCountdowns, 1000);
-      // Clean up interval when navigating away
-      const origClear = view._clearFlashInterval;
-      if (!origClear) {
-        const observer = new MutationObserver(() => {
-          if (!document.contains(view)) { clearInterval(cdInterval); observer.disconnect(); }
-        });
-        observer.observe(view.parentNode, { childList: true });
-      }
+    // Countdown timers
+    const updateCountdowns = () => {
+      qsa('.flash-countdown', section).forEach(el => {
+        const end = new Date(el.dataset.end).getTime();
+        const diff = end - Date.now();
+        if (diff <= 0) { el.textContent = 'Hết hạn'; return; }
+        const h = String(Math.floor(diff / 3600000)).padStart(2, '0');
+        const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+        const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+        el.textContent = `${h}:${m}:${s}`;
+      });
+    };
+    updateCountdowns();
+    const cdInterval = setInterval(updateCountdowns, 1000);
+    // Clean up interval when navigating away
+    const origClear = view._clearFlashInterval;
+    if (!origClear) {
+      const observer = new MutationObserver(() => {
+        if (!document.contains(view)) { clearInterval(cdInterval); observer.disconnect(); }
+      });
+      observer.observe(view.parentNode, { childList: true });
     }
-  } catch (_) {}
+  }
 
   // ── Featured Products ────────────────────────────────────
   const featuredHead = el('div', 'section-head');
   featuredHead.innerHTML = `<div class="section-title mb-0">${ico.star} Sản phẩm nổi bật</div><a href="#/all" class="btn btn-primary btn-sm" style="font-weight: 600;">Xem tất cả <i class="fa-solid fa-arrow-right"></i></a>`;
-  view.appendChild(featuredHead);
+  frag.appendChild(featuredHead);
   
-  try {
-    const data = await apiFetch('/products/featured?limit=12');
-    if (!data.length) {
-      view.appendChild(el('div', 'empty-state', `<div class="empty-state-icon">${ico.inbox}</div><h3>Chưa có sản phẩm nổi bật</h3>`));
-    } else {
-      const grid = el('div', 'product-grid');
-      data.forEach(p => grid.appendChild(productCard(p)));
-      view.appendChild(grid);
-    }
-  } catch (_) { view.appendChild(el('p', 'text-muted', 'Không thể tải sản phẩm.')); }
+  if (!featuredData.length) {
+    frag.appendChild(el('div', 'empty-state', `<div class="empty-state-icon">${ico.inbox}</div><h3>Chưa có sản phẩm nổi bật</h3>`));
+  } else {
+    const grid = el('div', 'product-grid');
+    featuredData.forEach(p => grid.appendChild(productCard(p)));
+    frag.appendChild(grid);
+  }
 
   // ── Selected Categories on Home ──────────────────────────
   if (appSettings.home_categories) {
@@ -231,21 +276,22 @@ async function renderHome(view) {
       if (!cat) continue;
       
       const catHead = el('div', 'section-head mt-32');
-      catHead.innerHTML = `<div class="section-title mb-0">${cat.icon_url ? `<img src="${cat.icon_url}" style="width:24px;height:24px;object-fit:contain;vertical-align:middle"/>` : ico.box} ${cat.name}</div><a href="#/all?cat=${cat.slug}" class="btn btn-primary btn-sm" style="font-weight: 600;">Xem tất cả <i class="fa-solid fa-arrow-right"></i></a>`;
-      view.appendChild(catHead);
+      catHead.innerHTML = `<div class="section-title mb-0">${cat.icon_url ? `<img src="${cat.icon_url}" loading="lazy" decoding="async" style="width:24px;height:24px;object-fit:contain;vertical-align:middle"/>` : ico.box} ${cat.name}</div><a href="#/all?cat=${cat.slug}" class="btn btn-primary btn-sm" style="font-weight: 600;">Xem tất cả <i class="fa-solid fa-arrow-right"></i></a>`;
+      frag.appendChild(catHead);
       
-      try {
-        const catData = await apiFetch(`/products/?category_slug=${slug}&limit=8`);
-        if (catData.items && catData.items.length) {
-          const grid = el('div', 'product-grid');
-          catData.items.forEach(p => grid.appendChild(productCard(p)));
-          view.appendChild(grid);
-        } else {
-          view.appendChild(el('p', 'text-muted mb-32', 'Đang cập nhật sản phẩm...'));
-        }
-      } catch (e) {}
+      const catData = homeCatProducts[slug];
+      if (catData && catData.items && catData.items.length) {
+        const grid = el('div', 'product-grid');
+        catData.items.forEach(p => grid.appendChild(productCard(p)));
+        frag.appendChild(grid);
+      } else {
+        frag.appendChild(el('p', 'text-muted mb-32', 'Đang cập nhật sản phẩm...'));
+      }
     }
   }
+
+  // ── Single DOM write ─────────────────────────────────────
+  view.appendChild(frag);
 }
 
 async function renderCategory(view, { slug }) {
@@ -469,7 +515,7 @@ async function renderAllProducts(view) {
 function productCard(p) {
   const card = el('div', 'product-card');
   const imgHtml = p.image_url
-    ? `<img class="product-card-img" src="${p.image_url}" alt="${p.name}" loading="lazy" />`
+    ? `<img class="product-card-img" src="${p.image_url}" alt="${p.name}" loading="lazy" decoding="async" />`
     : `<div class="product-card-img-placeholder"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>`;
   card.innerHTML = `
     ${imgHtml}
@@ -565,7 +611,7 @@ async function renderProduct(view, { slug }) {
       // Image with overlay badges
       const imgWrap = el('div', 'pd-hero-img');
       if (p.image_url) {
-        imgWrap.innerHTML = `<img src="${p.image_url}" alt="${p.name}" />`;
+        imgWrap.innerHTML = `<img src="${p.image_url}" alt="${p.name}" loading="lazy" decoding="async" />`;
       } else {
         imgWrap.innerHTML = `<div class="pd-top-img-ph">${ico.box}</div>`;
       }
@@ -599,7 +645,7 @@ async function renderProduct(view, { slug }) {
       // Info pills: category + sold count
       const pillsRow = el('div', 'pd-info-pills');
       if (p.category_name) {
-        const catIcon = p.category_icon ? `<img src="${p.category_icon}" class="pd-pill-icon" alt="" />` : '';
+        const catIcon = p.category_icon ? `<img src="${p.category_icon}" class="pd-pill-icon" alt="" loading="lazy" decoding="async" />` : '';
         let pdCatHref = '';
         if (p.category_slug) {
             const pCat = categories.find(c => c.children?.some(s => s.slug === p.category_slug || s.id === p.category_id));
@@ -1105,8 +1151,8 @@ function renderCart(view) {
         </div>
         <div class="step-line"></div>
         <div class="checkout-step">
-          <div class="step-icon"><i class="fa-solid fa-clipboard-check"></i></div>
-          <div class="step-label">XÁC NHẬN</div>
+          <div class="step-icon"><i class="fa-solid fa-credit-card"></i></div>
+          <div class="step-label">THANH TOÁN</div>
         </div>
         <div class="step-line"></div>
         <div class="checkout-step">
@@ -1179,7 +1225,7 @@ function renderCart(view) {
     itemEl.innerHTML = `
       <div style="position: relative;">
         <div style="display: flex; gap: 16px; align-items: flex-start;">
-          ${item.product_img ? `<img src="${item.product_img}" style="width: 80px; height: 80px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border);" />` : `<div style="width: 80px; height: 80px; background: var(--bg-body); border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border);"><i class="fa-solid fa-image text-muted"></i></div>`}
+          ${item.product_img ? `<img src="${item.product_img}" loading="lazy" decoding="async" style="width: 80px; height: 80px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border);" />` : `<div style="width: 80px; height: 80px; background: var(--bg-body); border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border);"><i class="fa-solid fa-image text-muted"></i></div>`}
           
           <div style="flex: 1; padding-right: 40px;">
             <div style="font-weight: 700; font-size: 16px; margin-bottom: 6px; color: var(--text-heading);">${item.product_name}</div>
@@ -1337,113 +1383,254 @@ async function renderCheckout(view) {
   if (!cart.length) return location.hash = '/cart';
   if (!currentUser) { toast('Đăng nhập', 'error'); return location.hash = '/login'; }
   view.innerHTML = '';
-  
-  const heroHead = el('div', 'products-hero');
-  heroHead.innerHTML = `
-    <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/cart">Giỏ hàng</a> <span>›</span> <strong>Thanh toán</strong></div>
-    <h1 class="products-hero-title"><i class="fa-solid fa-clipboard-check"></i> Xác nhận đơn hàng</h1>
-    <p class="products-hero-desc">Kiểm tra lại thông tin và hoàn tất thanh toán</p>
-  `;
-  view.appendChild(heroHead);
-
-  // 3 Steps
-  view.innerHTML += `
-    <div class="checkout-steps-card">
-      <div class="checkout-steps">
-        <div class="checkout-step completed" onclick="location.hash='/cart'" style="cursor:pointer">
-          <div class="step-icon"><i class="fa-solid fa-cart-shopping"></i></div>
-          <div class="step-label">GIỎ HÀNG</div>
-        </div>
-        <div class="step-line active"></div>
-        <div class="checkout-step active">
-          <div class="step-icon"><i class="fa-solid fa-clipboard-check"></i></div>
-          <div class="step-label">XÁC NHẬN</div>
-        </div>
-        <div class="step-line"></div>
-        <div class="checkout-step">
-          <div class="step-icon"><i class="fa-solid fa-check"></i></div>
-          <div class="step-label">HOÀN TẤT</div>
-        </div>
-      </div>
-    </div>
-  `;
 
   const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
-
-  const grid = el('div', 'checkout-grid');
-  const left = el('div');
-  left.innerHTML = `
-    <div class="card mb-16">
-      <div class="card-body">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
-          <div class="fw-700" style="font-size: 16px;"><i class="fa-solid fa-bag-shopping text-primary"></i> Sản phẩm đặt mua</div>
-          <div style="background: var(--primary); color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">${totalItems} sản phẩm</div>
-        </div>
-        
-        <div style="border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
-          ${cart.map(i => `
-            <div style="display: flex; gap: 16px; margin-bottom: ${cart.length > 1 ? '16px' : '0'};">
-              ${i.product_img ? `<img src="${i.product_img}" style="width:60px; height:60px; border-radius:8px; object-fit:cover" />` : `<div style="width:60px; height:60px; border-radius:8px; background:var(--bg-body); display:flex; align-items:center; justify-content:center"><i class="fa-solid fa-image text-muted"></i></div>`}
-              <div style="flex:1">
-                <div class="fw-600" style="margin-bottom: 4px;">${i.product_name} <span class="text-primary">x${i.quantity}</span></div>
-                <div class="text-muted text-sm"><i class="fa-solid fa-cube"></i> ${i.pkg_name}</div>
-              </div>
-              <div class="fw-700" style="color:var(--text-heading)">${fmt(i.pkg_price * i.quantity)}</div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    </div>
-    
-    <div class="card mb-16">
-      <div class="card-body">
-        <div class="fw-700 mb-12" style="font-size: 16px;"><i class="fa-solid fa-credit-card text-primary"></i> Phương thức thanh toán</div>
-        <div class="payment-option selected" style="border-color: var(--primary); background: var(--primary-light);">
-          <div class="payment-option-icon" style="background: var(--primary); color: #fff;"><i class="fa-solid fa-wallet"></i></div>
-          <div style="flex:1">
-            <div class="payment-option-name">Thanh toán PayOS</div>
-            <div class="payment-option-desc">Chuyển khoản QR, áp dụng mọi ngân hàng VN</div>
-          </div>
-          <div style="color: var(--primary); font-size: 20px;"><i class="fa-solid fa-circle-check"></i></div>
-        </div>
-      </div>
-    </div>
-  `;
   const subtotal = cartTotal();
   const taxRate = parseFloat(appSettings.tax_rate) || 0;
   const taxAmount = Math.round((subtotal * taxRate) / 100);
   const grandTotal = subtotal + taxAmount;
 
-  const right = el('div', 'cart-summary-card');
-  right.innerHTML = `
-    <div class="cart-summary-head"><div class="cart-summary-title"><i class="fa-solid fa-receipt"></i> Tóm tắt đơn hàng</div></div>
-    <div class="cart-summary-body">
-      <div class="summary-row"><span class="summary-label">Tạm tính</span><span class="summary-value">${fmt(subtotal)}</span></div>
-      ${taxRate > 0 ? `
-      <div class="summary-row"><span class="summary-label">Thuế (${taxRate}%)</span><span class="summary-value">${fmt(taxAmount)}</span></div>
-      ` : ''}
-      <div class="divider" style="margin: 16px 0; border-top: 1px dashed var(--border-dark);"></div>
-      <div class="summary-row" style="background: var(--primary-light); padding: 16px; border-radius: 8px; margin: 0 -8px;">
-        <span class="summary-label fw-700" style="color: var(--primary); font-size: 16px;">Tổng cộng</span>
-        <span class="summary-total" style="font-size: 22px; color: #ef4444;">${fmt(grandTotal)}</span>
-      </div>
-      <button class="btn btn-primary btn-lg btn-full mt-16" id="btn-pay" style="background: #10b981; border-color: #10b981;"><i class="fa-solid fa-wallet"></i> Tạo đơn & Thanh toán</button>
-    </div>
-  `;
-  grid.appendChild(left); grid.appendChild(right); view.appendChild(grid);
+  // ── Step 2: Payment Method Selection ──
+  function renderStep2() {
+    view.innerHTML = '';
+    const heroHead = el('div', 'products-hero');
+    heroHead.innerHTML = `
+      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/cart">Giỏ hàng</a> <span>›</span> <strong>Thanh toán</strong></div>
+      <h1 class="products-hero-title"><i class="fa-solid fa-credit-card"></i> Chọn phương thức thanh toán</h1>
+      <p class="products-hero-desc">Chọn cổng thanh toán và xác nhận đơn hàng</p>
+    `;
+    view.appendChild(heroHead);
 
-  qs('#btn-pay', right).onclick = async () => {
-    const btn = qs('#btn-pay', right); btn.disabled = true; btn.textContent = 'Đang xử lý...';
-    try {
-      const item = cart[0];
-      const order = await apiFetch('/orders/create', { method: 'POST', body: JSON.stringify({ package_id: item.pkg_id, quantity: item.quantity, custom_fields_data: item.fields || {} }) });
-      const link = await apiFetch('/payment/create-link', { method: 'POST', body: JSON.stringify({ order_code: order.order_code }) });
-      cart.length = 0; saveCart(); updateCartCount();
-      window.open(link.payment_url, '_blank');
-      toast('Đã tạo đơn! Chuyển đến thanh toán...', 'success', 5000);
-      location.hash = `/orders/${order.order_code}`;
-    } catch (e) { toast(e.message, 'error'); btn.disabled = false; btn.textContent = 'Tạo đơn & Thanh toán'; }
-  };
+    view.innerHTML += `
+      <div class="checkout-steps-card">
+        <div class="checkout-steps">
+          <div class="checkout-step completed" onclick="location.hash='/cart'" style="cursor:pointer">
+            <div class="step-icon"><i class="fa-solid fa-cart-shopping"></i></div>
+            <div class="step-label">GIỎ HÀNG</div>
+          </div>
+          <div class="step-line active"></div>
+          <div class="checkout-step active">
+            <div class="step-icon"><i class="fa-solid fa-credit-card"></i></div>
+            <div class="step-label">THANH TOÁN</div>
+          </div>
+          <div class="step-line"></div>
+          <div class="checkout-step">
+            <div class="step-icon"><i class="fa-solid fa-check"></i></div>
+            <div class="step-label">HOÀN TẤT</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const grid = el('div', 'checkout-grid');
+    const left = el('div');
+    left.innerHTML = `
+      <div class="card mb-16">
+        <div class="card-body">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
+            <div class="fw-700" style="font-size: 16px;"><i class="fa-solid fa-bag-shopping text-primary"></i> Sản phẩm đặt mua</div>
+            <div style="background: var(--primary); color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">${totalItems} sản phẩm</div>
+          </div>
+          <div style="border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+            ${cart.map(i => `
+              <div style="display: flex; gap: 16px; margin-bottom: ${cart.length > 1 ? '16px' : '0'};">
+                ${i.product_img ? `<img src="${i.product_img}" loading="lazy" decoding="async" style="width:60px; height:60px; border-radius:8px; object-fit:cover" />` : `<div style="width:60px; height:60px; border-radius:8px; background:var(--bg-body); display:flex; align-items:center; justify-content:center"><i class="fa-solid fa-image text-muted"></i></div>`}
+                <div style="flex:1">
+                  <div class="fw-600" style="margin-bottom: 4px;">${i.product_name} <span class="text-primary">x${i.quantity}</span></div>
+                  <div class="text-muted text-sm"><i class="fa-solid fa-cube"></i> ${i.pkg_name}</div>
+                </div>
+                <div class="fw-700" style="color:var(--text-heading)">${fmt(i.pkg_price * i.quantity)}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-16">
+        <div class="card-body">
+          <div class="fw-700 mb-12" style="font-size: 16px;"><i class="fa-solid fa-credit-card text-primary"></i> Phương thức thanh toán</div>
+          <div class="payment-option selected" data-method="payos" style="border-color: var(--primary); background: var(--primary-light); cursor: pointer;">
+            <div class="payment-option-icon" style="background: var(--primary); color: #fff;"><i class="fa-solid fa-wallet"></i></div>
+            <div style="flex:1">
+              <div class="payment-option-name">Thanh toán PayOS</div>
+              <div class="payment-option-desc">Chuyển khoản QR, áp dụng mọi ngân hàng VN</div>
+            </div>
+            <div style="color: var(--primary); font-size: 20px;"><i class="fa-solid fa-circle-check"></i></div>
+          </div>
+          <div class="payment-option" data-method="bank_transfer" style="cursor: pointer; margin-top: 12px;">
+            <div class="payment-option-icon" style="background: #64748b; color: #fff;"><i class="fa-solid fa-building-columns"></i></div>
+            <div style="flex:1">
+              <div class="payment-option-name">Chuyển khoản ngân hàng</div>
+              <div class="payment-option-desc">Chuyển khoản thủ công qua ngân hàng</div>
+            </div>
+            <div style="color: var(--border); font-size: 20px;"><i class="fa-regular fa-circle"></i></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const right = el('div', 'cart-summary-card');
+    right.innerHTML = `
+      <div class="cart-summary-head"><div class="cart-summary-title"><i class="fa-solid fa-receipt"></i> Tóm tắt đơn hàng</div></div>
+      <div class="cart-summary-body">
+        <div class="summary-row"><span class="summary-label">Tạm tính</span><span class="summary-value">${fmt(subtotal)}</span></div>
+        ${taxRate > 0 ? `
+        <div class="summary-row"><span class="summary-label">Thuế (${taxRate}%)</span><span class="summary-value">${fmt(taxAmount)}</span></div>
+        ` : ''}
+        <div class="divider" style="margin: 16px 0; border-top: 1px dashed var(--border-dark);"></div>
+        <div class="summary-row" style="background: var(--primary-light); padding: 16px; border-radius: 8px; margin: 0 -8px;">
+          <span class="summary-label fw-700" style="color: var(--primary); font-size: 16px;">Tổng cộng</span>
+          <span class="summary-total" style="font-size: 22px; color: #ef4444;">${fmt(grandTotal)}</span>
+        </div>
+        <button class="btn btn-primary btn-lg btn-full mt-16" id="btn-continue" style="background: #10b981; border-color: #10b981;"><i class="fa-solid fa-arrow-right"></i> Tiếp tục thanh toán</button>
+        <a href="#/cart" class="btn btn-ghost btn-full mt-8" style="text-align: center;"><i class="fa-solid fa-arrow-left"></i> Quay lại giỏ hàng</a>
+      </div>
+    `;
+    grid.appendChild(left); grid.appendChild(right); view.appendChild(grid);
+
+    // Payment method selection
+    let selectedMethod = 'payos';
+    qsa('.payment-option', left).forEach(opt => {
+      opt.onclick = () => {
+        selectedMethod = opt.dataset.method;
+        qsa('.payment-option', left).forEach(o => {
+          const isSelected = o.dataset.method === selectedMethod;
+          o.style.borderColor = isSelected ? 'var(--primary)' : 'var(--border)';
+          o.style.background = isSelected ? 'var(--primary-light)' : 'transparent';
+          const icon = o.querySelector('div:last-child i');
+          if (icon) {
+            icon.className = isSelected ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle';
+            icon.parentElement.style.color = isSelected ? 'var(--primary)' : 'var(--border)';
+          }
+        });
+      };
+    });
+
+    // Continue to Step 3
+    qs('#btn-continue', right).onclick = () => {
+      renderStep3(selectedMethod);
+    };
+  }
+
+  // ── Step 3: Order Confirmation & Payment ──
+  function renderStep3(paymentMethod) {
+    view.innerHTML = '';
+    const heroHead = el('div', 'products-hero');
+    heroHead.innerHTML = `
+      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/cart">Giỏ hàng</a> <span>›</span> <strong>Hoàn tất</strong></div>
+      <h1 class="products-hero-title"><i class="fa-solid fa-check"></i> Xác nhận & Thanh toán</h1>
+      <p class="products-hero-desc">Xác nhận đơn hàng và tiến hành thanh toán</p>
+    `;
+    view.appendChild(heroHead);
+
+    view.innerHTML += `
+      <div class="checkout-steps-card">
+        <div class="checkout-steps">
+          <div class="checkout-step completed" onclick="location.hash='/cart'" style="cursor:pointer">
+            <div class="step-icon"><i class="fa-solid fa-cart-shopping"></i></div>
+            <div class="step-label">GIỎ HÀNG</div>
+          </div>
+          <div class="step-line active"></div>
+          <div class="checkout-step completed" style="cursor:pointer" id="step2-back">
+            <div class="step-icon"><i class="fa-solid fa-credit-card"></i></div>
+            <div class="step-label">THANH TOÁN</div>
+          </div>
+          <div class="step-line active"></div>
+          <div class="checkout-step active">
+            <div class="step-icon"><i class="fa-solid fa-check"></i></div>
+            <div class="step-label">HOÀN TẤT</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const methodLabel = paymentMethod === 'payos' ? 'Thanh toán PayOS' : 'Chuyển khoản ngân hàng';
+    const methodDesc = paymentMethod === 'payos' ? 'Chuyển khoản QR, áp dụng mọi ngân hàng VN' : 'Chuyển khoản thủ công qua ngân hàng';
+    const methodIcon = paymentMethod === 'payos' ? 'fa-wallet' : 'fa-building-columns';
+
+    const grid = el('div', 'checkout-grid');
+    const left = el('div');
+    left.innerHTML = `
+      <div class="card mb-16">
+        <div class="card-body">
+          <div class="fw-700 mb-12" style="font-size: 16px;"><i class="fa-solid fa-bag-shopping text-primary"></i> Xác nhận đơn hàng</div>
+          <div style="border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+            ${cart.map(i => `
+              <div style="display: flex; gap: 16px; margin-bottom: ${cart.length > 1 ? '16px' : '0'};">
+                ${i.product_img ? `<img src="${i.product_img}" loading="lazy" decoding="async" style="width:60px; height:60px; border-radius:8px; object-fit:cover" />` : `<div style="width:60px; height:60px; border-radius:8px; background:var(--bg-body); display:flex; align-items:center; justify-content:center"><i class="fa-solid fa-image text-muted"></i></div>`}
+                <div style="flex:1">
+                  <div class="fw-600" style="margin-bottom: 4px;">${i.product_name} <span class="text-primary">x${i.quantity}</span></div>
+                  <div class="text-muted text-sm"><i class="fa-solid fa-cube"></i> ${i.pkg_name}</div>
+                </div>
+                <div class="fw-700" style="color:var(--text-heading)">${fmt(i.pkg_price * i.quantity)}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-16">
+        <div class="card-body">
+          <div class="fw-700 mb-12" style="font-size: 16px;"><i class="fa-solid fa-credit-card text-primary"></i> Phương thức thanh toán</div>
+          <div class="payment-option selected" style="border-color: var(--primary); background: var(--primary-light);">
+            <div class="payment-option-icon" style="background: var(--primary); color: #fff;"><i class="fa-solid ${methodIcon}"></i></div>
+            <div style="flex:1">
+              <div class="payment-option-name">${methodLabel}</div>
+              <div class="payment-option-desc">${methodDesc}</div>
+            </div>
+            <div style="color: var(--primary); font-size: 20px;"><i class="fa-solid fa-circle-check"></i></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const right = el('div', 'cart-summary-card');
+    right.innerHTML = `
+      <div class="cart-summary-head"><div class="cart-summary-title"><i class="fa-solid fa-receipt"></i> Tóm tắt đơn hàng</div></div>
+      <div class="cart-summary-body">
+        <div class="summary-row"><span class="summary-label">Tạm tính</span><span class="summary-value">${fmt(subtotal)}</span></div>
+        ${taxRate > 0 ? `
+        <div class="summary-row"><span class="summary-label">Thuế (${taxRate}%)</span><span class="summary-value">${fmt(taxAmount)}</span></div>
+        ` : ''}
+        <div class="divider" style="margin: 16px 0; border-top: 1px dashed var(--border-dark);"></div>
+        <div class="summary-row" style="background: var(--primary-light); padding: 16px; border-radius: 8px; margin: 0 -8px;">
+          <span class="summary-label fw-700" style="color: var(--primary); font-size: 16px;">Tổng cộng</span>
+          <span class="summary-total" style="font-size: 22px; color: #ef4444;">${fmt(grandTotal)}</span>
+        </div>
+        <button class="btn btn-primary btn-lg btn-full mt-16" id="btn-pay" style="background: #10b981; border-color: #10b981;"><i class="fa-solid fa-wallet"></i> Tạo đơn & Thanh toán</button>
+        <button class="btn btn-ghost btn-full mt-8" id="btn-back-step2" style="text-align: center;"><i class="fa-solid fa-arrow-left"></i> Quay lại chọn phương thức</button>
+      </div>
+    `;
+    grid.appendChild(left); grid.appendChild(right); view.appendChild(grid);
+
+    // Back to Step 2
+    qs('#btn-back-step2', right).onclick = () => renderStep2();
+    const step2Back = qs('#step2-back');
+    if (step2Back) step2Back.onclick = () => renderStep2();
+
+    // Pay button
+    qs('#btn-pay', right).onclick = async () => {
+      const btn = qs('#btn-pay', right); btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xử lý...';
+      try {
+        const item = cart[0];
+        const order = await apiFetch('/orders/create', { method: 'POST', body: JSON.stringify({ package_id: item.pkg_id, quantity: item.quantity, custom_fields_data: item.fields || {}, payment_method: paymentMethod }) });
+        if (paymentMethod === 'payos') {
+          const link = await apiFetch('/payment/create-link', { method: 'POST', body: JSON.stringify({ order_code: order.order_code }) });
+          cart.length = 0; saveCart(); updateCartCount();
+          window.open(link.payment_url, '_blank');
+          toast('Đã tạo đơn! Chuyển đến thanh toán...', 'success', 5000);
+          location.hash = `/orders/${order.order_code}`;
+        } else {
+          cart.length = 0; saveCart(); updateCartCount();
+          toast('Đã tạo đơn hàng thành công!', 'success');
+          location.hash = `/orders/${order.order_code}`;
+        }
+      } catch (e) { toast(e.message, 'error'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-wallet"></i> Tạo đơn & Thanh toán'; }
+    };
+  }
+
+  // Start at Step 2
+  renderStep2();
 }
 
 // ORDERS
@@ -1498,8 +1685,8 @@ async function renderOrderDetail(view, { code }) {
             </div>
             <div class="step-line active"></div>
             <div class="checkout-step completed" onclick="location.hash='/checkout'" style="cursor:pointer">
-              <div class="step-icon"><i class="fa-solid fa-clipboard-check"></i></div>
-              <div class="step-label">XÁC NHẬN</div>
+              <div class="step-icon"><i class="fa-solid fa-credit-card"></i></div>
+              <div class="step-label">THANH TOÁN</div>
             </div>
             <div class="step-line active"></div>
             <div class="checkout-step active">

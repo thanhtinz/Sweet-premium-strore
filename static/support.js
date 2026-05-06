@@ -13,23 +13,19 @@ async function renderSupportPage(slug) {
     const page = await apiFetch(`/support/pages/${slug}`);
     view.innerHTML = '';
 
-    // Hero header — same pattern as profile/orders
-    const hero = el('div', 'products-hero');
-    hero.innerHTML = `
-      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/support">Hỗ trợ</a> <span>›</span> <strong>${page.title}</strong></div>
-      <h1 class="products-hero-title"><i class="fa-solid fa-file-lines"></i> ${page.title}</h1>
-    `;
-    view.appendChild(hero);
-
-    // Article layout — blog post style
-    const container = el('div', 'support-article-container');
-    container.innerHTML = `
-      <div class="support-article-meta">
-        <span class="fw-600"><i class="fa-solid fa-user-circle"></i> Admin</span>
-        <span><i class="fa-solid fa-calendar"></i> Cập nhật: ${fmtDate(page.updated_at || page.created_at || new Date())}</span>
+    const articleHtml = `
+      <div class="breadcrumb mb-16"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/support">Hỗ trợ</a> <span>›</span> <strong>${page.title}</strong></div>
+      <div class="support-article-header">
+        <h1 class="support-article-title">${page.title}</h1>
+        <div class="support-article-meta">
+          <span class="fw-600"><i class="fa-solid fa-user-circle"></i> Admin</span>
+          <span><i class="fa-solid fa-calendar"></i> Cập nhật: ${fmtDate(page.updated_at || page.created_at || new Date())}</span>
+        </div>
       </div>
       <article class="support-article">${page.content}</article>
     `;
+    const container = el('div', 'support-article-container');
+    container.innerHTML = articleHtml;
     view.appendChild(container);
     window.scrollTo(0, 0);
   } catch (err) {

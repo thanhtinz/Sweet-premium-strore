@@ -21,6 +21,7 @@ class CategoryCreate(BaseModel):
     name: str
     slug: Optional[str] = None
     icon_url: Optional[str] = None
+    image_url: Optional[str] = None
     parent_id: Optional[int] = None
     sort_order: int = 0
     is_active: bool = True
@@ -30,6 +31,7 @@ class CategoryUpdate(BaseModel):
     name: Optional[str] = None
     slug: Optional[str] = None
     icon_url: Optional[str] = None
+    image_url: Optional[str] = None
     parent_id: Optional[int] = None
     sort_order: Optional[int] = None
     is_active: Optional[bool] = None
@@ -41,6 +43,7 @@ def cat_to_dict(cat: Category, include_children=False) -> dict:
         "name": cat.name,
         "slug": cat.slug,
         "icon_url": cat.icon_url,
+        "image_url": cat.image_url,
         "parent_id": cat.parent_id,
         "sort_order": cat.sort_order,
         "is_active": cat.is_active,
@@ -87,6 +90,7 @@ def create_category(data: CategoryCreate, db: Session = Depends(get_db)):
         name=data.name,
         slug=slug,
         icon_url=data.icon_url,
+        image_url=data.image_url,
         parent_id=data.parent_id,
         sort_order=data.sort_order,
         is_active=data.is_active,

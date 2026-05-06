@@ -113,6 +113,10 @@ def create_order(
         if available < data.quantity:
             raise HTTPException(status_code=400, detail="Insufficient stock")
 
+    # Check stock for stock-managed manual packages
+    if pkg.is_stock_managed and pkg.stock_quantity < data.quantity:
+        raise HTTPException(status_code=400, detail="Insufficient stock")
+
     from db.models import SiteSetting
     
     total = float(pkg.price) * data.quantity
@@ -166,6 +170,9 @@ def deliver_order(order_id: int, data: OrderDelivery, db: Session = Depends(get_
     o = db.query(Order).filter(Order.id == order_id).first()
     if not o:
         raise HTTPException(status_code=404, detail="Order not found")
+    # Decrement stock for stock-managed manual packages
+    if o.package and o.package.is_stock_managed and o.status != "completed":
+        o.package.stock_quantity = max(0, (o.package.stock_quantity or 0) - o.quantity)
     o.delivery_data = data.delivery_data
     o.notes = data.notes
     o.status = "completed"
@@ -183,6 +190,9 @@ def update_order_status(order_id: int, body: dict, db: Session = Depends(get_db)
     valid = ["pending", "paid", "processing", "completed", "cancelled"]
     if new_status not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid status. Valid: {valid}")
+    # Decrement stock for stock-managed manual packages when completing
+    if new_status == "completed" and o.status != "completed" and o.package and o.package.is_stock_managed:
+        o.package.stock_quantity = max(0, (o.package.stock_quantity or 0) - o.quantity)
     o.status = new_status
     o.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -192,6 +202,9 @@ def update_order_status(order_id: int, body: dict, db: Session = Depends(get_db)
 def auto_deliver(order: Order, db: Session):
     """Auto-deliver stock items for auto-delivery packages."""
     if not order.package or order.package.delivery_type != "auto":
+        # For stock-managed manual packages, decrement stock on completion
+        if order.package and order.package.is_stock_managed and order.status != "completed":
+            order.package.stock_quantity = max(0, (order.package.stock_quantity or 0) - order.quantity)
         return
     items = db.query(StockItem).filter(
         StockItem.package_id == order.package_id,

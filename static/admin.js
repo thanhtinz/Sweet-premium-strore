@@ -26,70 +26,85 @@ function renderAdminShell(wrap) {
           </a>
         </div>
         <nav class="admin-nav">
-          <button class="admin-nav-item ${hash === '#/admin' ? 'active' : ''}" data-href="#/admin">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-            <span>Dashboard</span>
-          </button>
-          <button class="admin-nav-item ${activeSection === '/categories' ? 'active' : ''}" data-href="#/admin/categories">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-            <span>Danh mục</span>
-          </button>
-          <button class="admin-nav-item ${activeSection === '/products' ? 'active' : ''}" data-href="#/admin/products">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-            <span>Sản phẩm</span>
-          </button>
-          <button class="admin-nav-item ${activeSection === '/orders' ? 'active' : ''}" data-href="#/admin/orders">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-            <span>Đơn hàng</span>
-          </button>
-          <button class="admin-nav-item ${activeSection === '/stock' ? 'active' : ''}" data-href="#/admin/stock">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-            <span>Kho hàng</span>
-          </button>
-          <button class="admin-nav-item ${activeSection === '/settings' ? 'active' : ''}" data-href="#/admin/settings">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            <span>Cài đặt</span>
-          </button>
-          <button class="admin-nav-item ${activeSection === '/banners' ? 'active' : ''}" data-href="#/admin/banners">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-            <span>Banners</span>
-          </button>
-          <button class="admin-nav-item ${activeSection === '/flash-sales' ? 'active' : ''}" data-href="#/admin/flash-sales">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            <span>Flash Sales</span>
-          </button>
-          <button class="admin-nav-item ${activeSection === '/gift-codes' ? 'active' : ''}" data-href="#/admin/gift-codes">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
-            <span>Gift Codes</span>
-          </button>
-          <button class="admin-nav-item ${activeSection === '/affiliates' ? 'active' : ''}" data-href="#/admin/affiliates">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            <span>Affiliates</span>
-          </button>
-          <button class="admin-nav-item ${activeSection === '/blog' ? 'active' : ''}" data-href="#/admin/blog">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            <span>Blog</span>
-          </button>
-          <button class="admin-nav-item ${activeSection === '/support-pages' ? 'active' : ''}" data-href="#/admin/support-pages">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20m-7-5h14M5 9h14"/></svg>
-            <span>Support Pages</span>
-          </button>
-          <button class="admin-nav-item ${activeSection === '/tickets' ? 'active' : ''}" data-href="#/admin/tickets">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
-            <span>Hỗ trợ (Tickets)</span>
-          </button>
-          <button class="admin-nav-item ${activeSection === '/bot-config' ? 'active' : ''}" data-href="#/admin/bot-config">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><path d="M9 13v2"/><path d="M15 13v2"/><path d="M12 17h.01"/></svg>
-            <span>Cấu hình Bot & Mail</span>
-          </button>
+          <details class="admin-nav-details" ${(!activeSection || activeSection === '/orders' || activeSection === '/payments') ? 'open' : ''}>
+            <summary class="admin-nav-summary"><i class="fa-solid fa-store"></i> Cửa hàng</summary>
+            <div class="admin-nav-children">
+              <button class="admin-nav-item ${hash === '#/admin' ? 'active' : ''}" data-href="#/admin">
+                <i class="fa-solid fa-chart-pie"></i><span>Dashboard</span>
+              </button>
+              <button class="admin-nav-item ${activeSection === '/orders' ? 'active' : ''}" data-href="#/admin/orders">
+                <i class="fa-solid fa-receipt"></i><span>Đơn hàng</span>
+              </button>
+              <button class="admin-nav-item ${activeSection === '/payments' ? 'active' : ''}" data-href="#/admin/payments">
+                <i class="fa-solid fa-credit-card"></i><span>Thanh toán</span>
+              </button>
+            </div>
+          </details>
+          <details class="admin-nav-details" ${(['/categories','/products','/stock'].includes(activeSection)) ? 'open' : ''}>
+            <summary class="admin-nav-summary"><i class="fa-solid fa-box-open"></i> Sản phẩm</summary>
+            <div class="admin-nav-children">
+              <button class="admin-nav-item ${activeSection === '/categories' ? 'active' : ''}" data-href="#/admin/categories">
+                <i class="fa-solid fa-folder-tree"></i><span>Danh mục</span>
+              </button>
+              <button class="admin-nav-item ${activeSection === '/products' ? 'active' : ''}" data-href="#/admin/products">
+                <i class="fa-solid fa-bag-shopping"></i><span>Sản phẩm</span>
+              </button>
+              <button class="admin-nav-item ${activeSection === '/stock' ? 'active' : ''}" data-href="#/admin/stock">
+                <i class="fa-solid fa-warehouse"></i><span>Kho hàng</span>
+              </button>
+            </div>
+          </details>
+          <details class="admin-nav-details" ${(['/banners','/flash-sales','/gift-codes','/affiliates'].includes(activeSection)) ? 'open' : ''}>
+            <summary class="admin-nav-summary"><i class="fa-solid fa-bullhorn"></i> Marketing</summary>
+            <div class="admin-nav-children">
+              <button class="admin-nav-item ${activeSection === '/banners' ? 'active' : ''}" data-href="#/admin/banners">
+                <i class="fa-solid fa-image"></i><span>Banners</span>
+              </button>
+              <button class="admin-nav-item ${activeSection === '/flash-sales' ? 'active' : ''}" data-href="#/admin/flash-sales">
+                <i class="fa-solid fa-bolt"></i><span>Flash Sales</span>
+              </button>
+              <button class="admin-nav-item ${activeSection === '/gift-codes' ? 'active' : ''}" data-href="#/admin/gift-codes">
+                <i class="fa-solid fa-gift"></i><span>Gift Codes</span>
+              </button>
+              <button class="admin-nav-item ${activeSection === '/affiliates' ? 'active' : ''}" data-href="#/admin/affiliates">
+                <i class="fa-solid fa-user-group"></i><span>Affiliates</span>
+              </button>
+            </div>
+          </details>
+          <details class="admin-nav-details" ${(['/blog','/support-pages','/announcements'].includes(activeSection)) ? 'open' : ''}>
+            <summary class="admin-nav-summary"><i class="fa-solid fa-newspaper"></i> Nội dung</summary>
+            <div class="admin-nav-children">
+              <button class="admin-nav-item ${activeSection === '/blog' ? 'active' : ''}" data-href="#/admin/blog">
+                <i class="fa-solid fa-pen-nib"></i><span>Blog</span>
+              </button>
+              <button class="admin-nav-item ${activeSection === '/support-pages' ? 'active' : ''}" data-href="#/admin/support-pages">
+                <i class="fa-solid fa-file-lines"></i><span>Support Pages</span>
+              </button>
+              <button class="admin-nav-item ${activeSection === '/announcements' ? 'active' : ''}" data-href="#/admin/announcements">
+                <i class="fa-solid fa-bullhorn"></i><span>Thông báo</span>
+              </button>
+            </div>
+          </details>
+          <details class="admin-nav-details" ${(['/settings','/tickets','/bot-config','/oauth-settings'].includes(activeSection)) ? 'open' : ''}>
+            <summary class="admin-nav-summary"><i class="fa-solid fa-gear"></i> Cấu hình</summary>
+            <div class="admin-nav-children">
+              <button class="admin-nav-item ${activeSection === '/settings' ? 'active' : ''}" data-href="#/admin/settings">
+                <i class="fa-solid fa-sliders"></i><span>Cài đặt</span>
+              </button>
+              <button class="admin-nav-item ${activeSection === '/tickets' ? 'active' : ''}" data-href="#/admin/tickets">
+                <i class="fa-solid fa-headset"></i><span>Hỗ trợ (Tickets)</span>
+              </button>
+              <button class="admin-nav-item ${activeSection === '/bot-config' ? 'active' : ''}" data-href="#/admin/bot-config">
+                <i class="fa-solid fa-robot"></i><span>Cấu hình Bot & Mail</span>
+              </button>
+              <button class="admin-nav-item ${activeSection === '/oauth-settings' ? 'active' : ''}" data-href="#/admin/oauth-settings">
+                <i class="fa-solid fa-key"></i><span>OAuth Settings</span>
+              </button>
+            </div>
+          </details>
           <div class="divider"></div>
-          <button class="admin-nav-item ${activeSection === '/oauth-settings' ? 'active' : ''}" data-href="#/admin/oauth-settings">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m2.12 2.12l4.24 4.24M1 12h6m6 0h6m-17.78 7.78l4.24-4.24m2.12-2.12l4.24-4.24"/></svg>
-            <span>OAuth Settings</span>
-          </button>
           <button class="admin-nav-item" data-href="#/">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            <span>${ico.arrowLeft} Storefront</span>
+            <i class="fa-solid fa-arrow-right-from-bracket"></i><span>Storefront</span>
           </button>
         </nav>
       </aside>
@@ -273,18 +288,45 @@ async function renderAdminProducts(view) {
 }
 
 function showProductModal(prod, cats, refresh) {
-  // Build a lookup for parent names
   const catMap = {};
   cats.forEach(c => { catMap[c.id] = c; });
-  const catOptions = cats.map(c => {
-    const prefix = c.parent_id && catMap[c.parent_id] ? catMap[c.parent_id].name + ' > ' : '';
-    return `<option value="${c.id}" ${prod?.category_id === c.id ? 'selected' : ''}>${prefix}${c.name}</option>`;
-  }).join('');
+  const parents = cats.filter(c => !c.parent_id).sort((a, b) => a.sort_order - b.sort_order);
+  const children = cats.filter(c => c.parent_id).sort((a, b) => a.sort_order - b.sort_order);
+
+  // Determine which parent and child should be pre-selected
+  let selectedParentId = '';
+  let selectedChildId = '';
+  if (prod?.category_id) {
+    const prodCat = catMap[prod.category_id];
+    if (prodCat) {
+      if (prodCat.parent_id) {
+        selectedParentId = prodCat.parent_id;
+        selectedChildId = prodCat.id;
+      } else {
+        selectedParentId = prodCat.id;
+      }
+    }
+  }
+
+  const parentOptions = parents.map(p =>
+    `<option value="${p.id}" ${selectedParentId == p.id ? 'selected' : ''}>${p.name}</option>`
+  ).join('');
+
+  const childOptionsForParent = (parentId) => {
+    const kids = children.filter(c => c.parent_id == parentId);
+    if (!kids.length) return '<option value="">-- Không có --</option>';
+    return '<option value="">-- Chọn danh mục con --</option>' + kids.map(c =>
+      `<option value="${c.id}" ${selectedChildId == c.id ? 'selected' : ''}>${c.name}</option>`
+    ).join('');
+  };
 
   openModal(`
     <form id="prod-form">
       <div class="form-group"><label class="form-label">Tên<span class="req">*</span></label><input class="form-input" id="pf-name" value="${prod?.name || ''}" required /></div>
-      <div class="form-group"><label class="form-label">Danh mục</label><select class="form-select" id="pf-cat"><option value="">--</option>${catOptions}</select></div>
+      <div class="form-row form-row-2">
+        <div class="form-group"><label class="form-label">Danh mục lớn</label><select class="form-select" id="pf-cat-parent"><option value="">-- Chọn danh mục lớn --</option>${parentOptions}</select></div>
+        <div class="form-group"><label class="form-label">Danh mục con</label><select class="form-select" id="pf-cat-child">${childOptionsForParent(selectedParentId)}</select></div>
+      </div>
       <div class="form-group"><label class="form-label">Mô tả</label><textarea class="form-textarea" id="pf-desc">${prod?.description || ''}</textarea></div>
       <div class="form-group"><label class="form-label">URL ảnh</label><input class="form-input" id="pf-img" value="${prod?.image_url || ''}" /></div>
       <div class="form-row form-row-3">
@@ -296,10 +338,17 @@ function showProductModal(prod, cats, refresh) {
       <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">${prod ? 'Cập nhật' : 'Tạo mới'}</button><button type="button" class="btn btn-ghost" id="prod-cancel">Hủy</button></div>
     </form>
   `, prod ? `Sửa: ${prod.name}` : 'Thêm sản phẩm');
+
+  // When parent changes, refresh child options
+  qs('#pf-cat-parent').onchange = function() {
+    const childSelect = qs('#pf-cat-child');
+    childSelect.innerHTML = childOptionsForParent(this.value);
+  };
+
   qs('#prod-cancel').onclick = closeModal;
   qs('#prod-form').onsubmit = async (e) => {
     e.preventDefault();
-    const cat_id = qs('#pf-cat').value;
+    const cat_id = qs('#pf-cat-child').value || qs('#pf-cat-parent').value;
     const body = { name: qs('#pf-name').value, category_id: cat_id ? parseInt(cat_id) : null, description: qs('#pf-desc').value || null, image_url: qs('#pf-img').value || null, sort_order: parseInt(qs('#pf-order').value) || 0, is_featured: qs('#pf-featured').value === 'true', is_active: qs('#pf-active').value === 'true' };
     try { if (prod) await apiFetch(`/products/${prod.id}`, { method: 'PUT', body: JSON.stringify(body) }); else await apiFetch('/products/', { method: 'POST', body: JSON.stringify(body) }); closeModal(); toast(prod ? 'Cập nhật!' : 'Tạo mới!', 'success'); refresh(); }
     catch (err) { const e = qs('#prod-form-err'); e.textContent = err.message; e.style.display = 'block'; }
@@ -339,7 +388,8 @@ async function showPackagesModal(productId, productName) {
     return `
     <div class="package-item mb-8"><div><div class="pkg-name">${pkg.name}</div><div class="pkg-desc">${stockInfo}</div>${fieldsHtml}</div>
     <div style="text-align:right"><div class="pkg-price">${fmt(pkg.price)}</div>
-      <button class="tbl-btn tbl-edit mt-4" data-editpkg="${pkg.id}">Sửa</button>
+      <button class="tbl-btn tbl-edit mt-4" data-editpkg="${pkg.id}">Sửa gói</button>
+      <button class="tbl-btn mt-4" style="background:var(--bg-page);color:var(--text-secondary);" data-editfield="${pkg.id}">Form đặt hàng</button>
       <button class="tbl-btn tbl-delete mt-4" data-delpkg="${pkg.id}">Xóa</button>
     </div></div>
   `;}).join('');
@@ -432,21 +482,29 @@ async function showPackagesModal(productId, productName) {
     if (btn) { if (!confirm('Xóa?')) return; await apiFetch(`/products/packages/${btn.dataset.delpkg}`, { method: 'DELETE' }); toast('Đã xóa', 'success'); const idx = packages.findIndex(p => p.id === parseInt(btn.dataset.delpkg)); if (idx >= 0) packages.splice(idx, 1); qs('#pkg-list', modal).innerHTML = renderPkgList(); }
   });
 
-  // Edit package (opens sub-modal for fields)
+  // Edit package info (opens sub-modal)
   modal.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-editpkg]');
     if (!btn) return;
     const pkgId = parseInt(btn.dataset.editpkg);
     const pkg = packages.find(p => p.id === pkgId);
     if (!pkg) return;
+    showPackageFormModal(pkg, () => {
+      // Re-open the packages modal since the sub-modal overwrote #modal-content
+      showPackagesModal(productId, productName);
+    });
+  });
+
+  // Edit package fields (opens sub-modal for custom fields)
+  modal.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-editfield]');
+    if (!btn) return;
+    const pkgId = parseInt(btn.dataset.editfield);
+    const pkg = packages.find(p => p.id === pkgId);
+    if (!pkg) return;
     showPackageFieldModal(pkg, () => {
-      // Refresh packages data
-      apiFetch('/products/admin/all').then(ps => {
-        const updated = ps.find(p => p.id === productId);
-        packages.length = 0;
-        packages.push(...(updated?.packages || []));
-        qs('#pkg-list', modal).innerHTML = renderPkgList();
-      });
+      // Re-open the packages modal since the sub-modal overwrote #modal-content
+      showPackagesModal(productId, productName);
     });
   });
 
@@ -492,6 +550,76 @@ async function showPackagesModal(productId, productName) {
       toast('Đã thêm gói', 'success');
     }
     catch (err) { toast(err.message, 'error'); }
+  };
+}
+
+function showPackageFormModal(pkg, refresh) {
+  openModal(`
+    <div class="fw-600 mb-12"><i class="fa-solid fa-box-open"></i> Sửa gói: ${pkg.name}</div>
+    <form id="edit-pkg-form">
+      <div class="form-row form-row-2">
+        <div class="form-group"><label class="form-label">Tên gói</label><input class="form-input" id="epkg-name" required value="${pkg.name}" /></div>
+        <div class="form-group"><label class="form-label">Giá (đ)</label><input type="number" class="form-input" id="epkg-price" required value="${pkg.price}" /></div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group"><label class="form-label">Giao hàng</label><select class="form-select" id="epkg-delivery"><option value="manual" ${pkg.delivery_type==='manual'?'selected':''}>Thủ công</option><option value="auto" ${pkg.delivery_type==='auto'?'selected':''}>Tự động</option></select></div>
+        <div class="form-group"><label class="form-label">Mô tả</label><input class="form-input" id="epkg-desc" value="${pkg.description || ''}" placeholder="Mô tả..." /></div>
+      </div>
+      <div class="form-row form-row-2" id="epkg-stock-row">
+        <div class="form-group">
+          <label class="form-label">Quản lý kho</label>
+          <label class="toggle-switch"><input type="checkbox" id="epkg-stock-toggle" ${pkg.is_stock_managed?'checked':''} /><span class="toggle-slider"></span></label>
+        </div>
+        <div class="form-group" id="epkg-stock-qty-group" style="display:${pkg.is_stock_managed?'':'none'}">
+          <label class="form-label">Số lượng tồn kho</label>
+          <input type="number" class="form-input" id="epkg-stock-qty" min="0" value="${pkg.stock_quantity || 0}" placeholder="0" />
+        </div>
+      </div>
+      <div class="divider mt-12 mb-12"></div>
+      <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">Lưu</button><button type="button" class="btn btn-ghost" id="epkg-cancel">Hủy</button></div>
+    </form>
+  `, `Sửa gói`);
+
+  const emodal = qs('#modal-content');
+  const deliverySelect = qs('#epkg-delivery', emodal);
+  const stockToggle = qs('#epkg-stock-toggle', emodal);
+  const stockQtyGroup = qs('#epkg-stock-qty-group', emodal);
+  const stockRow = qs('#epkg-stock-row', emodal);
+
+  const updateStockVisibility = () => {
+    const isAuto = deliverySelect.value === 'auto';
+    if (isAuto) {
+      stockRow.style.display = 'none';
+    } else {
+      stockRow.style.display = '';
+      stockQtyGroup.style.display = stockToggle.checked ? '' : 'none';
+    }
+  };
+  deliverySelect.onchange = updateStockVisibility;
+  stockToggle.onchange = updateStockVisibility;
+  updateStockVisibility();
+
+  qs('#epkg-cancel', emodal).onclick = closeModal;
+
+  qs('#edit-pkg-form', emodal).onsubmit = async (e) => {
+    e.preventDefault();
+    const isStockManaged = qs('#epkg-stock-toggle', emodal).checked;
+    const body = {
+      name: qs('#epkg-name', emodal).value,
+      price: parseFloat(qs('#epkg-price', emodal).value),
+      delivery_type: qs('#epkg-delivery', emodal).value,
+      description: qs('#epkg-desc', emodal).value || null,
+      is_stock_managed: isStockManaged,
+      stock_quantity: isStockManaged ? parseInt(qs('#epkg-stock-qty', emodal).value) || 0 : 0,
+    };
+    try {
+      await apiFetch(`/products/packages/${pkg.id}`, { method: 'PUT', body: JSON.stringify(body) });
+      toast('Đã lưu gói', 'success');
+      closeModal();
+      if (refresh) refresh();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
   };
 }
 
@@ -843,7 +971,9 @@ async function renderAdminSettings(view) {
             Cài đặt chung
           </div>
           ${field('g-title', 'Tiêu đề trang', g.title, { placeholder: 'Tên website của bạn' })}
-          ${field('g-description', 'Mô tả', g.description, { placeholder: 'Mô tả ngắn gọn về website' })}
+          ${field('g-description', 'Mô tả trang', g.description, { placeholder: 'Mô tả ngắn gọn về website' })}
+          ${field('g-site-description', 'Mô tả chân trang (Footer)', g.site_description, { type: 'textarea', rows: 3, placeholder: 'Mô tả hiển thị ở chân trang, ví dụ: Chúng tôi tự hào cung cấp...' })}
+          ${field('g-copyright', 'Copyright Text', g.copyright_text, { placeholder: 'Copyright © 2024 ShopKey. All rights reserved.' })}
           ${field('g-keywords', 'Từ khóa (Keywords)', g.keywords, { placeholder: 'shop, digital, key, game' })}
           ${field('g-author', 'Tác giả (Author)', g.author, { placeholder: 'Tên tác giả' })}
           ${field('g-timezone', 'Múi giờ (Timezone)', g.timezone, {
@@ -1005,6 +1135,8 @@ async function renderAdminSettings(view) {
       settings_general: {
         title: val('g-title'),
         description: val('g-description'),
+        site_description: val('g-site-description'),
+        copyright_text: val('g-copyright'),
         keywords: val('g-keywords'),
         author: val('g-author'),
         timezone: val('g-timezone'),
@@ -1643,3 +1775,463 @@ function showAdminTicketModal(ticket, onDone) {
   qs('#ticket-close').onclick = closeModal;
 }
 
+
+// ─── ADMIN BOT CONFIG ─────────────────────────────────────
+async function renderAdminBotConfig(view) {
+  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  try {
+    const config = await apiFetch('/admin/bot-config');
+    view.innerHTML = `
+      <div class="page-header"><div class="page-title">Cấu hình Bot & SMTP</div></div>
+      <div style="max-width: 800px">
+        <form id="bot-config-form" class="form-container" style="background:#fff; padding:24px; border-radius:8px; border:1px solid var(--border);">
+          <h3 style="margin-top:0">Telegram Bot</h3>
+          <div class="form-group">
+            <label>Bot Token</label>
+            <input type="text" class="input" id="telegram_token" value="${config.telegram_token || ''}" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">
+            <div class="help-text">Tạo bot qua @BotFather</div>
+          </div>
+          <div class="form-group">
+            <label>Admin Chat ID</label>
+            <input type="text" class="input" id="telegram_admin_id" value="${config.telegram_admin_id || ''}" placeholder="ID của admin hoặc group chat">
+            <div class="help-text">Gửi tin nhắn cho bot và lấy ID qua @userinfobot</div>
+          </div>
+
+          <hr style="margin:24px 0; border:none; border-top:1px solid var(--border)">
+
+          <h3 style="margin-top:0">Discord Bot</h3>
+          <div class="form-group">
+            <label>Bot Token</label>
+            <input type="text" class="input" id="discord_token" value="${config.discord_token || ''}">
+            <div class="help-text">Tạo bot trong Discord Developer Portal</div>
+          </div>
+          <div class="form-group">
+            <label>Admin Channel ID</label>
+            <input type="text" class="input" id="discord_admin_id" value="${config.discord_admin_id || ''}" placeholder="ID kênh nhận thông báo admin">
+          </div>
+
+          <hr style="margin:24px 0; border:none; border-top:1px solid var(--border)">
+
+          <h3 style="margin-top:0">SMTP Mail Config (Gửi email tự động)</h3>
+          <div class="form-group">
+            <label>SMTP Server</label>
+            <input type="text" class="input" id="smtp_server" value="${config.smtp_server || ''}" placeholder="smtp.gmail.com">
+          </div>
+          <div class="form-group">
+            <label>SMTP Port</label>
+            <input type="number" class="input" id="smtp_port" value="${config.smtp_port || '587'}" placeholder="587">
+          </div>
+          <div class="form-group">
+            <label>SMTP Username (Email)</label>
+            <input type="text" class="input" id="smtp_user" value="${config.smtp_user || ''}">
+          </div>
+          <div class="form-group">
+            <label>SMTP Password (App Password)</label>
+            <input type="password" class="input" id="smtp_pass" value="${config.smtp_pass || ''}">
+          </div>
+          <div class="form-group">
+            <label>From Email</label>
+            <input type="text" class="input" id="smtp_from" value="${config.smtp_from || ''}" placeholder="noreply@yourshop.com">
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="margin-top:16px">Lưu Cấu Hình</button>
+        </form>
+      </div>
+    `;
+
+    qs('#bot-config-form').onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await apiFetch('/admin/bot-config', {
+          method: 'PUT',
+          body: JSON.stringify({
+            telegram_token: qs('#telegram_token').value,
+            telegram_admin_id: qs('#telegram_admin_id').value,
+            discord_token: qs('#discord_token').value,
+            discord_admin_id: qs('#discord_admin_id').value,
+            smtp_server: qs('#smtp_server').value,
+            smtp_port: qs('#smtp_port').value,
+            smtp_user: qs('#smtp_user').value,
+            smtp_pass: qs('#smtp_pass').value,
+            smtp_from: qs('#smtp_from').value
+          })
+        });
+        toast('Đã lưu cấu hình Bot & SMTP', 'success');
+      } catch (err) {
+        showError(err.message);
+      }
+    };
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+// ─── ADMIN BOT CONFIG ─────────────────────────────────────
+async function renderAdminBotConfig(view) {
+  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  try {
+    const config = await apiFetch('/admin/bot-config');
+    view.innerHTML = `
+      <div class="page-header"><div class="page-title">Cấu hình Bot & SMTP</div></div>
+      <div style="max-width: 800px">
+        <form id="bot-config-form" class="form-container" style="background:#fff; padding:24px; border-radius:8px; border:1px solid var(--border);">
+          <h3 style="margin-top:0">Telegram Bot</h3>
+          <div class="form-group">
+            <label>Bot Token</label>
+            <input type="text" class="input" id="telegram_token" value="${config.telegram_token || ''}" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">
+            <div class="help-text">Tạo bot qua @BotFather</div>
+          </div>
+          <div class="form-group">
+            <label>Admin Chat ID</label>
+            <input type="text" class="input" id="telegram_admin_id" value="${config.telegram_admin_id || ''}" placeholder="ID của admin hoặc group chat">
+            <div class="help-text">Gửi tin nhắn cho bot và lấy ID qua @userinfobot</div>
+          </div>
+
+          <hr style="margin:24px 0; border:none; border-top:1px solid var(--border)">
+
+          <h3 style="margin-top:0">Discord Bot</h3>
+          <div class="form-group">
+            <label>Bot Token</label>
+            <input type="text" class="input" id="discord_token" value="${config.discord_token || ''}">
+            <div class="help-text">Tạo bot trong Discord Developer Portal</div>
+          </div>
+          <div class="form-group">
+            <label>Admin Channel ID</label>
+            <input type="text" class="input" id="discord_admin_id" value="${config.discord_admin_id || ''}" placeholder="ID kênh nhận thông báo admin">
+          </div>
+
+          <hr style="margin:24px 0; border:none; border-top:1px solid var(--border)">
+
+          <h3 style="margin-top:0">SMTP Mail Config (Gửi email tự động)</h3>
+          <div class="form-group">
+            <label>SMTP Server</label>
+            <input type="text" class="input" id="smtp_server" value="${config.smtp_server || ''}" placeholder="smtp.gmail.com">
+          </div>
+          <div class="form-group">
+            <label>SMTP Port</label>
+            <input type="number" class="input" id="smtp_port" value="${config.smtp_port || '587'}" placeholder="587">
+          </div>
+          <div class="form-group">
+            <label>SMTP Username (Email)</label>
+            <input type="text" class="input" id="smtp_user" value="${config.smtp_user || ''}">
+          </div>
+          <div class="form-group">
+            <label>SMTP Password (App Password)</label>
+            <input type="password" class="input" id="smtp_pass" value="${config.smtp_pass || ''}">
+          </div>
+          <div class="form-group">
+            <label>From Email</label>
+            <input type="text" class="input" id="smtp_from" value="${config.smtp_from || ''}" placeholder="noreply@yourshop.com">
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="margin-top:16px">Lưu Cấu Hình</button>
+        </form>
+      </div>
+    `;
+
+    qs('#bot-config-form').onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await apiFetch('/admin/bot-config', {
+          method: 'PUT',
+          body: JSON.stringify({
+            telegram_token: qs('#telegram_token').value,
+            telegram_admin_id: qs('#telegram_admin_id').value,
+            discord_token: qs('#discord_token').value,
+            discord_admin_id: qs('#discord_admin_id').value,
+            smtp_server: qs('#smtp_server').value,
+            smtp_port: qs('#smtp_port').value,
+            smtp_user: qs('#smtp_user').value,
+            smtp_pass: qs('#smtp_pass').value,
+            smtp_from: qs('#smtp_from').value
+          })
+        });
+        toast('Đã lưu cấu hình Bot & SMTP', 'success');
+      } catch (err) {
+        showError(err.message);
+      }
+    };
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ADMIN PAYMENTS (PayOS Config + Payment History)
+// ═══════════════════════════════════════════════════════════════
+
+async function renderAdminPayments(view) {
+  const content = qs('#admin-content'); if (!content) return;
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+
+  const [config, historyData] = await Promise.all([
+    apiFetch('/admin/payment/config').catch(() => ({})),
+    apiFetch('/admin/payment/history?limit=50').catch(() => ({ items: [], stats: {} }))
+  ]);
+
+  const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const st = historyData.stats || {};
+
+  content.innerHTML = `
+    <div class="page-header"><div class="page-title">Thanh toán</div></div>
+
+    <!-- Tabs -->
+    <div class="settings-tabs" role="tablist">
+      <button class="settings-tab active" data-paytab="config" role="tab" aria-selected="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Cấu hình PayOS
+      </button>
+      <button class="settings-tab" data-paytab="history" role="tab" aria-selected="false">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Lịch sử giao dịch
+      </button>
+    </div>
+
+    <!-- ═══ Tab: PayOS Config ═══ -->
+    <div class="settings-section active" data-paysection="config">
+      ${config.has_env_override ? `
+        <div class="card p-16 mb-16" style="border-left:3px solid var(--amber);background:var(--amber-light, #fffbeb)">
+          <div class="fw-600 mb-4"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Cấu hình từ biến môi trường</div>
+          <div class="text-sm text-muted">Một số giá trị đang được ghi đè bởi biến môi trường (env vars). Các giá trị đó không thể chỉnh sửa tại đây.</div>
+        </div>
+      ` : ''}
+      <div class="settings-card">
+        <div class="settings-section-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          Cấu hình PayOS
+        </div>
+        <form id="payos-config-form">
+          <div class="form-group">
+            <label class="form-label" for="payos-client-id">Client ID</label>
+            <input class="form-input" id="payos-client-id" type="text" value="${esc(config.payos_client_id)}" placeholder="PayOS Client ID" ${config.has_env_override ? 'disabled' : ''} />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="payos-api-key">API Key</label>
+            <input class="form-input" id="payos-api-key" type="password" value="${esc(config.payos_api_key)}" placeholder="Nhập API Key mới hoặc để trống để giữ nguyên" ${config.has_env_override ? 'disabled' : ''} />
+            <div class="form-hint">Giá trị hiện tại: ${esc(config.payos_api_key) || 'chưa cấu hình'}</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="payos-checksum-key">Checksum Key</label>
+            <input class="form-input" id="payos-checksum-key" type="password" value="${esc(config.payos_checksum_key)}" placeholder="Nhập Checksum Key mới hoặc để trống để giữ nguyên" ${config.has_env_override ? 'disabled' : ''} />
+            <div class="form-hint">Giá trị hiện tại: ${esc(config.payos_checksum_key) || 'chưa cấu hình'}</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="payos-base-url">App Base URL</label>
+            <input class="form-input" id="payos-base-url" type="text" value="${esc(config.app_base_url)}" placeholder="https://yourdomain.com" ${config.has_env_override ? 'disabled' : ''} />
+            <div class="form-hint">URL gốc của website, dùng để tạo return/cancel URL cho PayOS</div>
+          </div>
+          <div id="payos-config-err" class="form-error mb-12" style="display:none"></div>
+          <button type="submit" class="btn btn-primary" ${config.has_env_override ? 'disabled' : ''}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Lưu cấu hình
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ═══ Tab: Payment History ═══ -->
+    <div class="settings-section" data-paysection="history">
+      <!-- Stats row -->
+      <div class="stats-grid mb-16">
+        <div class="stat-card"><div class="stat-icon green"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div class="stat-info"><div class="stat-label">Doanh thu</div><div class="stat-value">${fmt(st.total_revenue || 0)}</div></div></div>
+        <div class="stat-card"><div class="stat-icon yellow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="stat-info"><div class="stat-label">Chờ TT</div><div class="stat-value">${st.pending || 0}</div></div></div>
+        <div class="stat-card"><div class="stat-icon blue"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div><div class="stat-info"><div class="stat-label">Đã TT</div><div class="stat-value">${st.paid || 0}</div></div></div>
+        <div class="stat-card"><div class="stat-icon purple"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div class="stat-info"><div class="stat-label">Hoàn thành</div><div class="stat-value">${st.completed || 0}</div></div></div>
+      </div>
+
+      <!-- Filter -->
+      <div class="flex gap-6 mb-16 flex-wrap" id="payment-status-filters">
+        ${['', 'pending', 'paid', 'completed', 'cancelled'].map(s => `<button class="btn btn-sm ${s === '' ? 'btn-primary' : 'btn-ghost'}" data-pfilter="${s}">${s || 'Tất cả'}</button>`).join('')}
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap" id="payment-history-table">
+        ${_renderPaymentTable(historyData.items)}
+      </div>
+    </div>
+  `;
+
+  // ── Tab switching ──
+  qsa('[data-paytab]', content).forEach(tab => {
+    tab.onclick = () => {
+      qsa('[data-paytab]', content).forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+      qsa('[data-paysection]', content).forEach(s => s.classList.remove('active'));
+      qs(`[data-paysection="${tab.dataset.paytab}"]`, content)?.classList.add('active');
+    };
+  });
+
+  // ── PayOS config form ──
+  qs('#payos-config-form', content)?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = qs('#payos-config-err', content);
+    errEl.style.display = 'none';
+    try {
+      const payload = {
+        payos_client_id: qs('#payos-client-id', content).value,
+        payos_api_key: qs('#payos-api-key', content).value,
+        payos_checksum_key: qs('#payos-checksum-key', content).value,
+        app_base_url: qs('#payos-base-url', content).value,
+      };
+      await apiFetch('/admin/payment/config', { method: 'POST', body: JSON.stringify(payload) });
+      toast('Đã lưu cấu hình PayOS', 'success');
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = 'block';
+    }
+  });
+
+  // ── Payment history filter ──
+  qsa('[data-pfilter]', content).forEach(btn => {
+    btn.onclick = async () => {
+      qsa('[data-pfilter]', content).forEach(b => b.classList.remove('btn-primary'));
+      qsa('[data-pfilter]', content).forEach(b => b.classList.add('btn-ghost'));
+      btn.classList.remove('btn-ghost');
+      btn.classList.add('btn-primary');
+      const status = btn.dataset.pfilter;
+      const tableEl = qs('#payment-history-table', content);
+      tableEl.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+      try {
+        const data = await apiFetch(`/admin/payment/history${status ? '?status=' + status : ''}&limit=50`);
+        tableEl.innerHTML = _renderPaymentTable(data.items || []);
+      } catch (err) {
+        tableEl.innerHTML = `<div class="empty-state"><h3>Lỗi tải dữ liệu</h3></div>`;
+      }
+    };
+  });
+}
+
+function _renderPaymentTable(items) {
+  if (!items || !items.length) {
+    return '<div class="empty-state"><div class="empty-state-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div><h3>Chưa có giao dịch nào</h3></div>';
+  }
+  return `<table>
+    <thead><tr><th>Mã đơn</th><th>Khách</th><th>Sản phẩm</th><th>Số tiền</th><th>PTTT</th><th>Trạng thái</th><th>Ngày tạo</th><th>Cập nhật</th></tr></thead>
+    <tbody>${items.map(o => `<tr>
+      <td class="td-mono">${o.order_code}</td>
+      <td class="text-sm">${o.user_email || '—'}</td>
+      <td class="text-sm">${o.product_name || '—'}</td>
+      <td class="text-primary">${fmt(o.total_amount)}</td>
+      <td class="text-sm">${o.payment_method || 'payos'}</td>
+      <td>${statusBadge(o.status)}</td>
+      <td class="text-sm text-muted">${fmtDate(o.created_at)}</td>
+      <td class="text-sm text-muted">${fmtDate(o.updated_at)}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+// ── ADMIN ANNOUNCEMENTS ──────────────────────────────────────
+
+async function renderAdminAnnouncements(view) {
+  const content = qs('#admin-content'); if (!content) return;
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+
+  const refresh = async () => {
+    const items = await apiFetch('/announcements/admin/all');
+    const typeLabels = { info: 'Thông tin', warning: 'Cảnh báo', promo: 'Khuyến mãi', update: 'Cập nhật' };
+    const typeBadge = (t) => {
+      const colors = { info: 'badge-blue', warning: 'badge-yellow', promo: 'badge-green', update: 'badge-blue' };
+      return `<span class="badge ${colors[t] || 'badge-gray'}">${typeLabels[t] || t}</span>`;
+    };
+    content.innerHTML = `
+      <div class="page-header">
+        <div class="page-title">Thông báo</div>
+        <button class="btn btn-primary" id="btn-add-ann">+ Thêm thông báo</button>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Tiêu đề</th><th>Loại</th><th>Trạng thái</th><th>Thứ tự</th><th>Ngày tạo</th><th></th></tr></thead>
+        <tbody>${items.length ? items.map(a => `<tr>
+          <td class="text-muted">#${a.id}</td>
+          <td class="td-bold">${a.title}</td>
+          <td>${typeBadge(a.type)}</td>
+          <td>${a.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td>
+          <td>${a.sort_order}</td>
+          <td class="text-sm text-muted">${fmtDate(a.created_at)}</td>
+          <td><div class="tbl-actions">
+            <button class="tbl-btn tbl-edit" data-edit-ann="${a.id}">Sửa</button>
+            <button class="tbl-btn tbl-delete" data-del-ann="${a.id}">Xóa</button>
+          </div></td>
+        </tr>`).join('') : '<tr><td colspan="7" class="text-center text-muted">Chưa có thông báo nào</td></tr>'}</tbody>
+      </table></div>
+    `;
+    qs('#btn-add-ann', content).onclick = () => showAnnouncementModal(null, refresh);
+    qsa('[data-edit-ann]', content).forEach(btn => {
+      const ann = items.find(a => a.id === parseInt(btn.dataset.editAnn));
+      if (ann) btn.onclick = () => showAnnouncementModal(ann, refresh);
+    });
+    qsa('[data-del-ann]', content).forEach(btn => {
+      btn.onclick = async () => {
+        if (!confirm('Xóa thông báo này?')) return;
+        try { await apiFetch(`/announcements/admin/${btn.dataset.delAnn}`, { method: 'DELETE' }); toast('Đã xóa', 'success'); refresh(); }
+        catch (e) { toast(e.message, 'error'); }
+      };
+    });
+  };
+  await refresh();
+}
+
+function showAnnouncementModal(ann, onDone) {
+  const isEdit = !!ann;
+  openModal(`
+    <h3 class="modal-title mb-16">${isEdit ? 'Sửa thông báo' : 'Thêm thông báo'}</h3>
+    <form id="ann-form">
+      <div class="form-group">
+        <label class="form-label">Tiêu đề</label>
+        <input type="text" class="form-input" id="ann-title" value="${ann?.title || ''}" required placeholder="Tiêu đề thông báo..." />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nội dung</label>
+        <textarea class="form-textarea" id="ann-content" rows="4" required placeholder="Nội dung thông báo...">${ann?.content || ''}</textarea>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Loại</label>
+          <select class="form-select" id="ann-type">
+            <option value="info" ${ann?.type === 'info' ? 'selected' : ''}>Thông tin</option>
+            <option value="warning" ${ann?.type === 'warning' ? 'selected' : ''}>Cảnh báo</option>
+            <option value="promo" ${ann?.type === 'promo' ? 'selected' : ''}>Khuyến mãi</option>
+            <option value="update" ${ann?.type === 'update' ? 'selected' : ''}>Cập nhật</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Thứ tự</label>
+          <input type="number" class="form-input" id="ann-sort" value="${ann?.sort_order || 0}" min="0" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label style="display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="ann-active" ${ann ? (ann.is_active ? 'checked' : '') : 'checked'} />
+          <span>Hiển thị</span>
+        </label>
+      </div>
+      <div class="flex gap-8">
+        <button type="submit" class="btn btn-primary flex-1">Lưu</button>
+        <button type="button" class="btn btn-ghost" id="ann-cancel">Hủy</button>
+      </div>
+    </form>
+  `);
+  qs('#ann-cancel').onclick = closeModal;
+  qs('#ann-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const body = {
+      title: qs('#ann-title').value.trim(),
+      content: qs('#ann-content').value.trim(),
+      type: qs('#ann-type').value,
+      sort_order: parseInt(qs('#ann-sort').value) || 0,
+      is_active: qs('#ann-active').checked,
+    };
+    try {
+      if (isEdit) {
+        await apiFetch(`/announcements/admin/${ann.id}`, { method: 'PUT', body: JSON.stringify(body) });
+      } else {
+        await apiFetch('/announcements/admin/', { method: 'POST', body: JSON.stringify(body) });
+      }
+      closeModal();
+      toast('Đã lưu', 'success');
+      onDone();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  };
+}

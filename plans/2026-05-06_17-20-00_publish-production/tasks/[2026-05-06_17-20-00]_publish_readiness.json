@@ -1,0 +1,27 @@
+[
+  {
+    "content": "Rà cấu hình publish, entrypoint backend và static asset bắt buộc",
+    "id": "[audit-1]",
+    "status": "completed"
+  },
+  {
+    "content": "Rà chuỗi khởi động DB và biến môi trường bắt buộc cho boot production",
+    "id": "[audit-2]",
+    "status": "completed"
+  },
+  {
+    "content": "Rà các router import từ startup để tìm lỗi boot-time rõ ràng",
+    "id": "[audit-3]",
+    "status": "completed"
+  },
+  {
+    "content": "Áp dụng các sửa đổi tối thiểu cần thiết để publish production ổn định",
+    "id": "[fix-1]",
+    "status": "completed"
+  },
+  {
+    "content": "Tổng hợp checklist verify publish readiness và trạng thái còn lại",
+    "id": "[verify-1]",
+    "status": "completed"
+  }
+]

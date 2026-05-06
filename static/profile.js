@@ -40,6 +40,20 @@ async function renderProfile(view) {
     `;
     view.appendChild(profileCard);
 
+    // Quick links row
+    const quickLinks = el('div', 'info-card');
+    quickLinks.innerHTML = `
+      <div class="info-card-body" style="display:flex; gap:12px; flex-wrap:wrap;">
+        <a href="#/affiliate" class="btn btn-outline btn-sm" style="flex:1; min-width:180px; text-align:center; text-decoration:none;">
+          <i class="fa-solid fa-user-group"></i> Giới thiệu bạn bè
+        </a>
+        <a href="#/orders" class="btn btn-outline btn-sm" style="flex:1; min-width:180px; text-align:center; text-decoration:none;">
+          <i class="fa-solid fa-receipt"></i> Đơn hàng của tôi
+        </a>
+      </div>
+    `;
+    view.appendChild(quickLinks);
+
     qs('#profile-edit-btn', view).onclick = () => {
       openModal(`
         <h3 class="modal-title mb-16">Chỉnh sửa hồ sơ</h3>
@@ -194,6 +208,56 @@ async function renderProfile(view) {
       toast('Đã đăng xuất', 'info'); location.hash = '/';
     };
 
+    // Bot Linking card
+    const botCard = el('div', 'info-card');
+    botCard.innerHTML = `
+      <div class="info-card-head"><div class="info-card-title"><i class="fa-solid fa-robot"></i> Liên kết Bot</div></div>
+      <div class="info-card-body">
+        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 240px; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-page);">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+              <div style="width: 40px; height: 40px; border-radius: 50%; background: #229ED9; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                <i class="fa-brands fa-telegram"></i>
+              </div>
+              <div>
+                <div class="fw-600">Telegram Bot</div>
+                <div class="text-sm text-muted">Nhận thông báo & quản lý đơn hàng</div>
+              </div>
+            </div>
+            <div style="padding: 12px; background: var(--bg-card); border-radius: var(--radius-xs); border: 1px dashed var(--border-dark); margin-bottom: 12px;">
+              <div class="text-sm text-muted mb-4">Bước 1: Mở Telegram và tìm bot của shop</div>
+              <div class="text-sm text-muted">Bước 2: Gửi lệnh <code style="background: var(--primary-light); color: var(--primary); padding: 2px 6px; border-radius: 4px; font-weight: 600;">/start ${u.email || ''}</code></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="badge badge-gray"><i class="fa-solid fa-circle-info"></i> Chưa liên kết</span>
+            </div>
+          </div>
+          <div style="flex: 1; min-width: 240px; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-page);">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+              <div style="width: 40px; height: 40px; border-radius: 50%; background: #5865F2; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                <i class="fa-brands fa-discord"></i>
+              </div>
+              <div>
+                <div class="fw-600">Discord Bot</div>
+                <div class="text-sm text-muted">Nhận thông báo qua Discord</div>
+              </div>
+            </div>
+            <div style="padding: 12px; background: var(--bg-card); border-radius: var(--radius-xs); border: 1px dashed var(--border-dark); margin-bottom: 12px;">
+              <div class="text-sm text-muted mb-4">Bước 1: Tham gia Discord server của shop</div>
+              <div class="text-sm text-muted">Bước 2: Dùng lệnh <code style="background: var(--primary-light); color: var(--primary); padding: 2px 6px; border-radius: 4px; font-weight: 600;">/link ${u.email || ''}</code> trong kênh bot</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="badge badge-gray"><i class="fa-solid fa-circle-info"></i> Chưa liên kết</span>
+            </div>
+          </div>
+        </div>
+        <div class="text-sm text-muted mt-16" style="padding: 10px 14px; background: var(--amber-bg); border-radius: var(--radius-xs); border: 1px solid rgba(245,158,11,0.2);">
+          <i class="fa-solid fa-triangle-exclamation" style="color: var(--amber);"></i> Tính năng liên kết bot đang được phát triển. Vui lòng quay lại sau!
+        </div>
+      </div>
+    `;
+    view.appendChild(botCard);
+
     // Order history
     const ordersCard = el('div', 'info-card');
     ordersCard.innerHTML = `<div class="info-card-head" style="display:flex; justify-content:space-between; align-items:center;"><div class="info-card-title"><i class="fa-solid fa-clock-rotate-left"></i> Lịch sử đơn hàng gần đây</div><a href="#/orders" class="btn btn-outline btn-sm" style="background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.3); color:#fff;">Xem tất cả đơn</a></div><div class="info-card-body" id="profile-orders"><div class="page-loading"><div class="spinner"></div></div></div>`;
@@ -218,6 +282,270 @@ async function renderProfile(view) {
         `).join('');
       }
     } catch (_) { qs('#profile-orders', view).innerHTML = '<div class="text-muted">Không thể tải đơn hàng</div>'; }
+  } catch (e) {
+    view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>${e.message}</h3></div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  AFFILIATES – Giới thiệu bạn bè
+// ═══════════════════════════════════════════════════════════════
+
+async function renderUserAffiliates(view) {
+  if (!currentUser) return location.hash = '/login';
+  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+
+  try {
+    const data = await apiFetch('/affiliate/me');
+    const siteBase = location.origin;
+    view.innerHTML = '';
+
+    // Hero
+    const heroHead = el('div', 'products-hero');
+    heroHead.innerHTML = `
+      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/profile">Tài khoản</a> <span>›</span> <strong>Giới thiệu bạn bè</strong></div>
+      <h1 class="products-hero-title"><i class="fa-solid fa-user-group"></i> Giới thiệu bạn bè</h1>
+      <p class="products-hero-desc">Chia sẻ link giới thiệu và nhận hoa hồng từ mỗi đơn hàng thành công</p>
+    `;
+    view.appendChild(heroHead);
+
+    if (!data.registered) {
+      // Not yet an affiliate – show registration card
+      const regCard = el('div', 'info-card');
+      regCard.innerHTML = `
+        <div class="info-card-head"><div class="info-card-title"><i class="fa-solid fa-rocket"></i> Đăng ký Affiliate</div></div>
+        <div class="info-card-body" style="text-align:center; padding:40px 20px;">
+          <div style="font-size:48px; margin-bottom:16px; opacity:0.3;"><i class="fa-solid fa-handshake"></i></div>
+          <h3 style="margin:0 0 8px;">Tham gia chương trình Affiliate</h3>
+          <p class="text-muted" style="margin:0 0 20px;">Đăng ký để nhận mã giới thiệu và bắt đầu kiếm hoa hồng từ đơn hàng của bạn bè.</p>
+          <button class="btn btn-primary" id="aff-register-btn"><i class="fa-solid fa-user-plus"></i> Đăng ký ngay</button>
+        </div>
+      `;
+      view.appendChild(regCard);
+
+      qs('#aff-register-btn', view).onclick = async () => {
+        try {
+          qs('#aff-register-btn').disabled = true;
+          qs('#aff-register-btn').innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;"></div> Đang đăng ký...';
+          await apiFetch('/affiliate/register', { method: 'POST' });
+          toast('Đăng ký thành công!', 'success');
+          renderUserAffiliates(view);
+        } catch (err) {
+          toast(err.message, 'error');
+          qs('#aff-register-btn').disabled = false;
+          qs('#aff-register-btn').innerHTML = '<i class="fa-solid fa-user-plus"></i> Đăng ký ngay';
+        }
+      };
+      return;
+    }
+
+    // Registered affiliate – show dashboard
+    const aff = data;
+    const refLink = `${siteBase}/?ref=${aff.ref_code}`;
+    const totalReferrals = (data.referrals || []).length;
+    const pendingCommission = (data.referrals || []).filter(r => r.status === 'pending').reduce((s, r) => s + parseFloat(r.commission), 0);
+    const availableBalance = Math.max(0, (aff.total_earnings || 0) - (aff.total_paid || 0));
+
+    // Stats row
+    const statsRow = el('div', '');
+    statsRow.style.cssText = 'display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:16px; margin-bottom:24px;';
+    statsRow.innerHTML = `
+      <div class="info-card" style="margin-bottom:0;">
+        <div class="info-card-body" style="text-align:center; padding:20px;">
+          <div style="font-size:28px; font-weight:800; color:var(--primary);">${totalReferrals}</div>
+          <div class="text-muted text-sm">Số người đã giới thiệu</div>
+        </div>
+      </div>
+      <div class="info-card" style="margin-bottom:0;">
+        <div class="info-card-body" style="text-align:center; padding:20px;">
+          <div style="font-size:28px; font-weight:800; color:#D97706;">${fmt(pendingCommission)}</div>
+          <div class="text-muted text-sm">Hoa hồng chờ duyệt</div>
+        </div>
+      </div>
+      <div class="info-card" style="margin-bottom:0;">
+        <div class="info-card-body" style="text-align:center; padding:20px;">
+          <div style="font-size:28px; font-weight:800; color:var(--success, #22c55e);">${fmt(availableBalance)}</div>
+          <div class="text-muted text-sm">Số dư khả dụng</div>
+        </div>
+      </div>
+      <div class="info-card" style="margin-bottom:0;">
+        <div class="info-card-body" style="text-align:center; padding:20px;">
+          <div style="font-size:28px; font-weight:800; color:var(--info, #3b82f6);">${fmt(aff.total_paid)}</div>
+          <div class="text-muted text-sm">Đã thanh toán</div>
+        </div>
+      </div>
+    `;
+    view.appendChild(statsRow);
+
+    // Referral link card
+    const linkCard = el('div', 'info-card');
+    linkCard.innerHTML = `
+      <div class="info-card-head"><div class="info-card-title"><i class="fa-solid fa-link"></i> Link giới thiệu của bạn</div></div>
+      <div class="info-card-body">
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="text" class="form-input" id="aff-ref-link" value="${refLink}" readonly style="flex:1; font-family:monospace; font-size:14px; background:var(--bg-secondary, #f5f5f5);" />
+          <button class="btn btn-primary" id="aff-copy-btn" title="Sao chép"><i class="fa-solid fa-copy"></i> Sao chép</button>
+        </div>
+        <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+          <span class="text-muted text-sm">Mã giới thiệu:</span>
+          <code style="background:var(--bg-secondary, #f5f5f5); padding:2px 8px; border-radius:4px; font-weight:700; letter-spacing:1px;">${aff.ref_code}</code>
+          <span class="text-muted text-sm" style="margin-left:8px;">Hoa hồng:</span>
+          <strong style="color:var(--primary);">${aff.commission_rate}%</strong>
+          <span class="text-muted text-sm">/ đơn hàng</span>
+        </div>
+      </div>
+    `;
+    view.appendChild(linkCard);
+
+    qs('#aff-copy-btn', view).onclick = () => {
+      const input = qs('#aff-ref-link', view);
+      input.select();
+      navigator.clipboard.writeText(refLink).then(() => {
+        toast('Đã sao chép link giới thiệu!', 'success');
+      }).catch(() => {
+        document.execCommand('copy');
+        toast('Đã sao chép!', 'success');
+      });
+    };
+
+    // Withdraw card
+    const withdrawCard = el('div', 'info-card');
+    withdrawCard.innerHTML = `
+      <div class="info-card-head"><div class="info-card-title"><i class="fa-solid fa-money-bill-transfer"></i> Rút tiền</div></div>
+      <div class="info-card-body">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+          <div>
+            <div class="text-muted text-sm">Số dư khả dụng</div>
+            <div style="font-size:28px; font-weight:800; color:var(--primary);">${fmt(availableBalance)}</div>
+          </div>
+          <button class="btn btn-primary" id="aff-withdraw-btn" ${availableBalance <= 0 ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
+            <i class="fa-solid fa-arrow-right-from-bracket"></i> Rút tiền
+          </button>
+        </div>
+        ${availableBalance <= 0 ? '<p class="text-sm text-muted" style="margin-top:8px;">Bạn chưa có số dư khả dụng để rút.</p>' : ''}
+      </div>
+    `;
+    view.appendChild(withdrawCard);
+
+    if (availableBalance > 0) {
+      qs('#aff-withdraw-btn', view).onclick = () => {
+        openModal(`
+          <h3 class="modal-title mb-16">Yêu cầu rút tiền</h3>
+          <p class="mb-12">Số dư khả dụng: <strong>${fmt(availableBalance)}</strong></p>
+          <div class="form-group">
+            <label class="form-label">Số tiền muốn rút</label>
+            <input type="number" class="form-input" id="wd-amount" value="${availableBalance}" min="1" max="${availableBalance}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phương thức nhận tiền</label>
+            <select class="form-select" id="wd-method">
+              <option value="bank">Chuyển khoản ngân hàng</option>
+              <option value="momo">Ví MoMo</option>
+              <option value="zalopay">ZaloPay</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Thông tin tài khoản nhận</label>
+            <input type="text" class="form-input" id="wd-info" placeholder="Số tài khoản / Số điện thoại" />
+          </div>
+          <div id="wd-err" class="form-error mb-12" style="display:none"></div>
+          <div class="flex gap-8">
+            <button type="button" class="btn btn-primary flex-1" id="wd-submit">Gửi yêu cầu</button>
+            <button type="button" class="btn btn-ghost" id="wd-cancel">Hủy</button>
+          </div>
+        `);
+        qs('#wd-cancel').onclick = closeModal;
+        qs('#wd-submit').onclick = () => {
+          const amount = parseFloat(qs('#wd-amount').value);
+          const info = qs('#wd-info').value.trim();
+          if (!amount || amount <= 0) {
+            const e = qs('#wd-err'); e.textContent = 'Nhập số tiền hợp lệ'; e.style.display = 'block'; return;
+          }
+          if (amount > availableBalance) {
+            const e = qs('#wd-err'); e.textContent = 'Số tiền vượt quá số dư khả dụng'; e.style.display = 'block'; return;
+          }
+          if (!info) {
+            const e = qs('#wd-err'); e.textContent = 'Nhập thông tin tài khoản nhận'; e.style.display = 'block'; return;
+          }
+          closeModal();
+          toast('Yêu cầu rút tiền đã được gửi! Chúng tôi sẽ xử lý trong 1-3 ngày làm việc.', 'success');
+        };
+      };
+    }
+
+    // Commission history
+    const histCard = el('div', 'info-card');
+    const refs = data.referrals || [];
+    histCard.innerHTML = `
+      <div class="info-card-head"><div class="info-card-title"><i class="fa-solid fa-clock-rotate-left"></i> Lịch sử hoa hồng</div></div>
+      <div class="info-card-body" style="padding:0;">
+        ${refs.length ? `
+          <div style="overflow-x:auto;">
+            <table class="data-table" style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr style="background:var(--bg-secondary, #f5f5f5);">
+                  <th style="padding:10px 12px; text-align:left; font-size:13px;">Đơn hàng</th>
+                  <th style="padding:10px 12px; text-align:right; font-size:13px;">Giá trị</th>
+                  <th style="padding:10px 12px; text-align:right; font-size:13px;">Hoa hồng</th>
+                  <th style="padding:10px 12px; text-align:center; font-size:13px;">Trạng thái</th>
+                  <th style="padding:10px 12px; text-align:right; font-size:13px;">Ngày</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${refs.map(r => {
+                  const statusMap = {
+                    pending: { label: 'Chờ duyệt', cls: 'badge-yellow' },
+                    approved: { label: 'Đã duyệt', cls: 'badge-green' },
+                    paid: { label: 'Đã thanh toán', cls: 'badge-blue' },
+                  };
+                  const st = statusMap[r.status] || { label: r.status, cls: 'badge-gray' };
+                  return `<tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:10px 12px; font-size:13px;">#${r.order_id || '—'}</td>
+                    <td style="padding:10px 12px; text-align:right; font-size:13px;">${fmt(r.order_amount)}</td>
+                    <td style="padding:10px 12px; text-align:right; font-size:13px; font-weight:600; color:var(--primary);">${fmt(r.commission)}</td>
+                    <td style="padding:10px 12px; text-align:center;"><span class="badge ${st.cls}">${st.label}</span></td>
+                    <td style="padding:10px 12px; text-align:right; font-size:12px; color:var(--text-3);">${fmtDate(r.created_at)}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : `
+          <div style="text-align:center; padding:40px 20px; color:var(--text-3);">
+            <div style="font-size:36px; margin-bottom:12px; opacity:0.3;"><i class="fa-solid fa-receipt"></i></div>
+            <p style="margin:0;">Chưa có hoa hồng nào. Hãy chia sẻ link giới thiệu để bắt đầu!</p>
+          </div>
+        `}
+      </div>
+    `;
+    view.appendChild(histCard);
+
+    // How it works
+    const howCard = el('div', 'info-card');
+    howCard.innerHTML = `
+      <div class="info-card-head"><div class="info-card-title"><i class="fa-solid fa-circle-info"></i> Hướng dẫn</div></div>
+      <div class="info-card-body">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:20px;">
+          <div style="text-align:center;">
+            <div style="width:48px; height:48px; border-radius:50%; background:var(--primary-light, rgba(99,102,241,0.1)); display:inline-flex; align-items:center; justify-content:center; margin-bottom:8px;"><i class="fa-solid fa-share-nodes" style="color:var(--primary); font-size:20px;"></i></div>
+            <div style="font-weight:600; margin-bottom:4px;">1. Chia sẻ link</div>
+            <div class="text-sm text-muted">Gửi link giới thiệu cho bạn bè qua mạng xã hội, tin nhắn...</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="width:48px; height:48px; border-radius:50%; background:var(--primary-light, rgba(99,102,241,0.1)); display:inline-flex; align-items:center; justify-content:center; margin-bottom:8px;"><i class="fa-solid fa-cart-shopping" style="color:var(--primary); font-size:20px;"></i></div>
+            <div style="font-weight:600; margin-bottom:4px;">2. Bạn bè mua hàng</div>
+            <div class="text-sm text-muted">Khi họ mua hàng qua link của bạn, hệ thống tự động ghi nhận.</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="width:48px; height:48px; border-radius:50%; background:var(--primary-light, rgba(99,102,241,0.1)); display:inline-flex; align-items:center; justify-content:center; margin-bottom:8px;"><i class="fa-solid fa-coins" style="color:var(--primary); font-size:20px;"></i></div>
+            <div style="font-weight:600; margin-bottom:4px;">3. Nhận hoa hồng</div>
+            <div class="text-sm text-muted">Bạn nhận ${aff.commission_rate}% giá trị đơn hàng. Hoa hồng được thanh toán định kỳ.</div>
+          </div>
+        </div>
+      </div>
+    `;
+    view.appendChild(howCard);
+
   } catch (e) {
     view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>${e.message}</h3></div>`;
   }

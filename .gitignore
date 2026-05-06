@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 .Python
 .env
+.env.bot
 .venv
 env/
 venv/
@@ -17,3 +18,12 @@ ENV/
 
 # OS
 .DS_Store
+
+# Workshop (not needed on VPS)
+.workshop/
+
+# Uploads (user-generated)
+static/uploads/*
+!static/uploads/.gitkeep
+static/banners/*
+!static/banners/.gitkeep

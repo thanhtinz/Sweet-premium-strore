@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -80,3 +80,51 @@ def stock_count(pkg_id: int, db: Session = Depends(get_db)):
         StockItem.is_sold == False
     ).count()
     return {"package_id": pkg_id, "available": count}
+
+
+@router.post("/upload/{package_id}", dependencies=[Depends(get_current_admin)])
+async def upload_stock_file(package_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    pkg = db.query(ProductPackage).filter(ProductPackage.id == package_id).first()
+    if not pkg:
+        raise HTTPException(status_code=404, detail="Package not found")
+
+    filename = file.filename or ""
+    content = await file.read()
+    lines = []
+
+    if filename.lower().endswith(".docx"):
+        try:
+            from docx import Document
+            from io import BytesIO
+            doc = Document(BytesIO(content))
+            for para in doc.paragraphs:
+                text = para.text.strip()
+                if text:
+                    # A paragraph may contain multiple lines
+                    for line in text.splitlines():
+                        line = line.strip()
+                        if line:
+                            lines.append(line)
+            # Also check tables in the docx
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        for line in cell.text.strip().splitlines():
+                            line = line.strip()
+                            if line:
+                                lines.append(line)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Lỗi đọc file .docx: {str(e)}")
+    elif filename.lower().endswith(".txt") or filename.lower().endswith(".csv"):
+        text = content.decode("utf-8", errors="replace")
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+    else:
+        raise HTTPException(status_code=400, detail="Chỉ hỗ trợ file .txt, .csv, .docx")
+
+    if not lines:
+        raise HTTPException(status_code=400, detail="File không có dữ liệu hợp lệ")
+
+    items = [StockItem(package_id=package_id, data=line) for line in lines]
+    db.bulk_save_objects(items)
+    db.commit()
+    return {"added": len(items)}

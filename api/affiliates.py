@@ -13,7 +13,7 @@ router = APIRouter(prefix="/affiliate", tags=["affiliate"])
 # ── User endpoints ──────────────────────────────────────────
 @router.get("/me")
 def my_affiliate(user=Depends(get_current_user), db: Session = Depends(get_db)):
-    aff = db.query(AffiliateUser).filter(AffiliateUser.user_id == user["id"]).first()
+    aff = db.query(AffiliateUser).filter(AffiliateUser.user_id == str(user["user_id"])).first()
     if not aff:
         return {"registered": False}
     refs = db.query(AffiliateReferral).filter(AffiliateReferral.affiliate_id == aff.id).order_by(AffiliateReferral.id.desc()).limit(50).all()
@@ -26,14 +26,14 @@ def my_affiliate(user=Depends(get_current_user), db: Session = Depends(get_db)):
 
 @router.post("/register")
 def register_affiliate(user=Depends(get_current_user), db: Session = Depends(get_db)):
-    existing = db.query(AffiliateUser).filter(AffiliateUser.user_id == user["id"]).first()
+    existing = db.query(AffiliateUser).filter(AffiliateUser.user_id == str(user["user_id"])).first()
     if existing:
         return _aff_to_dict(existing)
     ref_code = uuid.uuid4().hex[:8].upper()
     while db.query(AffiliateUser).filter(AffiliateUser.ref_code == ref_code).first():
         ref_code = uuid.uuid4().hex[:8].upper()
     aff = AffiliateUser(
-        user_id=user["id"],
+        user_id=str(user["user_id"]),
         email=user.get("email"),
         ref_code=ref_code,
     )

@@ -3,10 +3,11 @@
  */
 
 async function renderAdminOAuthSettings(view) {
-  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  const content = document.querySelector('#admin-content') || view;
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   
   try {
-    const config = await apiFetch('/api/admin/oauth/config');
+    const config = await apiFetch('/admin/oauth/config');
     
     const html = `
       <div class="settings-wrapper">
@@ -37,12 +38,12 @@ async function renderAdminOAuthSettings(view) {
       </div>
     `;
     
-    view.innerHTML = html;
+    content.innerHTML = html;
     
     // Setup provider tabs
-    qsa('.guide-tab', view).forEach(tab => {
+    document.querySelectorAll('.guide-tab').forEach(tab => {
       tab.onclick = (e) => {
-        qsa('.guide-tab', view).forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.guide-tab').forEach(t => t.classList.remove('active'));
         e.target.classList.add('active');
         renderGuide(e.target.dataset.provider);
       };
@@ -52,7 +53,7 @@ async function renderAdminOAuthSettings(view) {
     renderGuide('google');
     
     // Handle save buttons
-    qsa('[data-save-oauth]', view).forEach(btn => {
+    document.querySelectorAll('[data-save-oauth]').forEach(btn => {
       btn.onclick = async (e) => {
         const provider = btn.dataset.saveOauth;
         const clientId = qs(`#${provider}-client-id`).value;
@@ -60,7 +61,7 @@ async function renderAdminOAuthSettings(view) {
         const enabled = qs(`#${provider}-enabled`).checked;
         
         try {
-          await apiFetch(`/api/admin/oauth/config/${provider}`, {
+          await apiFetch(`/admin/oauth/config/${provider}`, {
             method: 'PUT',
             body: JSON.stringify({ clientId, clientSecret, enabled })
           });
@@ -72,7 +73,7 @@ async function renderAdminOAuthSettings(view) {
     });
     
   } catch (err) {
-    view.innerHTML = `<div class="error-state">${err.message}</div>`;
+    content.innerHTML = `<div class="error-state">${err.message}</div>`;
   }
   
   function renderOAuthProvider(config, key, name, color) {

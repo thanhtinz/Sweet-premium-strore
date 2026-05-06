@@ -21,17 +21,18 @@ APP_BASE_URL = os.environ.get("APP_BASE_URL", "http://localhost:3001")
 
 
 def _get_payos_config(db: Session = None):
-    """Get PayOS config from env vars first, fallback to DB."""
+    """Get PayOS config from env vars first, fallback to DB (SiteSetting)."""
     client_id = PAYOS_CLIENT_ID
     api_key = PAYOS_API_KEY
     checksum_key = PAYOS_CHECKSUM_KEY
     base_url = APP_BASE_URL
-    if db and (not client_id or not api_key or not checksum_key):
+    if db:
         from db.models import SiteSetting
         settings = db.query(SiteSetting).filter(
             SiteSetting.key.in_(["payos_client_id", "payos_api_key", "payos_checksum_key", "app_base_url"])
         ).all()
         cfg = {s.key: s.value for s in settings}
+        # Env vars take priority; DB is fallback
         client_id = client_id or cfg.get("payos_client_id", "")
         api_key = api_key or cfg.get("payos_api_key", "")
         checksum_key = checksum_key or cfg.get("payos_checksum_key", "")

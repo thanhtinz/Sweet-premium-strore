@@ -10,13 +10,13 @@
     "status": "completed"
   },
   {
-    "content": "[COMPLETED] Split storefront.js - extracted auth pages to auth-pages.js",
+    "content": "[COMPLETED] Split storefront.js - extracted auth pages to auth-pages.js (1850 → 1613 lines)",
     "id": "split-storefront",
     "status": "completed"
   },
   {
-    "content": "Split admin.js (1008 lines) into smaller modules",
-    "id": "split-admin",
-    "status": "pending"
+    "content": "[COMPLETED] Added support icon and link to main sidebar navigation",
+    "id": "support-nav",
+    "status": "completed"
   }
 ]
