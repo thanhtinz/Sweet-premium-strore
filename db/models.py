@@ -164,6 +164,7 @@ class User(Base):
     provider = Column(String(50), default="local")  # local | google | discord
     provider_id = Column(String(255), nullable=True)  # external user id
     two_factor_secret = Column(String(255), nullable=True)  # TOTP secret key
+    balance = Column(Numeric(12, 2), default=0, server_default="0", nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=now_utc)
     updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
@@ -177,6 +178,23 @@ class AdminUser(Base):
     email = Column(String(255), unique=True, nullable=False)
     role = Column(String(50), default="admin")  # admin | superadmin
     created_at = Column(DateTime(timezone=True), default=now_utc)
+
+
+class BalanceTransaction(Base):
+    __tablename__ = "balance_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    amount = Column(Numeric(12, 2), nullable=False)  # positive=credit, negative=debit
+    balance_after = Column(Numeric(12, 2), nullable=False)
+    type = Column(String(30), nullable=False)  # topup | purchase | affiliate_withdraw | admin_adjust | refund
+    status = Column(String(20), default="completed")  # pending | completed | failed
+    reference = Column(String(255))  # order_code, payos order code, etc.
+    description = Column(Text)
+    ip_address = Column(String(50))
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+
+    user = relationship("User")
 
 
 class FlashSale(Base):

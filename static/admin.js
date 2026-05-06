@@ -32,7 +32,7 @@ function renderAdminShell(wrap) {
           </a>
         </div>
         <nav class="admin-nav">
-          <details class="admin-nav-details" ${(!activeSection || activeSection === '/orders' || activeSection === '/payments') ? 'open' : ''}>
+          <details class="admin-nav-details" ${(!activeSection || activeSection === '/orders' || activeSection === '/payments' || activeSection === '/balance') ? 'open' : ''}>
             <summary class="admin-nav-summary"><i class="fa-solid fa-store"></i> Cửa hàng</summary>
             <div class="admin-nav-children">
               <button class="admin-nav-item ${hash === '#/admin' ? 'active' : ''}" data-href="#/admin">
@@ -43,6 +43,9 @@ function renderAdminShell(wrap) {
               </button>
               <button class="admin-nav-item ${activeSection === '/payments' ? 'active' : ''}" data-href="#/admin/payments">
                 <i class="fa-solid fa-credit-card"></i><span>Thanh toán</span>
+              </button>
+              <button class="admin-nav-item ${activeSection === '/balance' ? 'active' : ''}" data-href="#/admin/balance">
+                <i class="fa-solid fa-wallet"></i><span>Số dư</span>
               </button>
             </div>
           </details>
@@ -2278,4 +2281,122 @@ function showAnnouncementModal(ann, onDone) {
       toast(err.message, 'error');
     }
   };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ADMIN BALANCE
+// ═══════════════════════════════════════════════════════════════
+
+async function renderAdminBalance(view) {
+  const content = qs('#admin-content'); if (!content) return;
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+
+  try {
+    const [usersData, txnData, auditData] = await Promise.all([
+      apiFetch('/balance/admin/users?limit=100'),
+      apiFetch('/balance/admin/transactions?limit=30'),
+      apiFetch('/balance/admin/audit').catch(() => ({ ok: true, mismatches: [] })),
+    ]);
+
+    content.innerHTML = `
+      <div class="page-header">
+        <div class="page-title">Quản lý số dư</div>
+        ${!auditData.ok ? `<span class="badge" style="background:#ef4444;color:#fff;">⚠ ${auditData.mismatches.length} bất thường</span>` : '<span class="badge" style="background:#10b981;color:#fff;">✓ Hệ thống OK</span>'}
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button class="btn btn-sm ${!content.dataset.tab || content.dataset.tab === 'users' ? 'btn-primary' : 'btn-ghost'}" data-tab-btn="users">Người dùng</button>
+        <button class="btn btn-sm ${content.dataset.tab === 'txn' ? 'btn-primary' : 'btn-ghost'}" data-tab-btn="txn">Giao dịch</button>
+      </div>
+
+      <div id="balance-tab-users" style="${content.dataset.tab === 'txn' ? 'display:none' : ''}">
+        <div class="table-wrap"><table>
+          <thead><tr><th>ID</th><th>Email</th><th>Tên</th><th>Số dư</th><th></th></tr></thead>
+          <tbody>
+            ${usersData.items.map(u => `
+              <tr>
+                <td>${u.id}</td>
+                <td class="text-sm">${u.email}</td>
+                <td class="text-sm">${u.display_name || '—'}</td>
+                <td class="fw-700" style="color:#10b981">${fmt(u.balance)}</td>
+                <td><button class="tbl-btn tbl-view" data-adjust-user="${u.id}" data-adjust-email="${u.email}" data-adjust-bal="${u.balance}">Điều chỉnh</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table></div>
+      </div>
+
+      <div id="balance-tab-txn" style="${content.dataset.tab !== 'txn' ? 'display:none' : ''}">
+        <div class="table-wrap"><table>
+          <thead><tr><th>Thời gian</th><th>User</th><th>Loại</th><th>Số tiền</th><th>Sau GD</th><th>Mô tả</th></tr></thead>
+          <tbody>
+            ${txnData.items.map(t => {
+              const isPos = t.amount > 0;
+              const typeLabels = { topup:'Nạp', purchase:'Mua', affiliate_withdraw:'Rút HH', admin_adjust:'Admin', refund:'Hoàn' };
+              return `<tr>
+                <td class="text-sm text-muted">${fmtDate(t.created_at)}</td>
+                <td class="text-sm">${t.user_email || t.user_id}</td>
+                <td><span class="badge">${typeLabels[t.type] || t.type}</span></td>
+                <td class="fw-700" style="color:${isPos ? '#10b981' : '#ef4444'}">${isPos ? '+' : ''}${fmt(t.amount)}</td>
+                <td class="text-sm">${fmt(t.balance_after)}</td>
+                <td class="text-sm text-muted">${t.description || t.reference || '—'}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table></div>
+      </div>
+    `;
+
+    // Tab switching
+    qsa('[data-tab-btn]', content).forEach(btn => {
+      btn.onclick = () => {
+        const tab = btn.dataset.tabBtn;
+        content.dataset.tab = tab;
+        qs('#balance-tab-users', content).style.display = tab === 'users' ? '' : 'none';
+        qs('#balance-tab-txn', content).style.display = tab === 'txn' ? '' : 'none';
+        qsa('[data-tab-btn]', content).forEach(b => {
+          b.className = `btn btn-sm ${b.dataset.tabBtn === tab ? 'btn-primary' : 'btn-ghost'}`;
+        });
+      };
+    });
+
+    // Adjust balance modal
+    qsa('[data-adjust-user]', content).forEach(btn => {
+      btn.onclick = () => {
+        const userId = btn.dataset.adjustUser;
+        const email = btn.dataset.adjustEmail;
+        const bal = btn.dataset.adjustBal;
+        openModal(`
+          <h3 class="modal-title mb-16">Điều chỉnh số dư</h3>
+          <div class="text-sm text-muted mb-16">${email} — Hiện tại: <strong style="color:#10b981">${fmt(parseFloat(bal))}</strong></div>
+          <div class="form-group">
+            <label class="form-label">Số tiền (+ nạp, - trừ)</label>
+            <input type="number" class="form-input" id="adj-amount" placeholder="VD: 100000 hoặc -50000" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Lý do</label>
+            <input type="text" class="form-input" id="adj-desc" placeholder="Nạp thưởng, hoàn tiền..." />
+          </div>
+          <div id="adj-err" class="form-error mb-12" style="display:none"></div>
+          <div class="flex gap-8">
+            <button class="btn btn-primary flex-1" id="adj-submit">Xác nhận</button>
+            <button class="btn btn-ghost" id="adj-cancel">Hủy</button>
+          </div>
+        `);
+        qs('#adj-cancel').onclick = closeModal;
+        qs('#adj-submit').onclick = async () => {
+          const amount = parseInt(qs('#adj-amount').value);
+          if (!amount) { qs('#adj-err').textContent = 'Nhập số tiền'; qs('#adj-err').style.display = 'block'; return; }
+          try {
+            await apiFetch('/balance/admin/adjust', { method: 'POST', body: JSON.stringify({ user_id: parseInt(userId), amount, description: qs('#adj-desc').value }) });
+            closeModal();
+            toast('Đã điều chỉnh', 'success');
+            renderAdminBalance(view);
+          } catch (err) { qs('#adj-err').textContent = err.message; qs('#adj-err').style.display = 'block'; }
+        };
+      };
+    });
+  } catch (err) {
+    content.innerHTML = `<div class="empty-state"><h3>Lỗi tải dữ liệu</h3><p class="text-muted">${err.message}</p></div>`;
+  }
 }

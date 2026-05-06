@@ -67,6 +67,103 @@ async function renderProfile(view) {
     };
 
     // Security Settings
+    // ── Balance Card ──
+    let balanceData = { balance: 0 };
+    try { balanceData = await apiFetch('/balance'); } catch(e) {}
+    const myBalance = balanceData.balance || 0;
+
+    // Check affiliate earnings
+    let affAvailable = 0;
+    try {
+      const affData = await apiFetch('/affiliate/me');
+      affAvailable = Math.max(0, (affData.total_earnings || 0) - (affData.total_paid || 0));
+    } catch(e) {}
+
+    let historyItems = [];
+    try { const hData = await apiFetch('/balance/history?limit=5'); historyItems = hData.items || []; } catch(e) {}
+
+    const balanceCard = el('div', 'info-card');
+    balanceCard.innerHTML = `
+      <div class="info-card-head" style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="info-card-title"><i class="fa-solid fa-wallet"></i> Số dư tài khoản</div>
+        <div style="font-size:24px;font-weight:800;color:#10b981;">${fmt(myBalance)}</div>
+      </div>
+      <div class="info-card-body">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+          <button class="btn btn-primary" id="btn-topup"><i class="fa-solid fa-plus"></i> Nạp tiền</button>
+          ${affAvailable >= 1000 ? `<button class="btn btn-outline" id="btn-aff-withdraw"><i class="fa-solid fa-arrow-right-from-bracket"></i> Rút hoa hồng (${fmt(affAvailable)})</button>` : ''}
+        </div>
+        ${historyItems.length ? `
+        <div class="fw-600 mb-8" style="font-size:13px;">Giao dịch gần đây</div>
+        <div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;">
+          <table style="width:100%;font-size:13px;">
+            <tbody>
+              ${historyItems.map(t => {
+                const isPositive = t.amount > 0;
+                const typeLabels = { topup:'Nạp tiền', purchase:'Mua hàng', affiliate_withdraw:'Rút hoa hồng', admin_adjust:'Admin điều chỉnh', refund:'Hoàn tiền' };
+                return `<tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:8px 12px;">${typeLabels[t.type] || t.type}</td>
+                  <td style="padding:8px 12px;font-weight:700;color:${isPositive ? '#10b981' : '#ef4444'};text-align:right;">${isPositive ? '+' : ''}${fmt(t.amount)}</td>
+                  <td style="padding:8px 12px;color:var(--text-3);font-size:12px;">${fmtDate(t.created_at)}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>` : '<div class="text-muted text-sm">Chưa có giao dịch</div>'}
+      </div>
+    `;
+    view.appendChild(balanceCard);
+
+    // Topup modal
+    qs('#btn-topup', balanceCard).onclick = () => {
+      openModal(`
+        <h3 class="modal-title mb-16"><i class="fa-solid fa-plus-circle"></i> Nạp tiền vào tài khoản</h3>
+        <div class="form-group">
+          <label class="form-label">Số tiền nạp</label>
+          <input type="number" class="form-input" id="topup-amount" min="10000" max="10000000" step="1000" placeholder="Nhập số tiền..." style="font-size:18px;font-weight:700;" />
+          <div class="form-hint">Tối thiểu 10,000đ — Tối đa 10,000,000đ</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+          ${[50000,100000,200000,500000,1000000].map(v => `<button class="btn btn-ghost btn-sm topup-preset" data-amount="${v}">${fmt(v)}</button>`).join('')}
+        </div>
+        <div id="topup-err" class="form-error mb-12" style="display:none"></div>
+        <button class="btn btn-primary btn-full" id="btn-topup-submit"><i class="fa-solid fa-qrcode"></i> Nạp qua PayOS</button>
+      `);
+      qsa('.topup-preset').forEach(btn => {
+        btn.onclick = () => { qs('#topup-amount').value = btn.dataset.amount; };
+      });
+      qs('#btn-topup-submit').onclick = async () => {
+        const amount = parseInt(qs('#topup-amount').value);
+        const errEl = qs('#topup-err');
+        if (!amount || amount < 10000 || amount > 10000000) {
+          errEl.textContent = 'Số tiền không hợp lệ'; errEl.style.display = 'block'; return;
+        }
+        const btn = qs('#btn-topup-submit');
+        btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang tạo...';
+        try {
+          const res = await apiFetch('/balance/topup', { method: 'POST', body: JSON.stringify({ amount }) });
+          closeModal();
+          window.open(res.payment_url, '_blank');
+          toast('Đã tạo lệnh nạp! Chuyển đến thanh toán...', 'success', 5000);
+        } catch (err) {
+          errEl.textContent = err.message; errEl.style.display = 'block';
+          btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-qrcode"></i> Nạp qua PayOS';
+        }
+      };
+    };
+
+    // Affiliate withdraw
+    if (qs('#btn-aff-withdraw', balanceCard)) {
+      qs('#btn-aff-withdraw', balanceCard).onclick = async () => {
+        if (!confirm(`Rút ${fmt(affAvailable)} hoa hồng vào số dư?`)) return;
+        try {
+          const res = await apiFetch('/balance/affiliate-withdraw', { method: 'POST', body: JSON.stringify({}) });
+          toast(`Đã rút ${fmt(res.amount)} vào số dư`, 'success');
+          renderProfile(view);
+        } catch (err) { toast(err.message, 'error'); }
+      };
+    }
+
     const securityCard = el('div', 'info-card');
     let pwFormHtml = '';
     

@@ -1391,6 +1391,9 @@ async function renderCheckout(view) {
   const grandTotal = subtotal + taxAmount;
 
   // ── Step 2: Payment Method Selection ──
+  let userBalance = 0;
+  try { const bData = await apiFetch('/balance'); userBalance = bData.balance || 0; } catch(e) {}
+
   function renderStep2() {
     view.innerHTML = '';
     const heroHead = el('div', 'products-hero');
@@ -1449,21 +1452,30 @@ async function renderCheckout(view) {
       <div class="card mb-16">
         <div class="card-body">
           <div class="fw-700 mb-12" style="font-size: 16px;"><i class="fa-solid fa-credit-card text-primary"></i> Phương thức thanh toán</div>
-          <div class="payment-option selected" data-method="payos" style="border-color: var(--primary); background: var(--primary-light); cursor: pointer;">
-            <div class="payment-option-icon" style="background: var(--primary); color: #fff;"><i class="fa-solid fa-wallet"></i></div>
+          ${userBalance >= grandTotal ? `
+          <div class="payment-option selected" data-method="balance" style="border-color: var(--primary); background: var(--primary-light); cursor: pointer;">
+            <div class="payment-option-icon" style="background: #10b981; color: #fff;"><i class="fa-solid fa-wallet"></i></div>
             <div style="flex:1">
-              <div class="payment-option-name">Thanh toán PayOS</div>
-              <div class="payment-option-desc">Chuyển khoản QR, áp dụng mọi ngân hàng VN</div>
+              <div class="payment-option-name">Số dư tài khoản</div>
+              <div class="payment-option-desc">Số dư hiện tại: <strong style="color:#10b981">${fmt(userBalance)}</strong></div>
             </div>
             <div style="color: var(--primary); font-size: 20px;"><i class="fa-solid fa-circle-check"></i></div>
-          </div>
-          <div class="payment-option" data-method="bank_transfer" style="cursor: pointer; margin-top: 12px;">
-            <div class="payment-option-icon" style="background: #64748b; color: #fff;"><i class="fa-solid fa-building-columns"></i></div>
+          </div>` : `
+          <div class="payment-option" data-method="balance" style="cursor: not-allowed; opacity: .6; margin-bottom: 0;">
+            <div class="payment-option-icon" style="background: #94a3b8; color: #fff;"><i class="fa-solid fa-wallet"></i></div>
             <div style="flex:1">
-              <div class="payment-option-name">Chuyển khoản ngân hàng</div>
-              <div class="payment-option-desc">Chuyển khoản thủ công qua ngân hàng</div>
+              <div class="payment-option-name">Số dư tài khoản</div>
+              <div class="payment-option-desc">Số dư: <strong style="color:#ef4444">${fmt(userBalance)}</strong> — <a href="#/profile" style="color:var(--primary)">Nạp thêm</a></div>
             </div>
             <div style="color: var(--border); font-size: 20px;"><i class="fa-regular fa-circle"></i></div>
+          </div>`}
+          <div class="payment-option ${userBalance >= grandTotal ? '' : 'selected'}" data-method="payos" style="${userBalance >= grandTotal ? '' : 'border-color: var(--primary); background: var(--primary-light);'} cursor: pointer; margin-top: 12px;">
+            <div class="payment-option-icon" style="background: var(--primary); color: #fff;"><i class="fa-solid fa-qrcode"></i></div>
+            <div style="flex:1">
+              <div class="payment-option-name">PayOS — QR Ngân hàng</div>
+              <div class="payment-option-desc">Chuyển khoản QR, áp dụng mọi ngân hàng VN</div>
+            </div>
+            <div style="color: ${userBalance >= grandTotal ? 'var(--border)' : 'var(--primary)'}; font-size: 20px;"><i class="${userBalance >= grandTotal ? 'fa-regular fa-circle' : 'fa-solid fa-circle-check'}"></i></div>
           </div>
         </div>
       </div>
@@ -1489,9 +1501,10 @@ async function renderCheckout(view) {
     grid.appendChild(left); grid.appendChild(right); view.appendChild(grid);
 
     // Payment method selection
-    let selectedMethod = 'payos';
+    let selectedMethod = userBalance >= grandTotal ? 'balance' : 'payos';
     qsa('.payment-option', left).forEach(opt => {
       opt.onclick = () => {
+        if (opt.dataset.method === 'balance' && userBalance < grandTotal) return; // can't select insufficient
         selectedMethod = opt.dataset.method;
         qsa('.payment-option', left).forEach(o => {
           const isSelected = o.dataset.method === selectedMethod;
@@ -1544,9 +1557,9 @@ async function renderCheckout(view) {
       </div>
     `;
 
-    const methodLabel = paymentMethod === 'payos' ? 'Thanh toán PayOS' : 'Chuyển khoản ngân hàng';
-    const methodDesc = paymentMethod === 'payos' ? 'Chuyển khoản QR, áp dụng mọi ngân hàng VN' : 'Chuyển khoản thủ công qua ngân hàng';
-    const methodIcon = paymentMethod === 'payos' ? 'fa-wallet' : 'fa-building-columns';
+    const methodLabel = paymentMethod === 'balance' ? 'Số dư tài khoản' : 'PayOS — QR Ngân hàng';
+    const methodDesc = paymentMethod === 'balance' ? `Trừ trực tiếp từ số dư (${fmt(userBalance)})` : 'Chuyển khoản QR, áp dụng mọi ngân hàng VN';
+    const methodIcon = paymentMethod === 'balance' ? 'fa-wallet' : 'fa-qrcode';
 
     const grid = el('div', 'checkout-grid');
     const left = el('div');
@@ -1621,8 +1634,9 @@ async function renderCheckout(view) {
           toast('Đã tạo đơn! Chuyển đến thanh toán...', 'success', 5000);
           location.hash = `/orders/${order.order_code}`;
         } else {
+          // Balance payment — already paid
           cart.length = 0; saveCart(); updateCartCount();
-          toast('Đã tạo đơn hàng thành công!', 'success');
+          toast('Thanh toán thành công!', 'success');
           location.hash = `/orders/${order.order_code}`;
         }
       } catch (e) { toast(e.message, 'error'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-wallet"></i> Tạo đơn & Thanh toán'; }

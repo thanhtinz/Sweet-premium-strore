@@ -50,6 +50,7 @@ class OrderCreate(BaseModel):
     package_id: int
     quantity: int = 1
     custom_fields_data: Optional[dict] = None
+    payment_method: str = "payos"  # payos | balance
 
 
 class OrderDelivery(BaseModel):
@@ -135,10 +136,21 @@ def create_order(
         quantity=data.quantity,
         total_amount=total,
         status="pending",
-        payment_method="payos",
+        payment_method=data.payment_method if data.payment_method in ("payos", "balance") else "payos",
         custom_fields_data=data.custom_fields_data,
     )
     db.add(order)
+    db.flush()  # get order.id before balance deduction
+
+    # If paying with balance, deduct immediately
+    if data.payment_method == "balance":
+        from decimal import Decimal
+        from api.balance import deduct_balance
+        deduct_balance(db, int(current_user["user_id"]), Decimal(total), order.order_code)
+        order.status = "paid"
+        # Auto-deliver if applicable
+        auto_deliver(order, db)
+
     db.commit()
     db.refresh(order)
     return order_to_dict(order)

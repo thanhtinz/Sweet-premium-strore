@@ -34,6 +34,7 @@ const routes = {
   '/admin/tickets': renderAdminTickets,
   '/admin/bot-config': renderAdminBotConfig,
   '/admin/payments': renderAdminPayments,
+  '/admin/balance': renderAdminBalance,
   '/blog': renderBlogList,
   '/blog/:slug': renderBlogPost,
   '/profile': renderProfile,
