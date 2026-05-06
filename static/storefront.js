@@ -782,26 +782,30 @@ async function renderProduct(view, { slug }) {
       `;
       topSection.appendChild(ratingRow);
 
-      // Meta row: parent category › child category | sold count
+      // Meta chips: parent cat, child cat, sold — pill/chip style
       const metaRow = el('div', 'pd-meta-row');
-      let metaParts = [];
+      const chips = [];
       if (p.category_name) {
         const parentCat = categories.find(c => c.children?.some(s => s.slug === p.category_slug || s.id === p.category_id));
         if (parentCat) {
-          metaParts.push(`<a href="#/all?cat=${parentCat.slug}" class="pd-meta-link">${esc(parentCat.name)}</a>`);
-          metaParts.push(`<span class="pd-meta-sep">›</span>`);
-          const subHref = `#/all?cat=${parentCat.slug}&sub=${p.category_slug || p.category_id}`;
-          metaParts.push(`<a href="${subHref}" class="pd-meta-link">${esc(p.category_name)}</a>`);
+          const pIcon = parentCat.image_url || parentCat.icon_url;
+          const pImg = pIcon ? `<img src="${pIcon}" class="pd-chip-icon" alt="" />` : '';
+          chips.push(`<a href="#/all?cat=${parentCat.slug}" class="pd-chip">${pImg}${esc(parentCat.name)}</a>`);
+          const subCat = parentCat.children?.find(s => s.slug === p.category_slug || s.id === p.category_id);
+          const sIcon = subCat?.image_url || subCat?.icon_url || p.category_icon;
+          const sImg = sIcon ? `<img src="${sIcon}" class="pd-chip-icon" alt="" />` : '';
+          chips.push(`<a href="#/all?cat=${parentCat.slug}&sub=${p.category_slug || p.category_id}" class="pd-chip">${sImg}${esc(p.category_name)}</a>`);
         } else {
-          metaParts.push(`<a href="#/all?cat=${p.category_slug || p.category_id}" class="pd-meta-link">${esc(p.category_name)}</a>`);
+          const cIcon = p.category_icon;
+          const cImg = cIcon ? `<img src="${cIcon}" class="pd-chip-icon" alt="" />` : '';
+          chips.push(`<a href="#/all?cat=${p.category_slug || p.category_id}" class="pd-chip">${cImg}${esc(p.category_name)}</a>`);
         }
       }
       if (p.sold_count > 0) {
-        if (metaParts.length) metaParts.push(`<span class="pd-meta-divider">|</span>`);
-        metaParts.push(`<span class="pd-meta-sold">🔥 Đã bán ${p.sold_count}</span>`);
+        chips.push(`<span class="pd-chip pd-chip-sold">🔥 Đã bán ${p.sold_count}</span>`);
       }
-      if (metaParts.length) {
-        metaRow.innerHTML = metaParts.join('');
+      if (chips.length) {
+        metaRow.innerHTML = chips.join('');
         topSection.appendChild(metaRow);
       }
 
