@@ -1,0 +1,22 @@
+[
+  {
+    "content": "[COMPLETED] Fixed support API router prefix (/api/support → /support)",
+    "id": "fix-support-router",
+    "status": "completed"
+  },
+  {
+    "content": "[COMPLETED] Verified support API returning JSON instead of HTML",
+    "id": "test-support-api",
+    "status": "completed"
+  },
+  {
+    "content": "[COMPLETED] Split storefront.js - extracted auth pages to auth-pages.js",
+    "id": "split-storefront",
+    "status": "completed"
+  },
+  {
+    "content": "Split admin.js (1008 lines) into smaller modules",
+    "id": "split-admin",
+    "status": "pending"
+  }
+]

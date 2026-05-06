@@ -18,6 +18,8 @@ dependencies = [
     "aiofiles>=25.1.0",
     "psycopg2-binary>=2.9.11",
     "email-validator>=2.3.0",
+    "pyotp>=2.9.0",
+    "qrcode>=8.2",
 ]
 
 [tool.uv]

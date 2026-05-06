@@ -10,6 +10,38 @@ from api.auth import get_current_admin
 router = APIRouter(prefix="/gift-codes", tags=["gift-codes"])
 
 
+# ── Public: get public codes ───────────────────────────────────
+@router.get("/public")
+def get_public_codes(db: Session = Depends(get_db)):
+    now = datetime.now(timezone.utc)
+    codes = db.query(GiftCode).filter(
+        GiftCode.is_active == True,
+        GiftCode.is_public == True,
+    ).all()
+    
+    valid_codes = []
+    for gc in codes:
+        if gc.starts_at and gc.starts_at > now:
+            continue
+        if gc.expires_at and gc.expires_at < now:
+            continue
+        if gc.usage_limit > 0 and gc.usage_count >= gc.usage_limit:
+            continue
+            
+        valid_codes.append({
+            "id": gc.id,
+            "code": gc.code,
+            "discount_type": gc.discount_type,
+            "discount_value": float(gc.discount_value),
+            "min_order": float(gc.min_order) if gc.min_order else 0,
+            "max_discount": float(gc.max_discount) if gc.max_discount else None,
+            "expires_at": gc.expires_at.isoformat() if gc.expires_at else None,
+            "usage_limit": gc.usage_limit,
+            "usage_count": gc.usage_count,
+        })
+    return valid_codes
+
+
 # ── Public: validate code ───────────────────────────────────
 @router.get("/check/{code}")
 def check_code(code: str, db: Session = Depends(get_db)):

@@ -70,7 +70,19 @@ function renderAdminShell(wrap) {
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             <span>Blog</span>
           </button>
+          <button class="admin-nav-item ${activeSection === '/support-pages' ? 'active' : ''}" data-href="#/admin/support-pages">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20m-7-5h14M5 9h14"/></svg>
+            <span>Support Pages</span>
+          </button>
+          <button class="admin-nav-item ${activeSection === '/tickets' ? 'active' : ''}" data-href="#/admin/tickets">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+            <span>Support Tickets</span>
+          </button>
           <div class="divider"></div>
+          <button class="admin-nav-item ${activeSection === '/oauth-settings' ? 'active' : ''}" data-href="#/admin/oauth-settings">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m2.12 2.12l4.24 4.24M1 12h6m6 0h6m-17.78 7.78l4.24-4.24m2.12-2.12l4.24-4.24"/></svg>
+            <span>OAuth Settings</span>
+          </button>
           <button class="admin-nav-item" data-href="#/">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             <span>${ico.arrowLeft} Storefront</span>
@@ -328,7 +340,8 @@ async function showStockDetail(pkgId, pkgName) {
 async function renderAdminSettings(view) {
   const content = qs('#admin-content'); if (!content) return;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
-  const settings = await apiFetch('/admin/settings');
+  const [settings, cats] = await Promise.all([apiFetch('/admin/settings'), apiFetch('/categories/')]);
+  const homeCats = (settings.home_categories || '').split(',').map(s=>s.trim());
   content.innerHTML = `
     <div class="page-header"><div class="page-title">Cài đặt</div></div>
     <div class="card p-24" style="max-width:600px">
@@ -339,6 +352,13 @@ async function renderAdminSettings(view) {
         <div class="form-group"><label class="form-label">URL Logo</label><input class="form-input" id="s-logo" value="${settings.site_logo || ''}" /></div>
         <div class="form-group"><label class="form-label">Tiền tệ</label><select class="form-select" id="s-currency"><option value="VND" ${settings.currency === 'VND' ? 'selected' : ''}>VND</option><option value="USD" ${settings.currency === 'USD' ? 'selected' : ''}>USD</option></select></div>
         <div class="form-group"><label class="form-label">URL Website (cho PayOS redirect)</label><input class="form-input" id="s-baseurl" value="${settings.app_base_url || ''}" placeholder="https://yourdomain.com" /></div>
+        <div class="form-group"><label class="form-label">Thuế (%)</label><input type="number" step="0.1" class="form-input" id="s-tax-rate" value="${settings.tax_rate || '0'}" placeholder="Ví dụ: 10" /></div>
+        <div class="form-group">
+          <label class="form-label">Danh mục hiển thị trang chủ</label>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--bg-page); padding: 16px; border-radius: 8px;">
+            ${cats.map(c => `<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" class="home-cat-cb" value="${c.slug}" ${homeCats.includes(c.slug) ? 'checked' : ''}> <span class="fw-500">${c.name}</span></label>`).join('')}
+          </div>
+        </div>
 
         <div class="divider"></div>
         <div class="fw-600 mb-12">💳 Cấu hình PayOS</div>
@@ -375,12 +395,15 @@ async function renderAdminSettings(view) {
   };
   qs('#settings-form', content).onsubmit = async (e) => {
     e.preventDefault();
+    const selectedCats = Array.from(content.querySelectorAll('.home-cat-cb:checked')).map(cb => cb.value).join(',');
     const payload = {
       site_name: qs('#s-name', content).value,
       site_description: qs('#s-desc', content).value,
       site_logo: qs('#s-logo', content).value,
       currency: qs('#s-currency', content).value,
       app_base_url: qs('#s-baseurl', content).value,
+      tax_rate: qs('#s-tax-rate', content).value,
+      home_categories: selectedCats,
       payos_client_id: qs('#s-payos-client', content).value,
       google_client_id: qs('#s-google-id', content).value,
       discord_client_id: qs('#s-discord-id', content).value,
@@ -779,5 +802,207 @@ function showAffiliateModal(aff, onDone) {
       closeModal(); toast('Đã cập nhật', 'success'); onDone();
     } catch (err) { const e = qs('#aff-form-err'); e.textContent = err.message; e.style.display = 'block'; }
   };
+}
+
+// ── ADMIN SUPPORT PAGES ────────────────────────────────────────
+
+async function renderAdminSupportPages(view) {
+  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  
+  const refresh = async () => {
+    const pages = await apiFetch('/support/pages');
+    const content = `
+      <div class="page-header">
+        <div class="page-title">Quản lý trang hỗ trợ</div>
+        <button class="btn btn-primary" id="btn-add-page">+ Thêm trang</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Tiêu đề</th><th>Slug</th><th>Loại</th><th>Trạng thái</th><th>Hành động</th></tr>
+          </thead>
+          <tbody>
+            ${pages.length ? pages.map(p => `
+              <tr>
+                <td>${p.title}</td>
+                <td><code>${p.slug}</code></td>
+                <td><span class="badge">${p.page_type}</span></td>
+                <td>${p.is_published ? '<span class="text-success">Xuất bản</span>' : '<span class="text-muted">Nháp</span>'}</td>
+                <td>
+                  <button class="btn btn-sm btn-ghost" data-edit-page="${p.id}">Sửa</button>
+                  <button class="btn btn-sm btn-ghost text-danger" data-del-page="${p.id}">Xóa</button>
+                </td>
+              </tr>
+            `).join('') : '<tr><td colspan="5" class="text-center text-muted">Chưa có trang nào</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    `;
+    
+    view.innerHTML = content;
+    
+    qs('#btn-add-page', view).onclick = () => showSupportPageModal(null, refresh);
+    qsa('[data-edit-page]', view).forEach(btn => {
+      const page = pages.find(p => p.id === parseInt(btn.dataset.editPage));
+      if (page) btn.onclick = () => showSupportPageModal(page, refresh);
+    });
+    qsa('[data-del-page]', view).forEach(btn => {
+      btn.onclick = async () => {
+        if (!confirm('Xóa trang này?')) return;
+        await apiFetch(`/support/pages/${btn.dataset.delPage}`, { method: 'DELETE' });
+        toast('Đã xóa', 'success');
+        refresh();
+      };
+    });
+  };
+  await refresh();
+}
+
+function showSupportPageModal(page, onDone) {
+  const isEdit = !!page;
+  openModal(`
+    <h3 class="modal-title mb-16">${isEdit ? 'Sửa trang' : 'Thêm trang'}</h3>
+    <form id="page-form">
+      <div class="form-group">
+        <label class="form-label">Tiêu đề</label>
+        <input type="text" class="form-input" id="page-title" value="${page?.title || ''}" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Slug</label>
+        <input type="text" class="form-input" id="page-slug" value="${page?.slug || ''}" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Loại</label>
+        <select class="form-select" id="page-type" required>
+          <option value="warranty" ${page?.page_type === 'warranty' ? 'selected' : ''}>Chính sách bảo hành</option>
+          <option value="purchase_guide" ${page?.page_type === 'purchase_guide' ? 'selected' : ''}>Hướng dẫn mua hàng</option>
+          <option value="faq" ${page?.page_type === 'faq' ? 'selected' : ''}>Câu hỏi thường gặp</option>
+          <option value="privacy" ${page?.page_type === 'privacy' ? 'selected' : ''}>Chính sách bảo mật</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nội dung (HTML)</label>
+        <textarea class="form-input" id="page-content" rows="10">${page?.content || ''}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mô tả SEO</label>
+        <textarea class="form-input" id="page-desc" rows="2">${page?.meta_description || ''}</textarea>
+      </div>
+      <div class="form-group">
+        <label style="display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="page-published" ${page?.is_published ? 'checked' : ''} />
+          <span>Xuất bản</span>
+        </label>
+      </div>
+      <div class="flex gap-8">
+        <button type="submit" class="btn btn-primary flex-1">Lưu</button>
+        <button type="button" class="btn btn-ghost" id="page-cancel">Hủy</button>
+      </div>
+    </form>
+  `);
+  
+  qs('#page-cancel').onclick = closeModal;
+  qs('#page-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const body = {
+      slug: qs('#page-slug').value,
+      title: qs('#page-title').value,
+      content: qs('#page-content').value,
+      page_type: qs('#page-type').value,
+      meta_description: qs('#page-desc').value,
+      is_published: qs('#page-published').checked,
+    };
+    try {
+      if (isEdit) {
+        await apiFetch(`/support/pages/${page.id}`, { method: 'PUT', body: JSON.stringify(body) });
+      } else {
+        await apiFetch('/support/pages', { method: 'POST', body: JSON.stringify(body) });
+      }
+      closeModal();
+      toast('Đã lưu', 'success');
+      onDone();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  };
+}
+
+// ── ADMIN SUPPORT TICKETS ──────────────────────────────────────
+
+async function renderAdminTickets(view) {
+  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  
+  const refresh = async () => {
+    const tickets = await apiFetch('/support/tickets?user_id=admin');
+    const content = `
+      <div class="page-header">
+        <div class="page-title">Quản lý yêu cầu hỗ trợ</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Mã</th><th>Khách</th><th>Tiêu đề</th><th>Danh mục</th><th>Trạng thái</th><th>Ưu tiên</th><th>Hành động</th></tr>
+          </thead>
+          <tbody>
+            ${tickets.length ? tickets.map(t => `
+              <tr>
+                <td><strong>${t.ticket_number}</strong></td>
+                <td>${t.user_name}</td>
+                <td>${t.subject}</td>
+                <td><span class="badge">${t.category}</span></td>
+                <td><span class="badge status-${t.status}">${statusLabel(t.status)}</span></td>
+                <td><span class="badge priority-${t.priority}">${priorityLabel(t.priority)}</span></td>
+                <td>
+                  <button class="btn btn-sm btn-ghost" data-view-ticket="${t.id}">Xem</button>
+                </td>
+              </tr>
+            `).join('') : '<tr><td colspan="7" class="text-center text-muted">Không có yêu cầu nào</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    `;
+    
+    view.innerHTML = content;
+    qsa('[data-view-ticket]', view).forEach(btn => {
+      btn.onclick = () => {
+        const ticket = tickets.find(t => t.id === parseInt(btn.dataset.viewTicket));
+        if (ticket) showAdminTicketModal(ticket, refresh);
+      };
+    });
+  };
+  await refresh();
+}
+
+function showAdminTicketModal(ticket, onDone) {
+  openModal(`
+    <h3 class="modal-title mb-16">Ticket: ${ticket.ticket_number}</h3>
+    <div class="form-group">
+      <label class="form-label">Tiêu đề</label>
+      <input type="text" class="form-input" disabled value="${ticket.subject}" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Trạng thái</label>
+      <select class="form-select" id="ticket-status">
+        <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>Mở</option>
+        <option value="in_progress" ${ticket.status === 'in_progress' ? 'selected' : ''}>Đang xử lý</option>
+        <option value="resolved" ${ticket.status === 'resolved' ? 'selected' : ''}>Đã giải quyết</option>
+        <option value="closed" ${ticket.status === 'closed' ? 'selected' : ''}>Đóng</option>
+      </select>
+    </div>
+    <div style="margin-top: 16px;">
+      <button class="btn btn-primary" id="ticket-update">Cập nhật trạng thái</button>
+      <button class="btn btn-ghost" id="ticket-close">Đóng</button>
+    </div>
+  `);
+  
+  qs('#ticket-update').onclick = async () => {
+    const status = qs('#ticket-status').value;
+    await apiFetch(`/support/tickets/${ticket.id}/status?status=${status}`, { method: 'PUT' });
+    closeModal();
+    toast('Đã cập nhật', 'success');
+    onDone();
+  };
+  
+  qs('#ticket-close').onclick = closeModal;
 }
 

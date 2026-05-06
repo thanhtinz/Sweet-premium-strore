@@ -113,7 +113,15 @@ def create_order(
         if available < data.quantity:
             raise HTTPException(status_code=400, detail="Insufficient stock")
 
+    from db.models import SiteSetting
+    
     total = float(pkg.price) * data.quantity
+    
+    # Calculate tax
+    tax_setting = db.query(SiteSetting).filter(SiteSetting.key == "tax_rate").first()
+    tax_rate = float(tax_setting.value) if tax_setting and tax_setting.value else 0.0
+    tax_amount = (total * tax_rate) / 100
+    total = round(total + tax_amount)
 
     order = Order(
         order_code=gen_order_code(),

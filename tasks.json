@@ -1,27 +1,47 @@
 [
   {
-    "content": "Fix navigate() #storefront-shell → #app-shell + hide sidebar on admin",
+    "content": "Thiết kế OAuth Settings page (trang admin cấu hình OAuth)",
     "id": "1",
     "status": "completed"
   },
   {
-    "content": "Fix mobile header alignment (header-left, gap, search)",
+    "content": "Tạo API endpoints quản lý OAuth config (/api/admin/oauth/*)",
     "id": "2",
     "status": "completed"
   },
   {
-    "content": "Fix responsive CSS: sidebar overlay, hamburger, auth-box→auth-card",
+    "content": "Thêm CSS chuyên nghiệp cho OAuth settings (card, form, toggle, callback URL display)",
     "id": "3",
     "status": "completed"
   },
   {
-    "content": "Rewrite login/register UI with polished design",
+    "content": "Tạo OAuth login buttons component (Google, Facebook, GitHub, Discord, TikTok)",
     "id": "4",
     "status": "completed"
   },
   {
-    "content": "Test and verify all fixes",
+    "content": "Thêm OAuth buttons vào login page với divider",
     "id": "5",
+    "status": "completed"
+  },
+  {
+    "content": "Thêm hướng dẫn cấu hình chi tiết từng nền tảng OAuth",
+    "id": "6",
+    "status": "completed"
+  },
+  {
+    "content": "Thêm menu OAuth Settings vào admin navigation",
+    "id": "7",
+    "status": "completed"
+  },
+  {
+    "content": "Responsive design CSS cho OAuth buttons (grid, hover effects)",
+    "id": "8",
+    "status": "completed"
+  },
+  {
+    "content": "Thêm routes /admin/oauth-settings vào app.js",
+    "id": "9",
     "status": "completed"
   }
 ]

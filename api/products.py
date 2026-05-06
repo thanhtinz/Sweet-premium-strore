@@ -132,6 +132,7 @@ def product_to_dict(p: Product, include_packages=True, db=None) -> dict:
         "category_id": p.category_id,
         "category_name": p.category.name if p.category else None,
         "category_slug": p.category.slug if p.category else None,
+        "category_icon": p.category.icon_url if p.category else None,
         "description": p.description,
         "notes": p.notes,
         "image_url": p.image_url,
@@ -241,6 +242,16 @@ def get_product(slug: str, db: Session = Depends(get_db)):
     ).filter(Review.product_id == p.id, Review.is_visible == True).first()
     d["review_avg"] = round(float(stats[0]), 1) if stats[0] else 0
     d["review_count"] = stats[1] or 0
+
+    # Sold count
+    from db.models import Order
+    sold = db.query(func.sum(Order.quantity)).join(
+        ProductPackage, Order.package_id == ProductPackage.id
+    ).filter(
+        ProductPackage.product_id == p.id,
+        Order.status.in_(["paid", "completed"]),
+    ).scalar()
+    d["sold_count"] = sold or 0
 
     # Related products (same category, up to 6)
     related = []

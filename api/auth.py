@@ -12,6 +12,11 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr
 from jose import jwt, JWTError
 import bcrypt
+import pyotp
+import qrcode
+import qrcode.image.svg
+import io
+import base64
 from sqlalchemy.orm import Session
 
 from db import get_db
@@ -80,6 +85,7 @@ def _user_dict(user: User, is_admin: bool = False, role: str = None) -> dict:
         "provider": user.provider,
         "is_admin": is_admin,
         "role": role,
+        "2fa_enabled": bool(user.two_factor_secret)
     }
 
 
@@ -122,6 +128,7 @@ class RegisterBody(BaseModel):
 class LoginBody(BaseModel):
     email: EmailStr
     password: str
+    totp_code: str = None
 
 
 # ── Register / Login ────────────────────────────────────────
@@ -152,6 +159,15 @@ def login(body: LoginBody, db: Session = Depends(get_db)):
         raise HTTPException(401, "Email hoặc mật khẩu không đúng")
     if not user.is_active:
         raise HTTPException(403, "Tài khoản đã bị khóa")
+        
+    # Verify 2FA if enabled
+    if user.two_factor_secret:
+        if not body.totp_code:
+            return {"requires_2fa": True, "message": "Vui lòng nhập mã xác thực 2 bước"}
+        totp = pyotp.TOTP(user.two_factor_secret)
+        if not totp.verify(body.totp_code):
+            raise HTTPException(401, "Mã xác thực 2 bước không chính xác")
+            
     token = _create_token(user)
     return {"token": token, "user": _user_dict(user)}
 
@@ -187,6 +203,77 @@ def update_profile(data: ProfileUpdate, current_user: dict = Depends(get_current
 class ChangePassword(BaseModel):
     current_password: str
     new_password: str
+@router.get("/2fa/setup")
+def setup_2fa(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == int(current_user["user_id"])).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+        
+    if user.two_factor_secret:
+        raise HTTPException(400, "2FA is already enabled")
+        
+    # Generate new secret
+    secret = pyotp.random_base32()
+    totp = pyotp.TOTP(secret)
+    
+    # Store temporarily in memory or generate new each time until verified
+    # For simplicity, we'll return the secret and require it back for verification
+    
+    # Generate QR code
+    provisioning_uri = totp.provisioning_uri(name=user.email, issuer_name="Digital Product Shop")
+    
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(provisioning_uri)
+    qr.make(fit=True)
+    
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    # Convert image to base64
+    buffered = io.BytesIO()
+    img.save(buffered, format="PNG")
+    qr_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+    
+    return {
+        "secret": secret,
+        "qr_code": f"data:image/png;base64,{qr_b64}"
+    }
+
+class Verify2FA(BaseModel):
+    secret: str
+    code: str
+
+@router.post("/2fa/verify")
+def verify_2fa(data: Verify2FA, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == int(current_user["user_id"])).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+        
+    totp = pyotp.TOTP(data.secret)
+    if not totp.verify(data.code):
+        raise HTTPException(400, "Mã xác thực không chính xác")
+        
+    # Save secret to enable 2FA
+    user.two_factor_secret = data.secret
+    db.commit()
+    
+    return {"ok": True, "message": "Xác thực 2 bước đã được bật"}
+
+@router.post("/2fa/disable")
+def disable_2fa(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == int(current_user["user_id"])).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+        
+    user.two_factor_secret = None
+    db.commit()
+    
+    return {"ok": True, "message": "Xác thực 2 bước đã bị tắt"}
+
 
 
 @router.post("/change-password")

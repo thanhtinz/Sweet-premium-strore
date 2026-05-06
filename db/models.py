@@ -160,6 +160,7 @@ class User(Base):
     avatar_url = Column(Text, nullable=True)
     provider = Column(String(50), default="local")  # local | google | discord
     provider_id = Column(String(255), nullable=True)  # external user id
+    two_factor_secret = Column(String(255), nullable=True)  # TOTP secret key
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=now_utc)
     updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
@@ -205,6 +206,7 @@ class GiftCode(Base):
     starts_at = Column(DateTime(timezone=True), nullable=True)
     expires_at = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, default=True)
+    is_public = Column(Boolean, default=False)  # Show on UI
     created_at = Column(DateTime(timezone=True), default=now_utc)
 
 
@@ -292,3 +294,72 @@ class Review(Base):
     created_at = Column(DateTime(timezone=True), default=now_utc)
 
     product = relationship("Product", back_populates="reviews")
+
+
+# ── Support Settings ──────────────────────────────────
+
+class SiteConfig(Base):
+    __tablename__ = "site_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(255), unique=True, nullable=False, index=True)
+    value = Column(Text)  # JSON or plain text
+    description = Column(Text)
+    updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
+
+
+# ── Support Pages (Policies, FAQs, Guidelines) ────────
+
+class SupportPage(Base):
+    __tablename__ = "support_pages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    slug = Column(String(255), unique=True, nullable=False, index=True)
+    title = Column(String(500), nullable=False)
+    content = Column(Text, nullable=False)  # HTML content
+    page_type = Column(String(50))  # warranty | purchase_guide | faq | privacy
+    meta_description = Column(Text)
+    is_published = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+    updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
+
+
+# ── Support Tickets ───────────────────────────────────
+
+class SupportTicket(Base):
+    __tablename__ = "support_tickets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_number = Column(String(50), unique=True, nullable=False, index=True)
+    user_id = Column(String(255), nullable=False, index=True)
+    user_email = Column(String(255), nullable=False)
+    user_name = Column(String(255), nullable=False)
+    subject = Column(String(500), nullable=False)
+    description = Column(Text, nullable=False)
+    priority = Column(String(20), default="normal")  # low | normal | high | urgent
+    status = Column(String(20), default="open")  # open | in_progress | resolved | closed
+    category = Column(String(100))  # order | product | payment | other
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
+    assigned_to = Column(String(255), nullable=True)  # admin user
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+    updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+    messages = relationship("TicketMessage", back_populates="ticket", cascade="all, delete-orphan")
+
+
+class TicketMessage(Base):
+    __tablename__ = "ticket_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(Integer, ForeignKey("support_tickets.id", ondelete="CASCADE"), nullable=False)
+    sender_id = Column(String(255), nullable=False)
+    sender_name = Column(String(255), nullable=False)
+    sender_type = Column(String(20))  # user | admin
+    message = Column(Text, nullable=False)
+    attachments = Column(JSON, default={})  # file URLs
+    is_internal = Column(Boolean, default=False)  # not visible to user
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+
+    ticket = relationship("SupportTicket", back_populates="messages")

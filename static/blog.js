@@ -17,7 +17,13 @@ async function renderBlogList(view) {
     const { items, total, pages } = postData;
 
     view.innerHTML = '';
-    view.appendChild(el('div', 'breadcrumb mb-16', `<a href="#/">Trang chủ</a> <span>›</span> <strong>Blog</strong>`));
+    
+    const heroHead = el('div', 'products-hero', `
+      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <strong>Blog</strong></div>
+      <h1 class="products-hero-title"><i class="fa-solid fa-newspaper"></i> Góc chia sẻ</h1>
+      <p class="products-hero-desc">Cập nhật tin tức, hướng dẫn và mẹo hay mỗi ngày</p>
+    `);
+    view.appendChild(heroHead);
 
     // Category filter chips
     if (categories.length) {

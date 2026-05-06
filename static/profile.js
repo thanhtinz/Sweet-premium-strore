@@ -11,22 +11,31 @@ async function renderProfile(view) {
     await fetchMe();
     const u = currentUser;
     view.innerHTML = '';
-    view.appendChild(el('div', 'breadcrumb mb-16', `<a href="#/">Trang chủ</a> <span>›</span> <strong>Tài khoản</strong>`));
-    view.appendChild(el('div', 'page-header', '<div class="page-title">Tài khoản của tôi</div>'));
+    
+    const heroHead = el('div', 'products-hero');
+    heroHead.innerHTML = `
+      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <strong>Tài khoản</strong></div>
+      <h1 class="products-hero-title"><i class="fa-solid fa-user-circle"></i> Tài khoản của tôi</h1>
+      <p class="products-hero-desc">Quản lý thông tin cá nhân và cài đặt bảo mật</p>
+    `;
+    view.appendChild(heroHead);
 
     // Profile card
-    const profileCard = el('div', 'card profile-card mb-24');
+    const profileCard = el('div', 'info-card');
     profileCard.innerHTML = `
-      <div class="profile-card-inner">
-        <div class="profile-avatar">
-          ${u.avatar_url ? `<img src="${u.avatar_url}" alt="" />` : `<div class="profile-avatar-placeholder">${(u.display_name || u.email || 'U').charAt(0).toUpperCase()}</div>`}
+      <div class="info-card-head"><div class="info-card-title"><i class="fa-solid fa-address-card"></i> Thông tin hồ sơ</div></div>
+      <div class="info-card-body">
+        <div class="profile-card-inner" style="background: none; border: none; padding: 0;">
+          <div class="profile-avatar">
+            ${u.avatar_url ? `<img src="${u.avatar_url}" alt="" />` : `<div class="profile-avatar-placeholder">${(u.display_name || u.email || 'U').charAt(0).toUpperCase()}</div>`}
+          </div>
+          <div class="profile-info">
+            <div class="profile-name">${u.display_name || u.email?.split('@')[0] || 'User'}</div>
+            <div class="profile-email">${u.email || '—'}</div>
+            <div class="profile-provider">${u.provider ? `<span class="badge badge-blue">${u.provider}</span>` : '<span class="badge badge-gray">Tài khoản cửa hàng</span>'}</div>
+          </div>
+          <button class="btn btn-outline btn-sm" id="profile-edit-btn"><i class="fa-solid fa-pen-to-square"></i> Chỉnh sửa</button>
         </div>
-        <div class="profile-info">
-          <div class="profile-name">${u.display_name || u.email?.split('@')[0] || 'User'}</div>
-          <div class="profile-email">${u.email || '—'}</div>
-          <div class="profile-provider">${u.provider ? `<span class="badge badge-purple">${u.provider}</span>` : '<span class="badge badge-gray">local</span>'}</div>
-        </div>
-        <button class="btn btn-ghost btn-sm" id="profile-edit-btn">Chỉnh sửa</button>
       </div>
     `;
     view.appendChild(profileCard);
@@ -55,21 +64,65 @@ async function renderProfile(view) {
       };
     };
 
-    // Change password (only for local provider)
+    // Security Settings
+    const securityCard = el('div', 'info-card');
+    let pwFormHtml = '';
+    
     if (!u.provider || u.provider === 'local') {
-      const pwCard = el('div', 'card mb-24');
-      pwCard.innerHTML = `
-        <div class="card-header"><div class="card-title">Đổi mật khẩu</div></div>
-        <div style="padding:16px">
-          <form id="pw-form">
-            <div class="form-group"><label class="form-label">Mật khẩu hiện tại</label><input type="password" class="form-input" id="pw-current" /></div>
-            <div class="form-group"><label class="form-label">Mật khẩu mới</label><input type="password" class="form-input" id="pw-new" /></div>
-            <div id="pw-form-err" class="form-error mb-12" style="display:none"></div>
-            <button type="submit" class="btn btn-primary">Đổi mật khẩu</button>
-          </form>
-        </div>
+      pwFormHtml = `
+        <form id="pw-form" class="mb-24">
+          <h4 class="fw-600 mb-12">Đổi mật khẩu</h4>
+          <div class="form-row form-row-2">
+            <div class="form-group"><label class="form-label">Mật khẩu hiện tại</label><input type="password" class="form-input" id="pw-current" placeholder="Nhập mật khẩu hiện tại" /></div>
+            <div class="form-group"><label class="form-label">Mật khẩu mới</label><input type="password" class="form-input" id="pw-new" placeholder="Nhập mật khẩu mới" /></div>
+          </div>
+          <div id="pw-form-err" class="form-error mb-12" style="display:none"></div>
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-key"></i> Đổi mật khẩu</button>
+        </form>
+        <div class="divider mb-24"></div>
       `;
-      view.appendChild(pwCard);
+    }
+
+    securityCard.innerHTML = `
+      <div class="info-card-head"><div class="info-card-title"><i class="fa-solid fa-shield-halved"></i> Bảo mật tài khoản</div></div>
+      <div class="info-card-body">
+        ${pwFormHtml}
+        
+        
+        <h4 class="fw-600 mb-12">Xác thực 2 bước (2FA)</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-page); margin-bottom: 24px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: ${u['2fa_enabled'] ? 'var(--primary-light)' : 'var(--bg-card)'}; color: ${u['2fa_enabled'] ? 'var(--primary)' : 'var(--text-muted)'}; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: var(--shadow-sm);">
+              <i class="fa-solid fa-mobile-screen-button"></i>
+            </div>
+            <div>
+              <div class="fw-600">Bảo mật bằng ứng dụng Authenticator</div>
+              <div class="text-sm ${u['2fa_enabled'] ? 'text-primary fw-600' : 'text-muted'}">${u['2fa_enabled'] ? 'Đang bật' : 'Đang tắt'}</div>
+            </div>
+          </div>
+          <button class="btn ${u['2fa_enabled'] ? 'btn-outline text-red' : 'btn-outline text-primary'}" id="btn-2fa-toggle" style="border-color: ${u['2fa_enabled'] ? 'var(--red-bg)' : 'var(--primary-light)'};">
+            ${u['2fa_enabled'] ? 'Tắt 2FA' : 'Cài đặt'}
+          </button>
+        </div>
+        
+        <h4 class="fw-600 mb-12">Quản lý phiên đăng nhập</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-page);">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--green-bg); color: var(--green); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+              <i class="fa-solid fa-desktop"></i>
+            </div>
+            <div>
+              <div class="fw-600">Thiết bị hiện tại</div>
+              <div class="text-sm text-muted">Đang hoạt động trên trình duyệt này</div>
+            </div>
+          </div>
+          <button class="btn btn-outline text-red" style="border-color: var(--red-bg);" id="profile-logout-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất</button>
+        </div>
+      </div>
+    `;
+    view.appendChild(securityCard);
+
+    if (!u.provider || u.provider === 'local') {
       qs('#pw-form', view).onsubmit = async (e) => {
         e.preventDefault();
         const body = {
@@ -85,10 +138,65 @@ async function renderProfile(view) {
         } catch (err) { const e = qs('#pw-form-err'); e.textContent = err.message; e.style.display = 'block'; }
       };
     }
+    
+    qs('#btn-2fa-toggle', view).onclick = async () => {
+      if (u['2fa_enabled']) {
+        if (!confirm('Bạn có chắc chắn muốn tắt xác thực 2 bước?')) return;
+        try {
+          await apiFetch('/auth/2fa/disable', { method: 'POST' });
+          toast('Đã tắt xác thực 2 bước', 'success');
+          renderProfile(view);
+        } catch (e) { toast(e.message, 'error'); }
+      } else {
+        try {
+          const data = await apiFetch('/auth/2fa/setup');
+          openModal(`
+            <h3 class="modal-title mb-16">Cài đặt xác thực 2 bước</h3>
+            <div style="text-align: center; margin-bottom: 24px;">
+              <p class="mb-12">Quét mã QR dưới đây bằng Google Authenticator hoặc Authy</p>
+              <img src="${data.qr_code}" alt="QR Code" style="width: 200px; height: 200px; border: 1px solid var(--border); border-radius: 8px; margin: 0 auto;" />
+              <p class="text-sm text-muted mt-12" style="font-family: monospace; letter-spacing: 2px; padding: 8px; background: var(--bg-page); border-radius: 4px; user-select: all;">${data.secret}</p>
+            </div>
+            <form id="2fa-verify-form">
+              <div class="form-group">
+                <label class="form-label">Nhập mã xác thực gồm 6 chữ số</label>
+                <input type="text" class="form-input" id="totp-code" placeholder="123456" maxlength="6" style="font-size: 20px; letter-spacing: 4px; text-align: center;" />
+              </div>
+              <div id="2fa-err" class="form-error mb-12" style="display:none"></div>
+              <button type="submit" class="btn btn-primary btn-full"><i class="fa-solid fa-check"></i> Xác nhận</button>
+            </form>
+          `);
+          
+          qs('#2fa-verify-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const code = qs('#totp-code').value.trim();
+            if (!code || code.length !== 6) { toast('Vui lòng nhập mã 6 chữ số', 'error'); return; }
+            try {
+              await apiFetch('/auth/2fa/verify', { 
+                method: 'POST', 
+                body: JSON.stringify({ secret: data.secret, code }) 
+              });
+              closeModal();
+              toast('Đã bật xác thực 2 bước', 'success');
+              renderProfile(view);
+            } catch (err) { 
+              const errEl = qs('#2fa-err'); 
+              errEl.textContent = err.message; 
+              errEl.style.display = 'block'; 
+            }
+          };
+        } catch (e) { toast(e.message, 'error'); }
+      }
+    };
+
+    qs('#profile-logout-btn', view).onclick = () => {
+      saveToken(null); currentUser = null; updateAuthUI();
+      toast('Đã đăng xuất', 'info'); location.hash = '/';
+    };
 
     // Order history
-    const ordersCard = el('div', 'card');
-    ordersCard.innerHTML = `<div class="card-header"><div class="card-title">Lịch sử đơn hàng</div><a href="#/orders" class="btn btn-ghost btn-sm">Xem tất cả</a></div><div id="profile-orders" style="padding:16px"><div class="page-loading"><div class="spinner"></div></div></div>`;
+    const ordersCard = el('div', 'info-card');
+    ordersCard.innerHTML = `<div class="info-card-head" style="display:flex; justify-content:space-between; align-items:center;"><div class="info-card-title"><i class="fa-solid fa-clock-rotate-left"></i> Lịch sử đơn hàng gần đây</div><a href="#/orders" class="btn btn-outline btn-sm" style="background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.3); color:#fff;">Xem tất cả đơn</a></div><div class="info-card-body" id="profile-orders"><div class="page-loading"><div class="spinner"></div></div></div>`;
     view.appendChild(ordersCard);
 
     try {

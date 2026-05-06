@@ -62,6 +62,6 @@ def update_settings(data: dict, db: Session = Depends(get_db)):
 @router.get("/settings/public")
 def get_public_settings(db: Session = Depends(get_db)):
     """Public settings like site name, logo, etc."""
-    public_keys = ["site_name", "site_logo", "site_description", "site_banner", "currency"]
+    public_keys = ["site_name", "site_logo", "site_description", "site_banner", "currency", "tax_rate", "home_categories"]
     settings = db.query(SiteSetting).filter(SiteSetting.key.in_(public_keys)).all()
     return {s.key: s.value for s in settings}

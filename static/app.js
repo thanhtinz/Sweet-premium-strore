@@ -2,14 +2,18 @@
 // ── Router ─────────────────────────────────────────────────────
 const routes = {
   '/': renderHome,
-  '/products': renderAllProducts,
-  '/category/:slug': renderCategory,
+  '/all': renderAllProducts,
+  '/category/:slug': (view, { slug }) => { location.hash = `/all?cat=${slug}`; },
   '/product/:slug': renderProduct,
   '/cart': renderCart,
+  '/offers': renderOffers,
   '/checkout': renderCheckout,
   '/orders': renderOrders,
   '/orders/:code': renderOrderDetail,
-  '/search': renderSearch,
+  '/search': (view, params) => {
+    const q = new URLSearchParams(location.hash.split('?')[1] || '').get('q') || '';
+    location.hash = `/all?q=${encodeURIComponent(q)}`;
+  },
   '/login': renderLogin,
   '/register': renderRegister,
   '/auth-callback': renderAuthCallback,
@@ -19,18 +23,25 @@ const routes = {
   '/admin/orders': renderAdminOrders,
   '/admin/stock': renderAdminStock,
   '/admin/settings': renderAdminSettings,
+  '/admin/oauth-settings': renderAdminOAuthSettings,
   '/admin/banners': renderAdminBanners,
   '/admin/flash-sales': renderAdminFlashSales,
   '/admin/gift-codes': renderAdminGiftCodes,
   '/admin/affiliates': renderAdminAffiliates,
+  '/admin/blog': renderAdminBlog,
+  '/admin/support-pages': renderAdminSupportPages,
+  '/admin/tickets': renderAdminTickets,
   '/blog': renderBlogList,
   '/blog/:slug': renderBlogPost,
-  '/admin/blog': renderAdminBlog,
   '/profile': renderProfile,
+  '/support': renderSupportHome,
+  '/support/:slug': (view, { slug }) => renderSupportPage(slug),
+  '/support/tickets/:ticketId': (view, { ticketId }) => renderTicketDetail(ticketId),
+  '/support/tickets': renderUserTickets,
 };
 
 function parseRoute(hash) {
-  const path = hash.replace(/^#/, '') || '/';
+  const path = hash.replace(/^#/, '').split('?')[0] || '/';
   for (const pattern of Object.keys(routes)) {
     const regex = new RegExp('^' + pattern.replace(/:([^/]+)/g, '([^/]+)') + '$');
     const match = path.match(regex);
@@ -46,7 +57,13 @@ function parseRoute(hash) {
 
 async function navigate() {
   const hash = location.hash || '#/';
-  const view = qs('#app-view');
+  let view = qs('#app-view');
+  
+  // Clone to detach any pending async appends from previous route
+  const newView = view.cloneNode(false);
+  view.parentNode.replaceChild(newView, view);
+  view = newView;
+
   view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   closeSidebar();
 
@@ -58,6 +75,9 @@ async function navigate() {
   const isAdmin = hash.startsWith('#/admin');
   const appShell = qs('#app-shell');
   const sidebar = qs('#sidebar');
+  const footer = qs('#site-footer');
+  
+  if (footer) footer.style.display = isAdmin ? 'none' : 'block';
   const sidebarOverlay = qs('#sidebar-overlay');
   const adminWrap = qs('#admin-wrap');
 
@@ -100,19 +120,25 @@ async function loadSidebar() {
     nav.appendChild(allItem);
     categories.forEach(cat => {
       const item = el('a', 'nav-item');
-      item.href = `#/category/${cat.slug}`;
+      item.href = `#/all?cat=${cat.slug}`;
       const icon = cat.icon_url ? `<img src="${cat.icon_url}" alt="" style="width:18px;height:18px;object-fit:contain" />` : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
       item.innerHTML = `<div class="nav-icon">${icon}</div><span>${cat.name}</span>`;
       nav.appendChild(item);
     });
 
-    // ── Blog link ──
+    // ── Offers & Blog link ──
     const divider = el('div', 'sidebar-divider');
     nav.appendChild(divider);
     nav.appendChild(el('div', 'sidebar-section-title', 'Khác'));
+    
+    const offersItem = el('a', 'nav-item' + (location.hash === '#/offers' ? ' active' : ''));
+    offersItem.href = '#/offers';
+    offersItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-gift"></i></div><span>Ưu đãi</span>';
+    nav.appendChild(offersItem);
+
     const blogItem = el('a', 'nav-item' + (location.hash === '#/blog' ? ' active' : ''));
     blogItem.href = '#/blog';
-    blogItem.innerHTML = '<div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div><span>Blog</span>';
+    blogItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-newspaper"></i></div><span>Blog</span>';
     nav.appendChild(blogItem);
   } catch (_) {}
 }
@@ -126,6 +152,26 @@ async function init() {
   await fetchMe();
   updateAuthUI();
   updateCartCount();
+  
+  // Set current year in footer
+  const yearEl = document.getElementById('f-current-year');
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+  try {
+    appSettings = await apiFetch('/admin/settings/public').catch(() => ({}));
+    
+    // Update footer with settings
+    if (appSettings.site_name) {
+      document.title = appSettings.site_name;
+      const n1 = qs('#f-site-name'); if (n1) n1.textContent = appSettings.site_name;
+      const n2 = qs('#f-site-copy'); if (n2) n2.textContent = appSettings.site_name;
+    }
+    if (appSettings.site_description) {
+      const desc = qs('#f-site-desc');
+      if (desc) desc.textContent = appSettings.site_description;
+    }
+  } catch (e) {}
+
   await loadSidebar();
 
   window.addEventListener('hashchange', navigate);
@@ -146,7 +192,7 @@ async function init() {
   });
 
   // Search
-  const doSearch = () => { const q = (qs('#search-input')?.value || '').trim(); if (q) location.hash = `/search?q=${encodeURIComponent(q)}`; };
+  const doSearch = () => { const q = (qs('#search-input')?.value || '').trim(); if (q) location.hash = `/all?q=${encodeURIComponent(q)}`; };
   qs('#search-btn')?.addEventListener('click', doSearch);
   qs('#search-input')?.addEventListener('keypress', e => { if (e.key === 'Enter') doSearch(); });
 

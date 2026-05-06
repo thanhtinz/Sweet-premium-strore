@@ -13,6 +13,8 @@ let authToken = null;
 let categories = [];
 let cart = JSON.parse(localStorage.getItem('cart') || '[]');
 
+let appSettings = {};
+
 // ── Utilities ──────────────────────────────────────────────────
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
 const fmtDate = (s) => s ? new Date(s).toLocaleString('vi-VN') : '—';
@@ -135,7 +137,17 @@ function addToCart(product, pkg, quantity = 1, fields = {}) {
   saveCart();
   toast(`Đã thêm <b>${pkg.name}</b> vào giỏ hàng`, 'success');
 }
-function removeFromCart(pkg_id) { cart = cart.filter(i => i.pkg_id !== pkg_id); saveCart(); }
+function clearCart() {
+  cart.length = 0;
+  saveCart();
+}
+
+function removeFromCart(pkg_id) { 
+  const newCart = cart.filter(i => i.pkg_id !== pkg_id); 
+  cart.length = 0;
+  cart.push(...newCart);
+  saveCart(); 
+}
 function cartTotal() { return cart.reduce((s, i) => s + i.pkg_price * i.quantity, 0); }
 
 // ── Modal ──────────────────────────────────────────────────────

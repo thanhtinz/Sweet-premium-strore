@@ -22,6 +22,8 @@ from api.affiliates import router as aff_router
 from api.blog import router as blog_router
 from api.search import router as search_router
 from api.reviews import router as reviews_router
+from api.support import router as support_router
+from api.oauth import router as oauth_router
 
 
 def get_file_hash(filepath: str) -> str:
@@ -62,6 +64,8 @@ def create_app(static_dir: str) -> FastAPI:
     api.include_router(blog_router)
     api.include_router(search_router)
     api.include_router(reviews_router)
+    api.include_router(support_router)
+    api.include_router(oauth_router)
 
     @api.get("/health")
     def health():

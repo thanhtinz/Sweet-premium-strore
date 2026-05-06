@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='none' stroke='%235D5FEF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="/static/styles.css?v={{ css_hash }}" />
 </head>
@@ -47,10 +48,6 @@
       </div>
 
       <div class="header-actions">
-        <!-- Blog -->
-        <a href="#/blog" class="header-btn" id="nav-blog" title="Blog">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </a>
         <!-- Cart -->
         <a href="#/cart" class="header-btn" id="nav-cart" title="Giỏ hàng">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
@@ -119,6 +116,45 @@
         </div>
       </div>
     </main>
+    <!-- Footer -->
+    <!-- Footer -->
+    <footer class="site-footer" id="site-footer">
+      <div class="footer-container">
+        <div class="footer-col" style="flex: 2; padding-right: 40px;">
+          <div class="footer-logo">
+            <i class="fa-solid fa-store" style="color: #4ade80;"></i>
+            <span id="f-site-name">ShopKey</span>
+          </div>
+          <div class="footer-desc" id="f-site-desc">
+            Chúng tôi tự hào cung cấp phần mềm, tài khoản giải trí, công cụ marketing chất lượng cao với giá tốt nhất thị trường. Cam kết bảo hành uy tín và hỗ trợ khách hàng tận tâm 24/7.
+          </div>
+          <div class="footer-socials" style="margin-top: 24px;">
+            <a href="#"><i class="fa-brands fa-facebook-f"></i></a>
+            <a href="#"><i class="fa-brands fa-tiktok"></i></a>
+            <a href="#"><i class="fa-brands fa-youtube"></i></a>
+          </div>
+        </div>
+        <div class="footer-col">
+          <div class="footer-title">Khám phá</div>
+          <a href="#/all" class="footer-link">Tất cả sản phẩm</a>
+          <a href="#/offers" class="footer-link">Ưu đãi & Khuyến mãi</a>
+          <a href="#/blog" class="footer-link">Góc chia sẻ (Blog)</a>
+          <a href="#/search" class="footer-link">Tìm kiếm</a>
+        </div>
+        <div class="footer-col">
+          <div class="footer-title">Hỗ trợ khách hàng</div>
+          <a href="#/support" class="footer-link">Liên hệ & Hỗ trợ</a>
+          <a href="#/support/warranty" class="footer-link">Chính sách bảo hành</a>
+          <a href="#/support/purchase-guide" class="footer-link">Hướng dẫn mua hàng</a>
+          <a href="#/support/faq" class="footer-link">Câu hỏi thường gặp</a>
+          <a href="#/support/privacy" class="footer-link">Chính sách bảo mật</a>
+        </div>
+
+      </div>
+      <div class="footer-bottom">
+        <div style="margin: 0 auto;">Copyright © 2024 ShopKey. All rights reserved.</div>
+      </div>
+    </footer>
   </div>
 
   <!-- Admin wrap (rendered by JS) -->
@@ -145,9 +181,13 @@
   <script src="https://unpkg.com/@neondatabase/neon-auth-js@latest/dist/browser.js"></script>
   <script src="/static/core.js?v={{ js_hash }}"></script>
   <script src="/static/storefront.js?v={{ js_hash }}"></script>
+  <script src="/static/auth-pages.js?v={{ js_hash }}"></script>
   <script src="/static/admin.js?v={{ js_hash }}"></script>
   <script src="/static/blog.js?v={{ js_hash }}"></script>
   <script src="/static/profile.js?v={{ js_hash }}"></script>
+  <script src="/static/support.js?v={{ js_hash }}"></script>
+  <script src="/static/oauth-settings.js?v={{ js_hash }}"></script>
+  <script src="/static/oauth-login.js?v={{ js_hash }}"></script>
   <script src="/static/app.js?v={{ js_hash }}"></script>
 </body>
 </html>
