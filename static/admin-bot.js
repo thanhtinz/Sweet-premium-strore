@@ -1,9 +1,10 @@
 // ─── ADMIN BOT & SMTP CONFIG ─────────────────────────────────────
 async function renderAdminBotConfig(view) {
-  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  const content = qs('#admin-content'); if (!content) return;
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
     const config = await apiFetch('/admin/bot-config/settings');
-    view.innerHTML = `
+    content.innerHTML = `
       <div class="page-header"><div class="page-title">Cấu hình Bot & SMTP</div></div>
       <div style="max-width: 800px">
         <form id="bot-config-form" class="form-container" style="background:#fff; padding:24px; border-radius:8px; border:1px solid var(--border);">

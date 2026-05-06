@@ -740,6 +740,7 @@ async function renderAdminOrders(view) {
   const content = qs('#admin-content'); if (!content) return;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   const refresh = async (status = '') => {
+    try {
     const data = await apiFetch(`/orders/admin/all${status ? '?status=' + status : ''}&limit=50`);
     content.innerHTML = `
       <div class="page-header"><div class="page-title">Đơn hàng</div></div>
@@ -758,6 +759,7 @@ async function renderAdminOrders(view) {
         ${o.delivery_data ? `<div class="delivery-box mt-12"><div class="delivery-box-title">Dữ liệu giao</div><div class="delivery-data">${o.delivery_data}</div></div>` : ''}
       `, `Đơn: ${o.order_code}`);
     });
+    } catch (err) { content.innerHTML = `<div class="empty-state"><h3>Lỗi tải đơn hàng</h3><p class="text-muted">${err.message}</p></div>`; }
   };
   await refresh();
 }
@@ -1585,11 +1587,12 @@ function showAffiliateModal(aff, onDone) {
 // ── ADMIN SUPPORT PAGES ────────────────────────────────────────
 
 async function renderAdminSupportPages(view) {
-  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  const content = qs('#admin-content'); if (!content) return;
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   
   const refresh = async () => {
     const pages = await apiFetch('/support/pages');
-    const content = `
+    const html = `
       <div class="page-header">
         <div class="page-title">Quản lý trang hỗ trợ</div>
         <button class="btn btn-primary" id="btn-add-page">+ Thêm trang</button>
@@ -1617,14 +1620,14 @@ async function renderAdminSupportPages(view) {
       </div>
     `;
     
-    view.innerHTML = content;
+    content.innerHTML = html;
     
-    qs('#btn-add-page', view).onclick = () => showSupportPageModal(null, refresh);
-    qsa('[data-edit-page]', view).forEach(btn => {
+    qs('#btn-add-page', content).onclick = () => showSupportPageModal(null, refresh);
+    qsa('[data-edit-page]', content).forEach(btn => {
       const page = pages.find(p => p.id === parseInt(btn.dataset.editPage));
       if (page) btn.onclick = () => showSupportPageModal(page, refresh);
     });
-    qsa('[data-del-page]', view).forEach(btn => {
+    qsa('[data-del-page]', content).forEach(btn => {
       btn.onclick = async () => {
         if (!confirm('Xóa trang này?')) return;
         await apiFetch(`/support/pages/${btn.dataset.delPage}`, { method: 'DELETE' });
@@ -1708,11 +1711,12 @@ function showSupportPageModal(page, onDone) {
 // ── ADMIN SUPPORT TICKETS ──────────────────────────────────────
 
 async function renderAdminTickets(view) {
-  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  const content = qs('#admin-content'); if (!content) return;
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   
   const refresh = async () => {
     const tickets = await apiFetch('/support/tickets?user_id=admin');
-    const content = `
+    const html = `
       <div class="page-header">
         <div class="page-title">Quản lý yêu cầu hỗ trợ</div>
       </div>
@@ -1740,8 +1744,8 @@ async function renderAdminTickets(view) {
       </div>
     `;
     
-    view.innerHTML = content;
-    qsa('[data-view-ticket]', view).forEach(btn => {
+    content.innerHTML = html;
+    qsa('[data-view-ticket]', content).forEach(btn => {
       btn.onclick = () => {
         const ticket = tickets.find(t => t.id === parseInt(btn.dataset.viewTicket));
         if (ticket) showAdminTicketModal(ticket, refresh);
@@ -1787,10 +1791,11 @@ function showAdminTicketModal(ticket, onDone) {
 
 // ─── ADMIN BOT CONFIG ─────────────────────────────────────
 async function renderAdminBotConfig(view) {
-  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  const content = qs('#admin-content'); if (!content) return;
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
     const config = await apiFetch('/admin/bot-config/settings');
-    view.innerHTML = `
+    content.innerHTML = `
       <div class="page-header"><div class="page-title">Cấu hình Bot & SMTP</div></div>
       <div style="max-width: 800px">
         <form id="bot-config-form" class="form-container" style="background:#fff; padding:24px; border-radius:8px; border:1px solid var(--border);">
