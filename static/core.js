@@ -18,6 +18,7 @@ let appSettings = {};
 // ── Utilities ──────────────────────────────────────────────────
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
 const fmtDate = (s) => s ? new Date(s).toLocaleString('vi-VN') : '—';
+const esc = (s) => { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
 const qs = (s, el = document) => el.querySelector(s);
 const qsa = (s, el = document) => [...el.querySelectorAll(s)];
 const el = (tag, cls = '', html = '') => {

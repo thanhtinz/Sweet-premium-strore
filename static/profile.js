@@ -27,12 +27,12 @@ async function renderProfile(view) {
       <div class="info-card-body">
         <div class="profile-card-inner" style="background: none; border: none; padding: 0;">
           <div class="profile-avatar">
-            ${u.avatar_url ? `<img src="${u.avatar_url}" alt="" />` : `<div class="profile-avatar-placeholder">${(u.display_name || u.email || 'U').charAt(0).toUpperCase()}</div>`}
+            ${u.avatar_url ? `<img src="${esc(u.avatar_url)}" alt="" />` : `<div class="profile-avatar-placeholder">${esc((u.display_name || u.email || 'U').charAt(0).toUpperCase())}</div>`}
           </div>
           <div class="profile-info">
-            <div class="profile-name">${u.display_name || u.email?.split('@')[0] || 'User'}</div>
-            <div class="profile-email">${u.email || '—'}</div>
-            <div class="profile-provider">${u.provider && u.provider !== 'local' ? `<span class="badge badge-blue">${u.provider}</span>` : '<span class="badge badge-gray">Tài khoản cửa hàng</span>'}</div>
+            <div class="profile-name">${esc(u.display_name || u.email?.split('@')[0] || 'User')}</div>
+            <div class="profile-email">${esc(u.email || '—')}</div>
+            <div class="profile-provider">${u.provider && u.provider !== 'local' ? `<span class="badge badge-blue">${esc(u.provider)}</span>` : '<span class="badge badge-gray">Tài khoản cửa hàng</span>'}</div>
           </div>
           <button class="btn btn-outline btn-sm" id="profile-edit-btn"><i class="fa-solid fa-pen-to-square"></i> Chỉnh sửa</button>
         </div>
@@ -46,8 +46,8 @@ async function renderProfile(view) {
       openModal(`
         <h3 class="modal-title mb-16">Chỉnh sửa hồ sơ</h3>
         <form id="profile-form">
-          <div class="form-group"><label class="form-label">Tên hiển thị</label><input type="text" class="form-input" id="pf-name" value="${u.display_name || ''}" /></div>
-          <div class="form-group"><label class="form-label">Avatar URL</label><input type="text" class="form-input" id="pf-avatar" value="${u.avatar_url || ''}" placeholder="https://..." /></div>
+          <div class="form-group"><label class="form-label">Tên hiển thị</label><input type="text" class="form-input" id="pf-name" value="${esc(u.display_name || '')}" /></div>
+          <div class="form-group"><label class="form-label">Avatar URL</label><input type="text" class="form-input" id="pf-avatar" value="${esc(u.avatar_url || '')}" placeholder="https://..." /></div>
           <div id="pf-form-err" class="form-error mb-12" style="display:none"></div>
           <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">Cập nhật</button><button type="button" class="btn btn-ghost" id="pf-cancel">Hủy</button></div>
         </form>
@@ -89,27 +89,10 @@ async function renderProfile(view) {
         <div style="font-size:24px;font-weight:800;color:#10b981;">${fmt(myBalance)}</div>
       </div>
       <div class="info-card-body">
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button class="btn btn-primary" id="btn-topup"><i class="fa-solid fa-plus"></i> Nạp tiền</button>
           ${affAvailable >= 1000 ? `<button class="btn btn-outline" id="btn-aff-withdraw"><i class="fa-solid fa-arrow-right-from-bracket"></i> Rút hoa hồng (${fmt(affAvailable)})</button>` : ''}
         </div>
-        ${historyItems.length ? `
-        <div class="fw-600 mb-8" style="font-size:13px;">Giao dịch gần đây</div>
-        <div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;">
-          <table style="width:100%;font-size:13px;">
-            <tbody>
-              ${historyItems.map(t => {
-                const isPositive = t.amount > 0;
-                const typeLabels = { topup:'Nạp tiền', purchase:'Mua hàng', affiliate_withdraw:'Rút hoa hồng', admin_adjust:'Admin điều chỉnh', refund:'Hoàn tiền' };
-                return `<tr style="border-bottom:1px solid var(--border);">
-                  <td style="padding:8px 12px;">${typeLabels[t.type] || t.type}</td>
-                  <td style="padding:8px 12px;font-weight:700;color:${isPositive ? '#10b981' : '#ef4444'};text-align:right;">${isPositive ? '+' : ''}${fmt(t.amount)}</td>
-                  <td style="padding:8px 12px;color:var(--text-3);font-size:12px;">${fmtDate(t.created_at)}</td>
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>` : '<div class="text-muted text-sm">Chưa có giao dịch</div>'}
       </div>
     `;
     view.appendChild(balanceCard);
@@ -376,6 +359,49 @@ async function renderProfile(view) {
         `).join('');
       }
     } catch (_) { qs('#profile-orders', view).innerHTML = '<div class="text-muted">Không thể tải đơn hàng</div>'; }
+
+    // ── Transaction History Card ──
+    const txCard = el('div', 'info-card');
+    txCard.innerHTML = `
+      <div class="info-card-head" style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="info-card-title"><i class="fa-solid fa-receipt"></i> Lịch sử giao dịch</div>
+      </div>
+      <div class="info-card-body" id="profile-tx-list">
+        <div class="page-loading"><div class="spinner"></div></div>
+      </div>
+    `;
+    view.appendChild(txCard);
+
+    try {
+      const txData = await apiFetch('/balance/history?limit=20');
+      const txItems = txData.items || [];
+      const txWrap = qs('#profile-tx-list', view);
+      if (!txItems.length) {
+        txWrap.innerHTML = '<div class="text-center text-muted py-16">Chưa có giao dịch</div>';
+      } else {
+        const typeLabels = { topup:'Nạp tiền', purchase:'Mua hàng', affiliate_withdraw:'Rút hoa hồng', admin_adjust:'Admin điều chỉnh', refund:'Hoàn tiền' };
+        const typeIcons = { topup:'fa-plus-circle', purchase:'fa-shopping-cart', affiliate_withdraw:'fa-arrow-right-from-bracket', admin_adjust:'fa-sliders', refund:'fa-rotate-left' };
+        txWrap.innerHTML = txItems.map(t => {
+          const isPositive = t.amount > 0;
+          return `<div class="order-card" style="margin-bottom:8px">
+            <div class="order-card-top">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:${isPositive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)'};">
+                  <i class="fa-solid ${typeIcons[t.type] || 'fa-circle'}" style="color:${isPositive ? '#10b981' : '#ef4444'};font-size:14px;"></i>
+                </div>
+                <div>
+                  <div class="fw-600">${typeLabels[t.type] || t.type}</div>
+                  <div class="text-muted text-xs">${fmtDate(t.created_at)}</div>
+                </div>
+              </div>
+              <div style="font-weight:700;font-size:15px;color:${isPositive ? '#10b981' : '#ef4444'};">${isPositive ? '+' : ''}${fmt(t.amount)}</div>
+            </div>
+            ${t.note ? `<div class="text-muted text-xs mt-4">${esc(t.note)}</div>` : ''}
+          </div>`;
+        }).join('');
+      }
+    } catch (_) { qs('#profile-tx-list', view).innerHTML = '<div class="text-muted">Không thể tải giao dịch</div>'; }
+
   } catch (e) {
     view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>${e.message}</h3></div>`;
   }

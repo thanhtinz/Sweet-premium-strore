@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from db import get_db
@@ -48,11 +48,33 @@ class PackageCreate(BaseModel):
     price: float
     original_price: Optional[float] = None
     description: Optional[str] = None
+    notes: Optional[str] = None
     delivery_type: str = "manual"
     is_stock_managed: bool = False
     stock_quantity: int = 0
     sort_order: int = 0
     is_active: bool = True
+
+    @field_validator("price")
+    @classmethod
+    def price_positive(cls, v):
+        if v < 0:
+            raise ValueError("Price must be >= 0")
+        return v
+
+    @field_validator("delivery_type")
+    @classmethod
+    def valid_delivery(cls, v):
+        if v not in ("manual", "auto"):
+            raise ValueError("delivery_type must be 'manual' or 'auto'")
+        return v
+
+    @field_validator("stock_quantity")
+    @classmethod
+    def stock_non_negative(cls, v):
+        if v < 0:
+            raise ValueError("stock_quantity must be >= 0")
+        return v
 
 
 class PackageUpdate(BaseModel):
@@ -60,6 +82,7 @@ class PackageUpdate(BaseModel):
     price: Optional[float] = None
     original_price: Optional[float] = None
     description: Optional[str] = None
+    notes: Optional[str] = None
     delivery_type: Optional[str] = None
     is_stock_managed: Optional[bool] = None
     stock_quantity: Optional[int] = None
@@ -117,6 +140,7 @@ def pkg_to_dict(pkg: ProductPackage, db: Session = None) -> dict:
         "price": float(pkg.price),
         "original_price": float(pkg.original_price) if pkg.original_price else None,
         "description": pkg.description,
+        "notes": pkg.notes,
         "delivery_type": pkg.delivery_type,
         "is_stock_managed": pkg.is_stock_managed if pkg.is_stock_managed else False,
         "stock_quantity": pkg.stock_quantity if pkg.stock_quantity else 0,

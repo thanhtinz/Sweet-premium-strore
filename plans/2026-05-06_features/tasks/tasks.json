@@ -17,16 +17,16 @@
   {
     "content": "[F2] Feature toggles: settings key + admin UI tab",
     "id": "f2-1",
-    "status": "in_progress"
+    "status": "completed"
   },
   {
     "content": "[F2] Feature toggles: frontend route guards + sidebar hiding",
     "id": "f2-2",
-    "status": "pending"
+    "status": "completed"
   },
   {
     "content": "[F2] Feature toggles: API guards for disabled features",
     "id": "f2-3",
-    "status": "pending"
+    "status": "completed"
   }
 ]

@@ -606,7 +606,7 @@ async function renderProduct(view, { slug }) {
     // ── Load reviews ──
     const loadReviews = async (page = 1) => {
       try {
-        reviewData = await apiFetch(`/reviews/product/${p.id}?page=${page}&limit=10`);
+        reviewData = await apiFetch(`/reviews/product/${p.id}?page=${page}&limit=3`);
         reviewPage = page;
       } catch { reviewData = null; }
     };
@@ -840,14 +840,19 @@ async function renderProduct(view, { slug }) {
           const pill = el('div', 'pd-pkg-pill' + (selectedPkg?.id === pkg.id ? ' selected' : '') + (oos ? ' oos' : '') + (fs ? ' flash' : ''));
           const deliveryIcon = pkg.delivery_type === 'auto' ? '<i class="fa-solid fa-bolt pd-pkg-dtype-icon" title="Giao tự động"></i>' : '<i class="fa-solid fa-truck pd-pkg-dtype-icon" title="Giao thủ công"></i>';
           const stockInfo = (() => {
-            if (pkg.delivery_type === 'auto') return pkg.stock_count > 0 ? `<span class="pd-pkg-stock">${deliveryIcon} Còn ${pkg.stock_count}</span>` : `<span class="pd-pkg-stock oos-text">${deliveryIcon} Hết hàng</span>`;
+            const boxIcon = '<i class="fa-solid fa-box"></i>';
+            if (pkg.delivery_type === 'auto') {
+              if (pkg.stock_count <= 0) return `<span class="pd-pkg-stock pd-stock-red">${boxIcon} Hết hàng</span>`;
+              if (pkg.stock_count <= 5) return `<span class="pd-pkg-stock pd-stock-orange">${boxIcon} Còn ${pkg.stock_count}</span>`;
+              return `<span class="pd-pkg-stock pd-stock-green">${boxIcon} Còn ${pkg.stock_count}</span>`;
+            }
             if (pkg.is_stock_managed) {
               const sq = pkg.stock_quantity || 0;
-              if (sq <= 0) return `<span class="pd-pkg-stock oos-text">${deliveryIcon} Hết hàng</span>`;
-              if (sq <= 5) return `<span class="pd-pkg-stock warn-text">${deliveryIcon} Còn ${sq}</span>`;
-              return `<span class="pd-pkg-stock">${deliveryIcon} Còn ${sq}</span>`;
+              if (sq <= 0) return `<span class="pd-pkg-stock pd-stock-red">${boxIcon} Hết hàng</span>`;
+              if (sq <= 5) return `<span class="pd-pkg-stock pd-stock-orange">${boxIcon} Còn ${sq}</span>`;
+              return `<span class="pd-pkg-stock pd-stock-green">${boxIcon} Còn ${sq}</span>`;
             }
-            return `<span class="pd-pkg-stock">${deliveryIcon} Giao thủ công</span>`;
+            return `<span class="pd-pkg-stock pd-stock-green">${deliveryIcon} Sẵn hàng</span>`;
           })();
           pill.innerHTML = `
             <div class="pd-pkg-main">
@@ -871,6 +876,7 @@ async function renderProduct(view, { slug }) {
               qsa('.pd-pkg-pill', pkgGrid).forEach(e => e.classList.remove('selected'));
               pill.classList.add('selected');
               renderOrderForm();
+              if (typeof updateNotesCard === 'function') updateNotesCard();
             };
           }
           pkgGrid.appendChild(pill);
@@ -1048,17 +1054,31 @@ async function renderProduct(view, { slug }) {
       }
 
       // ── Card: Lưu ý ──
-      if (p.notes) {
-        const notesCard = el('div', 'pd-card pd-card-notes');
+      const notesCard = el('div', 'pd-card pd-card-notes');
+      notesCard.id = 'pd-notes-card';
+      notesCard.style.display = 'none';
+      cards.appendChild(notesCard);
+
+      const updateNotesCard = () => {
+        const productNotes = p.notes || '';
+        const pkgNotes = selectedPkg?.notes || '';
+        if (!productNotes && !pkgNotes) {
+          notesCard.style.display = 'none';
+          return;
+        }
+        notesCard.style.display = '';
         notesCard.innerHTML = `
           <div class="pd-card-title pd-notes-title">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Lưu ý quan trọng
           </div>
-          <div class="pd-notes-body">${p.notes}</div>
+          <div class="pd-notes-body">
+            ${productNotes ? `<div>${productNotes}</div>` : ''}
+            ${pkgNotes ? `<div class="pd-pkg-notes-section">${selectedPkg ? `<strong>${selectedPkg.name}:</strong> ` : ''}${pkgNotes}</div>` : ''}
+          </div>
         `;
-        cards.appendChild(notesCard);
-      }
+      };
+      updateNotesCard();
 
       // ── Card 5: Đánh giá ──
       if (appSettings.features?.reviews !== false) {
@@ -1115,11 +1135,11 @@ async function renderProduct(view, { slug }) {
               const item = el('div', 'pd-review-item');
               item.innerHTML = `
                 <div class="pd-review-head">
-                  <span class="pd-review-user">${r.user_name}</span>
+                  <span class="pd-review-user">${esc(r.user_name)}</span>
                   ${r.is_verified ? '<span class="pd-badge pd-badge-green pd-badge-sm">Đã mua hàng</span>' : ''}
                 </div>
                 <div class="pd-review-stars">${starsHtml(r.rating, 14)}</div>
-                <div class="pd-review-comment">${r.comment || ''}</div>
+                <div class="pd-review-comment">${esc(r.comment)}</div>
                 <div class="pd-review-date">${r.created_at ? fmtDate(r.created_at) : ''}</div>
               `;
               list.appendChild(item);

@@ -70,6 +70,7 @@ class ProductPackage(Base):
     price = Column(Numeric(12, 2), nullable=False)
     original_price = Column(Numeric(12, 2))
     description = Column(Text)
+    notes = Column(Text)  # warnings/notes specific to this package
     delivery_type = Column(String(20), default="manual")  # manual | auto
     is_stock_managed = Column(Boolean, default=False)  # toggle kho cho gói thủ công
     stock_quantity = Column(Integer, default=0)  # số lượng tồn kho (cho gói bật quản lý kho)

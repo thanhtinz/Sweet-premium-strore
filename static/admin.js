@@ -415,6 +415,7 @@ async function showPackagesModal(productId, productName) {
         <div class="form-group"><label class="form-label">Giao hàng</label><select class="form-select" id="pkg-delivery"><option value="manual">Thủ công</option><option value="auto">Tự động</option></select></div>
         <div class="form-group"><label class="form-label">Mô tả</label><input class="form-input" id="pkg-desc" placeholder="Mô tả..." /></div>
       </div>
+      <div class="form-group"><label class="form-label">Chú ý (hiển thị khi chọn gói)</label><textarea class="form-textarea" id="pkg-notes" rows="2" placeholder="Lưu ý riêng cho gói này..."></textarea></div>
       <div class="form-row form-row-2" id="pkg-stock-row">
         <div class="form-group">
           <label class="form-label">Quản lý kho</label>
@@ -525,6 +526,7 @@ async function showPackagesModal(productId, productName) {
       price: parseFloat(qs('#pkg-price', modal).value),
       delivery_type: qs('#pkg-delivery', modal).value,
       description: qs('#pkg-desc', modal).value || null,
+      notes: qs('#pkg-notes', modal).value || null,
       is_stock_managed: isStockManaged,
       stock_quantity: isStockManaged ? parseInt(qs('#pkg-stock-qty', modal).value) || 0 : 0,
     };
@@ -574,6 +576,7 @@ function showPackageFormModal(pkg, refresh) {
         <div class="form-group"><label class="form-label">Giao hàng</label><select class="form-select" id="epkg-delivery"><option value="manual" ${pkg.delivery_type==='manual'?'selected':''}>Thủ công</option><option value="auto" ${pkg.delivery_type==='auto'?'selected':''}>Tự động</option></select></div>
         <div class="form-group"><label class="form-label">Mô tả</label><input class="form-input" id="epkg-desc" value="${pkg.description || ''}" placeholder="Mô tả..." /></div>
       </div>
+      <div class="form-group"><label class="form-label">Chú ý (hiển thị khi chọn gói)</label><textarea class="form-textarea" id="epkg-notes" rows="2" placeholder="Lưu ý riêng cho gói này...">${pkg.notes || ''}</textarea></div>
       <div class="form-row form-row-2" id="epkg-stock-row">
         <div class="form-group">
           <label class="form-label">Quản lý kho</label>
@@ -618,6 +621,7 @@ function showPackageFormModal(pkg, refresh) {
       price: parseFloat(qs('#epkg-price', emodal).value),
       delivery_type: qs('#epkg-delivery', emodal).value,
       description: qs('#epkg-desc', emodal).value || null,
+      notes: qs('#epkg-notes', emodal).value || null,
       is_stock_managed: isStockManaged,
       stock_quantity: isStockManaged ? parseInt(qs('#epkg-stock-qty', emodal).value) || 0 : 0,
     };

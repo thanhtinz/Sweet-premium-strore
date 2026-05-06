@@ -1,17 +1,32 @@
 [
   {
-    "content": "Redesign bot config page: Telegram (admin + user), Discord (user only), SMTP, proper CSS",
+    "content": "[profile] Remove tx history from balance card, add tx history card below orders card",
     "id": "1",
     "status": "completed"
   },
   {
-    "content": "Rebuild admin ticket detail: full conversation view with messages + admin reply",
+    "content": "[sidebar] Center logo+name in sidebar header",
     "id": "2",
     "status": "completed"
   },
   {
-    "content": "Verify client ticket system works correctly",
+    "content": "[product] Stock badges with colored box icons (green/orange/red) + reviews 3 per page",
     "id": "3",
     "status": "completed"
+  },
+  {
+    "content": "[product] Related products section already exists",
+    "id": "4",
+    "status": "completed"
+  },
+  {
+    "content": "[product] Add notes per package (DB + admin + frontend), expandable description card",
+    "id": "5",
+    "status": "completed"
+  },
+  {
+    "content": "[final] Bug check, security review, push to GitHub",
+    "id": "6",
+    "status": "in_progress"
   }
 ]
