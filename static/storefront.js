@@ -707,35 +707,36 @@ async function renderProduct(view, { slug }) {
 
             openModal(`
               <div class="share-modal">
-                <div class="share-modal-header">
-                  <div class="share-modal-hicon"><i class="fa-solid fa-hand-holding-dollar"></i></div>
-                  <div><div class="share-modal-title">Chia sẻ kiếm tiền</div><div class="share-modal-sub">Sản phẩm: ${p.name}</div></div>
+                <div class="share-hero">
+                  <div class="share-hero-glow"></div>
+                  <div class="share-hero-icon"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                  <div class="share-hero-rate">${rate}%</div>
+                  <div class="share-hero-label">hoa hồng mỗi đơn hàng</div>
                 </div>
-                <div class="share-rate-banner">
-                  <div class="share-rate-icon"><i class="fa-solid fa-gift"></i></div>
-                  <div class="share-rate-text">Nhận ngay <strong>${rate}%</strong> hoa hồng khi bạn bè mua hàng qua link của bạn!</div>
-                </div>
-                ${pkgCommHtml ? `<div class="share-comm-section"><div class="share-comm-title"><i class="fa-solid fa-calculator"></i> Hoa hồng dự kiến</div><div class="share-comm-list">${pkgCommHtml}</div></div>` : ''}
-                <div class="share-link-section">
-                  <div class="share-link-title"><i class="fa-solid fa-link"></i> Link giới thiệu của bạn</div>
-                  <div class="share-link-row">
+
+                <div class="share-body">
+                  <div class="share-link-box">
                     <input type="text" class="share-link-input" id="share-ref-link" value="${refLink}" readonly />
-                    <button class="share-link-copy" id="share-copy-btn"><i class="fa-regular fa-copy"></i></button>
+                    <button class="share-copy-btn" id="share-copy-btn"><i class="fa-regular fa-copy"></i> Sao chép</button>
                   </div>
-                  <div class="share-link-hint">Chia sẻ link này để nhận hoa hồng</div>
-                </div>
-                <div class="share-social-section">
-                  <div class="share-social-title">Chia sẻ nhanh</div>
-                  <div class="share-social-btns">
-                    <a href="https://www.facebook.com/sharer/sharer.php?u=${shareUrl}" target="_blank" class="share-btn share-btn-fb" title="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
-                    <a href="https://twitter.com/intent/tweet?url=${shareUrl}&text=${shareText}" target="_blank" class="share-btn share-btn-x" title="X"><i class="fa-brands fa-x-twitter"></i></a>
-                    <a href="https://t.me/share/url?url=${shareUrl}&text=${shareText}" target="_blank" class="share-btn share-btn-tg" title="Telegram"><i class="fa-brands fa-telegram"></i></a>
-                    <a href="https://wa.me/?text=${shareText}%20${shareUrl}" target="_blank" class="share-btn share-btn-wa" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
-                    <a href="https://www.facebook.com/dialog/send?link=${shareUrl}&app_id=0&redirect_uri=${shareUrl}" target="_blank" class="share-btn share-btn-msg" title="Messenger"><i class="fa-brands fa-facebook-messenger"></i></a>
-                    <a href="https://zalo.me/share?url=${shareUrl}" target="_blank" class="share-btn share-btn-zalo" title="Zalo"><span style="font-weight:900;font-size:16px;">Z</span></a>
+
+                  <div class="share-socials">
+                    <a href="https://www.facebook.com/sharer/sharer.php?u=${shareUrl}" target="_blank" class="share-social-item share-s-fb"><i class="fa-brands fa-facebook-f"></i><span>Facebook</span></a>
+                    <a href="https://zalo.me/share?url=${shareUrl}" target="_blank" class="share-social-item share-s-zalo"><span class="share-zalo-z">Z</span><span>Zalo</span></a>
+                    <a href="https://t.me/share/url?url=${shareUrl}&text=${shareText}" target="_blank" class="share-social-item share-s-tg"><i class="fa-brands fa-telegram"></i><span>Telegram</span></a>
+                    <a href="https://twitter.com/intent/tweet?url=${shareUrl}&text=${shareText}" target="_blank" class="share-social-item share-s-x"><i class="fa-brands fa-x-twitter"></i><span>X</span></a>
+                    <a href="https://wa.me/?text=${shareText}%20${shareUrl}" target="_blank" class="share-social-item share-s-wa"><i class="fa-brands fa-whatsapp"></i><span>WhatsApp</span></a>
+                    <a href="https://www.facebook.com/dialog/send?link=${shareUrl}&app_id=0&redirect_uri=${shareUrl}" target="_blank" class="share-social-item share-s-msg"><i class="fa-brands fa-facebook-messenger"></i><span>Messenger</span></a>
                   </div>
+
+                  ${pkgCommHtml ? `
+                  <details class="share-comm-details">
+                    <summary class="share-comm-summary"><i class="fa-solid fa-calculator"></i> Xem hoa hồng dự kiến <i class="fa-solid fa-chevron-down share-chev"></i></summary>
+                    <div class="share-comm-list">${pkgCommHtml}</div>
+                  </details>` : ''}
+
+                  <a href="#/affiliate" class="share-stats-link" onclick="closeModal()"><i class="fa-solid fa-chart-line"></i> Xem thống kê hoa hồng</a>
                 </div>
-                <a href="#/affiliate" class="share-stats-btn" onclick="closeModal()"><i class="fa-solid fa-chart-line"></i> Xem thống kê hoa hồng</a>
               </div>
             `);
             qs('#share-copy-btn').onclick = () => {
