@@ -3881,6 +3881,116 @@ a.support-contact-value:hover {
   .pd-price-total-value { font-size: 20px; }
 }
 
+/* ── Share / Affiliate Card ── */
+.pd-share-card { padding: 0 !important; overflow: hidden; }
+.pd-share-banner {
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px 20px; cursor: pointer; transition: background 0.15s;
+}
+.pd-share-banner:hover { background: var(--bg-secondary); }
+.pd-share-banner-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 20px; flex-shrink: 0;
+}
+.pd-share-banner-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.pd-share-banner-text strong { font-size: 15px; color: var(--text-heading); }
+.pd-share-banner-text .text-sm { color: var(--text-muted); font-size: 13px; }
+.pd-share-chevron { color: var(--text-muted); font-size: 14px; }
+
+/* Share Modal */
+.share-modal { display: flex; flex-direction: column; gap: 20px; }
+.share-modal-header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 20px 24px; margin: -24px -24px 0; border-radius: 16px 16px 0 0;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+}
+.share-modal-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: rgba(255,255,255,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+.share-modal-title { margin: 0; font-size: 20px; font-weight: 700; color: #fff; }
+
+.share-rate-banner {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 18px; border-radius: 12px;
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+.share-rate-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: rgba(34, 197, 94, 0.15); color: #22c55e;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.share-rate-text { font-size: 14px; color: var(--text-body); line-height: 1.5; }
+.share-rate-text strong { color: #22c55e; font-size: 18px; }
+
+.share-comm-section { display: flex; flex-direction: column; gap: 10px; }
+.share-comm-title { font-size: 15px; font-weight: 700; color: var(--text-heading); display: flex; align-items: center; gap: 8px; }
+.share-comm-list {
+  background: var(--bg-secondary); border-radius: 12px;
+  padding: 4px 0; overflow: hidden;
+}
+.share-comm-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px; font-size: 14px;
+}
+.share-comm-row + .share-comm-row { border-top: 1px solid var(--border); }
+.share-comm-name { flex: 1; color: var(--text-body); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.share-comm-price { color: var(--text-muted); font-size: 13px; }
+.share-comm-arrow { color: var(--text-muted); font-size: 12px; }
+.share-comm-value { color: #22c55e; font-weight: 700; font-size: 15px; white-space: nowrap; }
+
+.share-link-section { display: flex; flex-direction: column; gap: 8px; }
+.share-link-title { font-size: 15px; font-weight: 700; color: var(--text-heading); display: flex; align-items: center; gap: 8px; }
+.share-link-row { display: flex; gap: 8px; align-items: center; }
+.share-link-input {
+  flex: 1; padding: 12px 14px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg-secondary);
+  font-family: monospace; font-size: 13px; color: var(--text-body);
+  overflow: hidden; text-overflow: ellipsis;
+}
+.share-link-copy {
+  width: 48px; height: 48px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg-card);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: var(--text-body); cursor: pointer;
+  transition: background 0.15s;
+}
+.share-link-copy:hover { background: var(--bg-secondary); }
+.share-link-hint { font-size: 12px; color: var(--text-muted); }
+
+.share-social-section { display: flex; flex-direction: column; gap: 12px; }
+.share-social-title { font-size: 15px; font-weight: 700; color: var(--text-heading); }
+.share-social-btns { display: flex; gap: 12px; flex-wrap: wrap; }
+.share-btn {
+  width: 52px; height: 52px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 20px; text-decoration: none;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.share-btn:hover { transform: scale(1.08); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.share-btn-fb { background: #1877F2; }
+.share-btn-x { background: #000; }
+.share-btn-tg { background: #26A5E4; }
+.share-btn-wa { background: #25D366; }
+.share-btn-msg { background: #0084FF; }
+.share-btn-zalo { background: #0068FF; }
+
+.share-stats-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 14px; border-radius: 12px;
+  background: var(--primary); color: #fff;
+  font-size: 15px; font-weight: 600;
+  text-decoration: none; transition: opacity 0.15s;
+}
+.share-stats-btn:hover { opacity: 0.9; }
+
 /* ═══════════════════════════════════════════════════════════════
    OAUTH LOGIN BUTTONS
 ═══════════════════════════════════════════════════════════════ */

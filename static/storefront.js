@@ -1112,6 +1112,98 @@ async function renderProduct(view, { slug }) {
       };
       renderReviews();
 
+      // ── Card: Chia sẻ kiếm tiền ──
+      if (currentUser) {
+        const shareCard = el('div', 'pd-card pd-share-card');
+        shareCard.innerHTML = `
+          <div class="pd-share-banner" id="pd-share-banner">
+            <div class="pd-share-banner-icon"><i class="fa-solid fa-dollar-sign"></i></div>
+            <div class="pd-share-banner-text">
+              <strong>Chia sẻ kiếm tiền</strong>
+              <span class="text-sm">Nhận hoa hồng khi bạn bè mua qua link của bạn</span>
+            </div>
+            <i class="fa-solid fa-chevron-right pd-share-chevron"></i>
+          </div>
+        `;
+        cards.appendChild(shareCard);
+
+        qs('#pd-share-banner', shareCard).onclick = async () => {
+          try {
+            let aff = await apiFetch('/affiliate/me');
+            if (!aff.registered) {
+              aff = await apiFetch('/affiliate/register', { method: 'POST' });
+              aff.registered = true;
+            }
+            const rate = aff.commission_rate || 5;
+            const refCode = aff.ref_code;
+            const siteBase = location.origin;
+            const refLink = `${siteBase}/#/product/${p.slug}?ref=${refCode}`;
+            const shareText = encodeURIComponent(`${p.name} - Xem ngay!`);
+            const shareUrl = encodeURIComponent(refLink);
+
+            // Build commission preview for packages
+            let pkgCommHtml = '';
+            if (p.packages?.length) {
+              pkgCommHtml = p.packages.map(pkg => {
+                const price = pkg.flash_sale ? pkg.flash_sale.sale_price : pkg.price;
+                const comm = Math.round(price * rate / 100);
+                const name = pkg.name.length > 20 ? pkg.name.slice(0, 20) + '…' : pkg.name;
+                return `<div class="share-comm-row"><span class="share-comm-name">${name}</span><span class="share-comm-price">${fmt(price)}</span><span class="share-comm-arrow">→</span><span class="share-comm-value">+${fmt(comm)}</span></div>`;
+              }).join('');
+            }
+
+            openModal(`
+              <div class="share-modal">
+                <div class="share-modal-header">
+                  <div class="share-modal-icon"><i class="fa-solid fa-dollar-sign"></i></div>
+                  <h3 class="share-modal-title">Chia sẻ kiếm tiền</h3>
+                </div>
+                <div class="share-rate-banner">
+                  <div class="share-rate-icon"><i class="fa-solid fa-gift"></i></div>
+                  <div class="share-rate-text">Nhận ngay <strong>${rate}%</strong> hoa hồng khi bạn bè mua hàng qua link của bạn!</div>
+                </div>
+                ${pkgCommHtml ? `
+                  <div class="share-comm-section">
+                    <div class="share-comm-title"><i class="fa-solid fa-calculator"></i> Hoa hồng dự kiến</div>
+                    <div class="share-comm-list">${pkgCommHtml}</div>
+                  </div>
+                ` : ''}
+                <div class="share-link-section">
+                  <div class="share-link-title"><i class="fa-solid fa-link"></i> Link giới thiệu của bạn</div>
+                  <div class="share-link-row">
+                    <input type="text" class="share-link-input" id="share-ref-link" value="${refLink}" readonly />
+                    <button class="share-link-copy" id="share-copy-btn"><i class="fa-regular fa-copy"></i></button>
+                  </div>
+                  <div class="share-link-hint">Chia sẻ link này để nhận hoa hồng</div>
+                </div>
+                <div class="share-social-section">
+                  <div class="share-social-title">Chia sẻ nhanh</div>
+                  <div class="share-social-btns">
+                    <a href="https://www.facebook.com/sharer/sharer.php?u=${shareUrl}" target="_blank" class="share-btn share-btn-fb" title="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+                    <a href="https://twitter.com/intent/tweet?url=${shareUrl}&text=${shareText}" target="_blank" class="share-btn share-btn-x" title="X (Twitter)"><i class="fa-brands fa-x-twitter"></i></a>
+                    <a href="https://t.me/share/url?url=${shareUrl}&text=${shareText}" target="_blank" class="share-btn share-btn-tg" title="Telegram"><i class="fa-brands fa-telegram"></i></a>
+                    <a href="https://wa.me/?text=${shareText}%20${shareUrl}" target="_blank" class="share-btn share-btn-wa" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+                    <a href="https://www.facebook.com/dialog/send?link=${shareUrl}&app_id=0&redirect_uri=${shareUrl}" target="_blank" class="share-btn share-btn-msg" title="Messenger"><i class="fa-brands fa-facebook-messenger"></i></a>
+                    <a href="https://zalo.me/share?url=${shareUrl}" target="_blank" class="share-btn share-btn-zalo" title="Zalo"><span style="font-weight:900;font-size:18px;">Z</span></a>
+                  </div>
+                </div>
+                <a href="#/affiliate" class="share-stats-btn" onclick="closeModal()"><i class="fa-solid fa-chart-line"></i> Xem thống kê hoa hồng</a>
+              </div>
+            `);
+
+            qs('#share-copy-btn').onclick = () => {
+              navigator.clipboard.writeText(refLink).then(() => toast('Đã sao chép link', 'success')).catch(() => {
+                qs('#share-ref-link').select();
+                document.execCommand('copy');
+                toast('Đã sao chép link', 'success');
+              });
+            };
+          } catch (err) {
+            toast(err.message || 'Lỗi tải thông tin affiliate', 'error');
+          }
+        };
+      }
+
       // ── Card 6: Sản phẩm liên quan ──
       if (p.related?.length) {
         const relCard = el('div', 'pd-card');
