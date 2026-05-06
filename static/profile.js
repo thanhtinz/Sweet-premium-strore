@@ -32,7 +32,7 @@ async function renderProfile(view) {
           <div class="profile-info">
             <div class="profile-name">${u.display_name || u.email?.split('@')[0] || 'User'}</div>
             <div class="profile-email">${u.email || '—'}</div>
-            <div class="profile-provider">${u.provider ? `<span class="badge badge-blue">${u.provider}</span>` : '<span class="badge badge-gray">Tài khoản cửa hàng</span>'}</div>
+            <div class="profile-provider">${u.provider && u.provider !== 'local' ? `<span class="badge badge-blue">${u.provider}</span>` : '<span class="badge badge-gray">Tài khoản cửa hàng</span>'}</div>
           </div>
           <button class="btn btn-outline btn-sm" id="profile-edit-btn"><i class="fa-solid fa-pen-to-square"></i> Chỉnh sửa</button>
         </div>
