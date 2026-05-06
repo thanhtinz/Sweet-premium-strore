@@ -209,6 +209,13 @@ async function renderProfile(view) {
     };
 
     // Bot Linking card
+    // Fetch bot config for links
+    let botCfg = {};
+    try { botCfg = await apiFetch('/admin/bot-config/public').catch(() => ({})); } catch(e) {}
+    const hasTelegram = botCfg.has_telegram || false;
+    const hasDiscord = botCfg.has_discord || false;
+    const discordInvite = botCfg.discord_invite || '';
+
     const botCard = el('div', 'info-card');
     botCard.innerHTML = `
       <div class="info-card-head"><div class="info-card-title"><i class="fa-solid fa-robot"></i> Liên kết Bot</div></div>
@@ -221,16 +228,14 @@ async function renderProfile(view) {
               </div>
               <div>
                 <div class="fw-600">Telegram Bot</div>
-                <div class="text-sm text-muted">Nhận thông báo & quản lý đơn hàng</div>
+                <div class="text-sm text-muted">Nhận thông báo & tra cứu đơn hàng</div>
               </div>
             </div>
             <div style="padding: 12px; background: var(--bg-card); border-radius: var(--radius-xs); border: 1px dashed var(--border-dark); margin-bottom: 12px;">
               <div class="text-sm text-muted mb-4">Bước 1: Mở Telegram và tìm bot của shop</div>
               <div class="text-sm text-muted">Bước 2: Gửi lệnh <code style="background: var(--primary-light); color: var(--primary); padding: 2px 6px; border-radius: 4px; font-weight: 600;">/start ${u.email || ''}</code></div>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="badge badge-gray"><i class="fa-solid fa-circle-info"></i> Chưa liên kết</span>
-            </div>
+            ${hasTelegram ? `<span class="badge badge-blue"><i class="fa-solid fa-check"></i> Bot đã sẵn sàng</span>` : `<span class="badge badge-gray"><i class="fa-solid fa-circle-info"></i> Bot chưa được cấu hình</span>`}
           </div>
           <div style="flex: 1; min-width: 240px; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-page);">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
@@ -239,20 +244,15 @@ async function renderProfile(view) {
               </div>
               <div>
                 <div class="fw-600">Discord Bot</div>
-                <div class="text-sm text-muted">Nhận thông báo qua Discord</div>
+                <div class="text-sm text-muted">Hỗ trợ qua Discord server</div>
               </div>
             </div>
             <div style="padding: 12px; background: var(--bg-card); border-radius: var(--radius-xs); border: 1px dashed var(--border-dark); margin-bottom: 12px;">
               <div class="text-sm text-muted mb-4">Bước 1: Tham gia Discord server của shop</div>
               <div class="text-sm text-muted">Bước 2: Dùng lệnh <code style="background: var(--primary-light); color: var(--primary); padding: 2px 6px; border-radius: 4px; font-weight: 600;">/link ${u.email || ''}</code> trong kênh bot</div>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="badge badge-gray"><i class="fa-solid fa-circle-info"></i> Chưa liên kết</span>
-            </div>
+            ${discordInvite ? `<a href="${discordInvite}" target="_blank" class="btn btn-sm" style="background:#5865F2;color:#fff;border:none;text-decoration:none;"><i class="fa-brands fa-discord"></i> Tham gia Discord</a>` : (hasDiscord ? `<span class="badge badge-blue"><i class="fa-solid fa-check"></i> Bot đã sẵn sàng</span>` : `<span class="badge badge-gray"><i class="fa-solid fa-circle-info"></i> Bot chưa được cấu hình</span>`)}
           </div>
-        </div>
-        <div class="text-sm text-muted mt-16" style="padding: 10px 14px; background: var(--amber-bg); border-radius: var(--radius-xs); border: 1px solid rgba(245,158,11,0.2);">
-          <i class="fa-solid fa-triangle-exclamation" style="color: var(--amber);"></i> Tính năng liên kết bot đang được phát triển. Vui lòng quay lại sau!
         </div>
       </div>
     `;

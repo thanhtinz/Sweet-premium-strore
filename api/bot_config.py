@@ -25,6 +25,23 @@ def get_bot_config(db: Session = Depends(get_db)):
     except:
         return {}
 
+@router.get("/public")
+def get_bot_public_info(db: Session = Depends(get_db)):
+    """Public endpoint: returns only non-sensitive bot info for user profile"""
+    config = db.query(SiteConfig).filter_by(key="bot_smtp_config").first()
+    if not config:
+        return {}
+    try:
+        data = json.loads(config.value)
+        return {
+            "has_telegram": bool(data.get("telegram_user_token") or data.get("telegram_token")),
+            "has_discord": bool(data.get("discord_token")),
+            "discord_invite": data.get("discord_invite", ""),
+            "telegram_user_welcome": data.get("telegram_user_welcome", ""),
+        }
+    except:
+        return {}
+
 @router.put("/settings", dependencies=[Depends(get_current_admin)])
 def update_bot_config(data: dict, db: Session = Depends(get_db)):
     config = db.query(SiteConfig).filter_by(key="bot_smtp_config").first()
