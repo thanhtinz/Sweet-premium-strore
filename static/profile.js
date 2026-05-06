@@ -40,19 +40,7 @@ async function renderProfile(view) {
     `;
     view.appendChild(profileCard);
 
-    // Quick links row
-    const quickLinks = el('div', 'info-card');
-    quickLinks.innerHTML = `
-      <div class="info-card-body" style="display:flex; gap:12px; flex-wrap:wrap;">
-        <a href="#/affiliate" class="btn btn-outline btn-sm" style="flex:1; min-width:180px; text-align:center; text-decoration:none;">
-          <i class="fa-solid fa-user-group"></i> Giới thiệu bạn bè
-        </a>
-        <a href="#/orders" class="btn btn-outline btn-sm" style="flex:1; min-width:180px; text-align:center; text-decoration:none;">
-          <i class="fa-solid fa-receipt"></i> Đơn hàng của tôi
-        </a>
-      </div>
-    `;
-    view.appendChild(quickLinks);
+
 
     qs('#profile-edit-btn', view).onclick = () => {
       openModal(`
