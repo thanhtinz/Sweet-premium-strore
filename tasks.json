@@ -1,47 +1,17 @@
 [
   {
-    "content": "Thiết kế OAuth Settings page (trang admin cấu hình OAuth)",
+    "content": "Redesign bot config page: Telegram (admin + user), Discord (user only), SMTP, proper CSS",
     "id": "1",
     "status": "completed"
   },
   {
-    "content": "Tạo API endpoints quản lý OAuth config (/api/admin/oauth/*)",
+    "content": "Rebuild admin ticket detail: full conversation view with messages + admin reply",
     "id": "2",
     "status": "completed"
   },
   {
-    "content": "Thêm CSS chuyên nghiệp cho OAuth settings (card, form, toggle, callback URL display)",
+    "content": "Verify client ticket system works correctly",
     "id": "3",
-    "status": "completed"
-  },
-  {
-    "content": "Tạo OAuth login buttons component (Google, Facebook, GitHub, Discord, TikTok)",
-    "id": "4",
-    "status": "completed"
-  },
-  {
-    "content": "Thêm OAuth buttons vào login page với divider",
-    "id": "5",
-    "status": "completed"
-  },
-  {
-    "content": "Thêm hướng dẫn cấu hình chi tiết từng nền tảng OAuth",
-    "id": "6",
-    "status": "completed"
-  },
-  {
-    "content": "Thêm menu OAuth Settings vào admin navigation",
-    "id": "7",
-    "status": "completed"
-  },
-  {
-    "content": "Responsive design CSS cho OAuth buttons (grid, hover effects)",
-    "id": "8",
-    "status": "completed"
-  },
-  {
-    "content": "Thêm routes /admin/oauth-settings vào app.js",
-    "id": "9",
-    "status": "completed"
+    "status": "in_progress"
   }
 ]

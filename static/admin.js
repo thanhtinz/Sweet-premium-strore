@@ -1714,78 +1714,198 @@ async function renderAdminTickets(view) {
   const content = qs('#admin-content'); if (!content) return;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   
+  // Check if we have a ticketId in the hash
+  const hashParts = location.hash.split('?');
+  const params = new URLSearchParams(hashParts[1] || '');
+  const ticketId = params.get('id');
+  
+  if (ticketId) {
+    await renderAdminTicketDetail(content, ticketId);
+    return;
+  }
+
   const refresh = async () => {
-    const tickets = await apiFetch('/support/tickets?user_id=admin');
-    const html = `
-      <div class="page-header">
-        <div class="page-title">Quản lý yêu cầu hỗ trợ</div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Mã</th><th>Khách</th><th>Tiêu đề</th><th>Danh mục</th><th>Trạng thái</th><th>Ưu tiên</th><th>Hành động</th></tr>
-          </thead>
-          <tbody>
-            ${tickets.length ? tickets.map(t => `
-              <tr>
-                <td><strong>${t.ticket_number}</strong></td>
-                <td>${t.user_name}</td>
-                <td>${t.subject}</td>
-                <td><span class="badge">${t.category}</span></td>
-                <td><span class="badge status-${t.status}">${statusLabel(t.status)}</span></td>
-                <td><span class="badge priority-${t.priority}">${priorityLabel(t.priority)}</span></td>
-                <td>
-                  <button class="btn btn-sm btn-ghost" data-view-ticket="${t.id}">Xem</button>
-                </td>
-              </tr>
-            `).join('') : '<tr><td colspan="7" class="text-center text-muted">Không có yêu cầu nào</td></tr>'}
-          </tbody>
-        </table>
-      </div>
-    `;
-    
-    content.innerHTML = html;
-    qsa('[data-view-ticket]', content).forEach(btn => {
-      btn.onclick = () => {
-        const ticket = tickets.find(t => t.id === parseInt(btn.dataset.viewTicket));
-        if (ticket) showAdminTicketModal(ticket, refresh);
-      };
-    });
+    try {
+      const tickets = await apiFetch('/support/tickets?user_id=admin');
+      const html = `
+        <div class="page-header">
+          <div class="page-title">Quản lý yêu cầu hỗ trợ</div>
+          <div class="text-muted text-sm">${tickets.length} ticket</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Mã</th><th>Khách hàng</th><th>Tiêu đề</th><th>Danh mục</th><th>Trạng thái</th><th>Ưu tiên</th><th>Cập nhật</th><th></th></tr>
+            </thead>
+            <tbody>
+              ${tickets.length ? tickets.map(t => `
+                <tr>
+                  <td class="td-mono"><strong>${t.ticket_number}</strong></td>
+                  <td class="text-sm">${t.user_name || t.user_email || '—'}</td>
+                  <td>${t.subject}</td>
+                  <td><span class="badge">${t.category}</span></td>
+                  <td><span class="badge status-${t.status}">${statusLabel(t.status)}</span></td>
+                  <td><span class="badge priority-${t.priority}">${priorityLabel(t.priority)}</span></td>
+                  <td class="text-sm text-muted">${fmtDate(t.updated_at || t.created_at)}</td>
+                  <td><button class="tbl-btn tbl-view" data-open-ticket="${t.id}">Xem</button></td>
+                </tr>
+              `).join('') : '<tr><td colspan="8" class="text-center text-muted">Không có yêu cầu nào</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      `;
+      content.innerHTML = html;
+      qsa('[data-open-ticket]', content).forEach(btn => {
+        btn.onclick = () => {
+          location.hash = `#/admin/tickets?id=${btn.dataset.openTicket}`;
+        };
+      });
+    } catch (err) {
+      content.innerHTML = `<div class="empty-state"><h3>Lỗi tải tickets</h3><p class="text-muted">${err.message}</p></div>`;
+    }
   };
   await refresh();
 }
 
+async function renderAdminTicketDetail(content, ticketId) {
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  try {
+    const data = await apiFetch(`/support/tickets/${ticketId}`);
+    const ticket = data.ticket;
+    const messages = data.messages || [];
+
+    content.innerHTML = `
+      <div class="page-header" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="btn btn-ghost btn-sm" id="btn-back-tickets"><i class="fa-solid fa-arrow-left"></i></button>
+          <div>
+            <div class="page-title" style="font-size:16px">${ticket.subject}</div>
+            <div class="text-muted text-sm">${ticket.ticket_number} · ${ticket.user_name || ticket.user_email}</div>
+          </div>
+        </div>
+      </div>
+      <div class="ticket-detail-layout">
+        <div class="ticket-chat-panel">
+          <div class="ticket-chat-header">
+            <h3><i class="fa-solid fa-comments"></i> Cuộc trò chuyện</h3>
+            <span class="badge status-${ticket.status}">${statusLabel(ticket.status)}</span>
+          </div>
+          <div class="ticket-chat-messages" id="ticket-messages">
+            <!-- Initial description as first message -->
+            ${ticket.description ? `
+              <div class="ticket-msg user">
+                <div>${ticket.description.replace(/\n/g, '<br>')}</div>
+                <div class="ticket-msg-meta">${ticket.user_name || 'Khách'} · ${fmtDate(ticket.created_at)}</div>
+              </div>
+            ` : ''}
+            ${messages.length ? messages.map(m => `
+              <div class="ticket-msg ${m.sender_type}">
+                <div>${m.message.replace(/\n/g, '<br>')}</div>
+                <div class="ticket-msg-meta">${m.sender_name} · ${fmtDate(m.created_at)}</div>
+              </div>
+            `).join('') : (!ticket.description ? '<div class="ticket-msg-empty">Chưa có tin nhắn</div>' : '')}
+          </div>
+          ${ticket.status !== 'closed' ? `
+            <div class="ticket-reply-bar">
+              <textarea id="admin-reply-input" placeholder="Nhập phản hồi cho khách..." rows="1"></textarea>
+              <button class="ticket-reply-btn" id="btn-send-reply" title="Gửi"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+          ` : '<div style="padding:12px 16px;text-align:center;color:var(--text-3);font-size:13px;border-top:1px solid var(--border)">Ticket đã đóng</div>'}
+        </div>
+        <div class="ticket-info-panel">
+          <h4><i class="fa-solid fa-circle-info"></i> Thông tin</h4>
+          <div class="ticket-info-row"><span class="ticket-info-label">Khách hàng</span><span class="ticket-info-value">${ticket.user_name || '—'}</span></div>
+          <div class="ticket-info-row"><span class="ticket-info-label">Email</span><span class="ticket-info-value">${ticket.user_email || '—'}</span></div>
+          <div class="ticket-info-row"><span class="ticket-info-label">Danh mục</span><span class="ticket-info-value"><span class="badge">${ticket.category}</span></span></div>
+          <div class="ticket-info-row"><span class="ticket-info-label">Ưu tiên</span><span class="ticket-info-value"><span class="badge priority-${ticket.priority}">${priorityLabel(ticket.priority)}</span></span></div>
+          <div class="ticket-info-row"><span class="ticket-info-label">Tạo lúc</span><span class="ticket-info-value">${fmtDate(ticket.created_at)}</span></div>
+          <div class="ticket-status-form">
+            <label class="form-label">Trạng thái</label>
+            <select class="form-select" id="ticket-status-select">
+              <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>Đang mở</option>
+              <option value="in_progress" ${ticket.status === 'in_progress' ? 'selected' : ''}>Đang xử lý</option>
+              <option value="resolved" ${ticket.status === 'resolved' ? 'selected' : ''}>Đã giải quyết</option>
+              <option value="closed" ${ticket.status === 'closed' ? 'selected' : ''}>Đã đóng</option>
+            </select>
+            <button class="btn btn-primary btn-sm btn-full" id="btn-update-status" style="margin-top:8px">Cập nhật</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Back button
+    qs('#btn-back-tickets').onclick = () => { location.hash = '#/admin/tickets'; };
+
+    // Scroll messages to bottom
+    const msgBox = qs('#ticket-messages');
+    if (msgBox) msgBox.scrollTop = msgBox.scrollHeight;
+
+    // Auto-resize textarea
+    const textarea = qs('#admin-reply-input');
+    if (textarea) {
+      textarea.addEventListener('input', () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+      });
+      // Send on Enter (Shift+Enter for newline)
+      textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          qs('#btn-send-reply')?.click();
+        }
+      });
+    }
+
+    // Send reply
+    const sendBtn = qs('#btn-send-reply');
+    if (sendBtn) {
+      sendBtn.onclick = async () => {
+        const msg = textarea.value.trim();
+        if (!msg) return;
+        sendBtn.disabled = true;
+        try {
+          await apiFetch(`/support/tickets/${ticketId}/messages`, {
+            method: 'POST',
+            body: JSON.stringify({
+              sender_name: currentUser?.name || 'Admin',
+              sender_type: 'admin',
+              message: msg
+            })
+          });
+          // Append message to chat without full reload
+          const msgEl = document.createElement('div');
+          msgEl.className = 'ticket-msg admin';
+          msgEl.innerHTML = `<div>${msg.replace(/\n/g, '<br>')}</div><div class="ticket-msg-meta">Admin · vừa xong</div>`;
+          msgBox.appendChild(msgEl);
+          msgBox.scrollTop = msgBox.scrollHeight;
+          textarea.value = '';
+          textarea.style.height = 'auto';
+        } catch (err) {
+          toast('Lỗi gửi tin nhắn: ' + err.message, 'error');
+        }
+        sendBtn.disabled = false;
+      };
+    }
+
+    // Update status
+    qs('#btn-update-status').onclick = async () => {
+      const status = qs('#ticket-status-select').value;
+      try {
+        await apiFetch(`/support/tickets/${ticketId}/status?status=${status}`, { method: 'PUT' });
+        toast('Đã cập nhật trạng thái', 'success');
+        renderAdminTicketDetail(content, ticketId);
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    };
+  } catch (err) {
+    content.innerHTML = `<div class="empty-state"><h3>Không tải được ticket</h3><p class="text-muted">${err.message}</p><button class="btn btn-primary mt-12" onclick="location.hash='#/admin/tickets'">Quay lại</button></div>`;
+  }
+}
+
 function showAdminTicketModal(ticket, onDone) {
-  openModal(`
-    <h3 class="modal-title mb-16">Ticket: ${ticket.ticket_number}</h3>
-    <div class="form-group">
-      <label class="form-label">Tiêu đề</label>
-      <input type="text" class="form-input" disabled value="${ticket.subject}" />
-    </div>
-    <div class="form-group">
-      <label class="form-label">Trạng thái</label>
-      <select class="form-select" id="ticket-status">
-        <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>Mở</option>
-        <option value="in_progress" ${ticket.status === 'in_progress' ? 'selected' : ''}>Đang xử lý</option>
-        <option value="resolved" ${ticket.status === 'resolved' ? 'selected' : ''}>Đã giải quyết</option>
-        <option value="closed" ${ticket.status === 'closed' ? 'selected' : ''}>Đóng</option>
-      </select>
-    </div>
-    <div style="margin-top: 16px;">
-      <button class="btn btn-primary" id="ticket-update">Cập nhật trạng thái</button>
-      <button class="btn btn-ghost" id="ticket-close">Đóng</button>
-    </div>
-  `);
-  
-  qs('#ticket-update').onclick = async () => {
-    const status = qs('#ticket-status').value;
-    await apiFetch(`/support/tickets/${ticket.id}/status?status=${status}`, { method: 'PUT' });
-    closeModal();
-    toast('Đã cập nhật', 'success');
-    onDone();
-  };
-  
-  qs('#ticket-close').onclick = closeModal;
+  // Legacy — redirect to detail view
+  location.hash = `#/admin/tickets?id=${ticket.id}`;
 }
 
 
