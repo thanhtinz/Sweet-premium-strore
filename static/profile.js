@@ -203,6 +203,7 @@ async function renderProfile(view) {
     const hasTelegram = botCfg.has_telegram || false;
     const hasDiscord = botCfg.has_discord || false;
     const discordInvite = botCfg.discord_invite || '';
+    const tgUsername = botCfg.telegram_bot_username || '';
 
     const botCard = el('div', 'info-card');
     botCard.innerHTML = `
@@ -220,10 +221,14 @@ async function renderProfile(view) {
               </div>
             </div>
             <div style="padding: 12px; background: var(--bg-card); border-radius: var(--radius-xs); border: 1px dashed var(--border-dark); margin-bottom: 12px;">
-              <div class="text-sm text-muted mb-4">Bước 1: Mở Telegram và tìm bot của shop</div>
-              <div class="text-sm text-muted">Bước 2: Gửi lệnh <code style="background: var(--primary-light); color: var(--primary); padding: 2px 6px; border-radius: 4px; font-weight: 600;">/start ${u.email || ''}</code></div>
+              <div class="text-sm text-muted mb-4">1. Bấm nút bên dưới để mở bot</div>
+              <div class="text-sm text-muted">2. Gửi lệnh <code style="background: var(--primary-light); color: var(--primary); padding: 2px 6px; border-radius: 4px; font-weight: 600;">/start ${u.email || ''}</code></div>
             </div>
-            ${hasTelegram ? `<span class="badge badge-blue"><i class="fa-solid fa-check"></i> Bot đã sẵn sàng</span>` : `<span class="badge badge-gray"><i class="fa-solid fa-circle-info"></i> Bot chưa được cấu hình</span>`}
+            ${hasTelegram && tgUsername
+              ? `<a href="https://t.me/${tgUsername}?start=${encodeURIComponent(u.email || '')}" target="_blank" class="btn btn-sm" style="background:#229ED9;color:#fff;border:none;text-decoration:none;width:100%;text-align:center;"><i class="fa-brands fa-telegram"></i> Mở Telegram Bot</a>`
+              : (hasTelegram
+                ? `<span class="badge badge-blue"><i class="fa-solid fa-check"></i> Bot đã sẵn sàng — hỏi admin link bot</span>`
+                : `<span class="badge badge-gray"><i class="fa-solid fa-circle-info"></i> Bot chưa được cấu hình</span>`)}
           </div>
           <div style="flex: 1; min-width: 240px; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-page);">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
@@ -236,10 +241,14 @@ async function renderProfile(view) {
               </div>
             </div>
             <div style="padding: 12px; background: var(--bg-card); border-radius: var(--radius-xs); border: 1px dashed var(--border-dark); margin-bottom: 12px;">
-              <div class="text-sm text-muted mb-4">Bước 1: Tham gia Discord server của shop</div>
-              <div class="text-sm text-muted">Bước 2: Dùng lệnh <code style="background: var(--primary-light); color: var(--primary); padding: 2px 6px; border-radius: 4px; font-weight: 600;">/link ${u.email || ''}</code> trong kênh bot</div>
+              <div class="text-sm text-muted mb-4">1. Bấm nút bên dưới để vào server</div>
+              <div class="text-sm text-muted">2. Dùng lệnh <code style="background: var(--primary-light); color: var(--primary); padding: 2px 6px; border-radius: 4px; font-weight: 600;">/link ${u.email || ''}</code> trong kênh bot</div>
             </div>
-            ${discordInvite ? `<a href="${discordInvite}" target="_blank" class="btn btn-sm" style="background:#5865F2;color:#fff;border:none;text-decoration:none;"><i class="fa-brands fa-discord"></i> Tham gia Discord</a>` : (hasDiscord ? `<span class="badge badge-blue"><i class="fa-solid fa-check"></i> Bot đã sẵn sàng</span>` : `<span class="badge badge-gray"><i class="fa-solid fa-circle-info"></i> Bot chưa được cấu hình</span>`)}
+            ${discordInvite
+              ? `<a href="${discordInvite}" target="_blank" class="btn btn-sm" style="background:#5865F2;color:#fff;border:none;text-decoration:none;width:100%;text-align:center;"><i class="fa-brands fa-discord"></i> Tham gia Discord Server</a>`
+              : (hasDiscord
+                ? `<span class="badge badge-blue"><i class="fa-solid fa-check"></i> Bot đã sẵn sàng — hỏi admin link server</span>`
+                : `<span class="badge badge-gray"><i class="fa-solid fa-circle-info"></i> Bot chưa được cấu hình</span>`)}
           </div>
         </div>
       </div>

@@ -37,6 +37,7 @@ def get_bot_public_info(db: Session = Depends(get_db)):
             "has_telegram": bool(data.get("telegram_user_token") or data.get("telegram_token")),
             "has_discord": bool(data.get("discord_token")),
             "discord_invite": data.get("discord_invite", ""),
+            "telegram_bot_username": data.get("telegram_bot_username", ""),
             "telegram_user_welcome": data.get("telegram_user_welcome", ""),
         }
     except:

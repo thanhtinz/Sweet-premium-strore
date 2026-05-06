@@ -24,6 +24,11 @@ async function renderAdminBotConfig(view) {
               <div class="form-hint">Tạo bot qua <strong>@BotFather</strong> trên Telegram</div>
             </div>
             <div class="form-group">
+              <label class="form-label">Bot Username</label>
+              <input type="text" class="form-input" id="tg_bot_username" value="${config.telegram_bot_username || ''}" placeholder="MyShopBot (không có @)">
+              <div class="form-hint">Username bot để tạo link t.me/username cho user</div>
+            </div>
+            <div class="form-group">
               <label class="form-label">Admin Chat ID</label>
               <input type="text" class="form-input" id="tg_admin_chat" value="${config.telegram_admin_id || ''}" placeholder="ID admin hoặc group chat">
               <div class="form-hint">Lấy ID qua <strong>@userinfobot</strong></div>
@@ -132,6 +137,7 @@ async function renderAdminBotConfig(view) {
           method: 'PUT',
           body: JSON.stringify({
             telegram_token: qs('#tg_admin_token').value,
+            telegram_bot_username: qs('#tg_bot_username').value.replace(/^@/, ''),
             telegram_admin_id: qs('#tg_admin_chat').value,
             telegram_user_token: qs('#tg_user_token').value,
             telegram_user_welcome: qs('#tg_user_welcome').value,
