@@ -2,7 +2,7 @@
 async function renderAdminBotConfig(view) {
   view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
-    const config = await apiFetch('/bot-config/settings');
+    const config = await apiFetch('/admin/bot-config/settings');
     view.innerHTML = `
       <div class="page-header"><div class="page-title">Cấu hình Bot & SMTP</div></div>
       <div style="max-width: 800px">
@@ -64,7 +64,7 @@ async function renderAdminBotConfig(view) {
     qs('#bot-config-form').onsubmit = async (e) => {
       e.preventDefault();
       try {
-        await apiFetch('/bot-config/settings', {
+        await apiFetch('/admin/bot-config/settings', {
           method: 'PUT',
           body: JSON.stringify({
             telegram_token: qs('#telegram_token').value,

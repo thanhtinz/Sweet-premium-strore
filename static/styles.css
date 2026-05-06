@@ -573,7 +573,7 @@ img { max-width: 100%; display: block; }
 .category-card span { font-size: 12px; font-weight: 600; color: var(--text-body); line-height: 1.3; }
 
 /* ─── Announcements Section (Home) ─── */
-.ann-section { margin-bottom: 28px; }
+.ann-section { margin-bottom: 28px; overflow: hidden; }
 .ann-header {
   display: flex;
   align-items: center;
@@ -608,6 +608,7 @@ img { max-width: 100%; display: block; }
   background: var(--bg-card);
   box-shadow: var(--shadow-sm);
   transition: all var(--transition);
+  overflow: hidden;
 }
 .ann-card-v2:hover { box-shadow: var(--shadow); }
 .ann-card-header {
@@ -640,7 +641,7 @@ img { max-width: 100%; display: block; }
   color: var(--text-muted);
   margin-top: 2px;
 }
-.ann-card-content { min-width: 0; }
+.ann-card-content { min-width: 0; overflow: hidden; }
 .ann-content-title {
   font-size: 14px;
   font-weight: 700;
@@ -648,6 +649,8 @@ img { max-width: 100%; display: block; }
   text-transform: uppercase;
   margin-bottom: 6px;
   line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ann-content-body {
   font-size: 13px;
@@ -655,6 +658,7 @@ img { max-width: 100%; display: block; }
   line-height: 1.6;
   white-space: pre-line;
   word-break: break-word;
+  overflow: hidden;
 }
 
 /* ─── Category Section (Home) ─── */
