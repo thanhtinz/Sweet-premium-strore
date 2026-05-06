@@ -935,6 +935,7 @@ async function renderAdminSettings(view) {
   const im = unified.settings_images || {};
   const se = unified.settings_security || {};
   const ca = unified.settings_captcha || {};
+  const fe = unified.settings_features || {};
 
   // Helper: escape HTML
   const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -965,6 +966,7 @@ async function renderAdminSettings(view) {
     { id: 'images', label: 'Hình ảnh', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' },
     { id: 'security', label: 'Bảo mật', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' },
     { id: 'captcha', label: 'Captcha', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' },
+    { id: 'features', label: 'Chức năng', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>' },
   ];
 
   content.innerHTML = `
@@ -1110,6 +1112,26 @@ async function renderAdminSettings(view) {
         </div>
       </div>
 
+      <!-- ═══ Features ═══ -->
+      <div class="settings-section" data-section="features">
+        <div class="settings-card">
+          <div class="settings-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Bật / Tắt chức năng
+          </div>
+          <p class="text-muted text-sm mb-16">Tắt chức năng sẽ ẩn trên giao diện và chặn truy cập API tương ứng.</p>
+          ${toggleRow('fe-blog', 'Blog', 'Trang blog và bài viết', fe.blog !== false)}
+          ${toggleRow('fe-offers', 'Ưu đãi / Gift Code', 'Trang ưu đãi và mã giảm giá công khai', fe.offers !== false)}
+          ${toggleRow('fe-affiliate', 'Affiliate / Giới thiệu', 'Chương trình giới thiệu bạn bè & hoa hồng', fe.affiliate !== false)}
+          ${toggleRow('fe-support', 'Hỗ trợ / Tickets', 'Trang hỗ trợ, tạo ticket và support pages', fe.support !== false)}
+          ${toggleRow('fe-flash_sales', 'Flash Sale', 'Flash sale trên trang chủ', fe.flash_sales !== false)}
+          ${toggleRow('fe-reviews', 'Đánh giá sản phẩm', 'Đánh giá & nhận xét trên chi tiết sản phẩm', fe.reviews !== false)}
+          ${toggleRow('fe-announcements', 'Thông báo', 'Mục thông báo trên trang chủ', fe.announcements !== false)}
+          ${toggleRow('fe-balance', 'Số dư / Nạp tiền', 'Hệ thống số dư và nạp tiền', fe.balance !== false)}
+          ${toggleRow('fe-wishlist', 'Yêu thích', 'Tính năng yêu thích sản phẩm', fe.wishlist !== false)}
+        </div>
+      </div>
+
       <!-- Save bar -->
       <div class="settings-save-bar">
         <button type="button" class="btn btn-ghost" id="btn-reset-settings">Hoàn tác</button>
@@ -1190,6 +1212,17 @@ async function renderAdminSettings(view) {
         type: val('ca-type'),
         site_key: val('ca-site-key'),
         secret_key: val('ca-secret-key'),
+      },
+      settings_features: {
+        blog: chk('fe-blog'),
+        offers: chk('fe-offers'),
+        affiliate: chk('fe-affiliate'),
+        support: chk('fe-support'),
+        flash_sales: chk('fe-flash_sales'),
+        reviews: chk('fe-reviews'),
+        announcements: chk('fe-announcements'),
+        balance: chk('fe-balance'),
+        wishlist: chk('fe-wishlist'),
       },
     };
 

@@ -67,7 +67,7 @@ def get_public_settings(db: Session = Depends(get_db)):
     settings = db.query(SiteSetting).filter(SiteSetting.key.in_(public_keys)).all()
     result = {s.key: s.value for s in settings}
     # Also read from unified SiteConfig for additional fields
-    config_keys = ["settings_general", "settings_images"]
+    config_keys = ["settings_general", "settings_images", "settings_features"]
     rows = db.query(SiteConfig).filter(SiteConfig.key.in_(config_keys)).all()
     for row in rows:
         try:
@@ -85,6 +85,8 @@ def get_public_settings(db: Session = Depends(get_db)):
         elif row.key == "settings_images":
             if data.get("logo_url"):
                 result["logo_url"] = data["logo_url"]
+        elif row.key == "settings_features":
+            result["features"] = data
     return result
 
 
@@ -97,6 +99,7 @@ SETTINGS_KEYS = [
     "settings_images",
     "settings_security",
     "settings_captcha",
+    "settings_features",
 ]
 
 

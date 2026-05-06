@@ -5,6 +5,7 @@ import re
 from datetime import datetime, timezone
 from typing import Optional
 
+from api.feature_guard import require_feature
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import func
@@ -50,7 +51,7 @@ class BlogPostIn(BaseModel):
 # PUBLIC ENDPOINTS
 # ══════════════════════════════════════════════════════════
 
-@router.get("/categories")
+@router.get("/categories", dependencies=[Depends(require_feature("blog"))])
 def list_blog_categories(db: Session = Depends(get_db)):
     """Public: list active blog categories with post counts."""
     cats = (
@@ -72,7 +73,7 @@ def list_blog_categories(db: Session = Depends(get_db)):
     return result
 
 
-@router.get("/posts")
+@router.get("/posts", dependencies=[Depends(require_feature("blog"))])
 def list_blog_posts(
     category: Optional[str] = None,
     q: Optional[str] = None,
@@ -110,7 +111,7 @@ def list_blog_posts(
     }
 
 
-@router.get("/posts/{slug}")
+@router.get("/posts/{slug}", dependencies=[Depends(require_feature("blog"))])
 def get_blog_post(slug: str, db: Session = Depends(get_db)):
     """Public: get single published post by slug; increment view count."""
     post = db.query(BlogPost).filter(

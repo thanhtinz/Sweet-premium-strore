@@ -4,6 +4,7 @@ Announcements API — public read + admin CRUD.
 from datetime import datetime, timezone
 from typing import Optional
 
+from api.feature_guard import require_feature
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -43,7 +44,7 @@ def _ann_to_dict(a: Announcement):
 # PUBLIC ENDPOINT
 # ══════════════════════════════════════════════════════════
 
-@router.get("/")
+@router.get("/", dependencies=[Depends(require_feature("announcements"))])
 def list_announcements(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=50),

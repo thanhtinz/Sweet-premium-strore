@@ -1,3 +1,4 @@
+from api.feature_guard import require_feature
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -11,7 +12,7 @@ router = APIRouter(prefix="/gift-codes", tags=["gift-codes"])
 
 
 # ── Public: get public codes ───────────────────────────────────
-@router.get("/public")
+@router.get("/public", dependencies=[Depends(require_feature("offers"))])
 def get_public_codes(db: Session = Depends(get_db)):
     now = datetime.now(timezone.utc)
     codes = db.query(GiftCode).filter(

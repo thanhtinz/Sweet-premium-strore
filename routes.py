@@ -27,6 +27,7 @@ from api.bot_config import router as bot_router
 from api.oauth import router as oauth_router
 from api.announcements import router as announcements_router
 from api.balance import router as balance_router
+from api.wishlist import router as wishlist_router
 
 
 def get_file_hash(filepath: str) -> str:
@@ -72,6 +73,7 @@ def create_app(static_dir: str) -> FastAPI:
     api.include_router(oauth_router)
     api.include_router(announcements_router)
     api.include_router(balance_router)
+    api.include_router(wishlist_router)
 
     @api.get("/health")
     def health():

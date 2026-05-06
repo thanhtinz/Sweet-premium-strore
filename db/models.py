@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from sqlalchemy import (
     Column, Integer, String, Text, Boolean, Numeric, DateTime,
-    ForeignKey, JSON
+    ForeignKey, JSON, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from db import Base
@@ -400,3 +400,16 @@ class Announcement(Base):
     sort_order = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), default=now_utc)
     updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
+
+
+# ── Wishlist ───────────────────────────────────────────────
+
+class Wishlist(Base):
+    __tablename__ = "wishlists"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String(255), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+
+    __table_args__ = (UniqueConstraint('user_id', 'product_id', name='uq_wishlist_user_product'),)

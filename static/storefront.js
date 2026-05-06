@@ -108,7 +108,7 @@ async function renderHome(view) {
 
   // ── Announcements ────────────────────────────────────────
   const announcements = announcementsData?.items || [];
-  if (announcements.length) {
+  if (announcements.length && appSettings.features?.announcements !== false) {
     const annSection = el('div', 'ann-section');
     const hasMore = announcements.length > 1;
     annSection.innerHTML = `
@@ -218,7 +218,7 @@ async function renderHome(view) {
   }
 
   // ── Flash Sale ───────────────────────────────────────────
-  if (flashSales.length) {
+  if (flashSales.length && appSettings.features?.flash_sales !== false) {
     const section = el('div', 'flash-sale-section');
     section.innerHTML = `<div class="section-title">${ico.zap} Flash Sale</div>`;
     const row = el('div', 'flash-sale-row');
@@ -283,6 +283,21 @@ async function renderHome(view) {
     const grid = el('div', 'product-grid');
     featuredData.forEach(p => grid.appendChild(productCard(p)));
     frag.appendChild(grid);
+  }
+
+  // ── Wishlist / Favorites on Home ──────────────────────────
+  if (currentUser && window._wishlistIds?.size > 0 && appSettings.features?.wishlist !== false) {
+    try {
+      const wlData = await apiFetch('/wishlist/?limit=6');
+      if (wlData.items?.length) {
+        const wlHead = el('div', 'section-head mt-32');
+        wlHead.innerHTML = `<div class="section-title mb-0"><i class="fa-solid fa-heart" style="color:#ef4444"></i> Sản phẩm yêu thích</div><a href="#/wishlist" class="btn btn-primary btn-sm" style="font-weight: 600;">Xem tất cả <i class="fa-solid fa-arrow-right"></i></a>`;
+        frag.appendChild(wlHead);
+        const wlGrid = el('div', 'product-grid');
+        wlData.items.forEach(p => wlGrid.appendChild(productCard(p)));
+        frag.appendChild(wlGrid);
+      }
+    } catch (_) {}
   }
 
   // ── Selected Categories on Home ──────────────────────────
@@ -643,12 +658,117 @@ async function renderProduct(view, { slug }) {
       }
       topSection.appendChild(imgWrap);
 
-      // Product name + favorite
+      // Product name + action icons (share & wishlist)
       const nameRow = el('div', 'pd-name-row');
       nameRow.innerHTML = `
         <h1 class="pd-name">${p.name}</h1>
+        <div class="pd-name-actions">
+          ${currentUser && appSettings.features?.affiliate !== false ? `<button class="pd-action-icon pd-share-icon" id="pd-share-btn" title="Chia sẻ kiếm tiền"><i class="fa-solid fa-hand-holding-dollar"></i><span class="pd-action-badge" id="pd-share-badge" style="display:none"></span></button>` : ''}
+          ${appSettings.features?.wishlist !== false ? `<button class="pd-action-icon pd-heart-icon ${currentUser && window._wishlistIds?.has(p.id) ? 'active' : ''} ${currentUser ? '' : 'disabled'}" id="pd-heart-btn" title="${currentUser ? 'Yêu thích' : 'Đăng nhập để yêu thích'}"><i class="fa-${currentUser && window._wishlistIds?.has(p.id) ? 'solid' : 'regular'} fa-heart"></i></button>` : ''}
+        </div>
       `;
       topSection.appendChild(nameRow);
+
+      // Wire share button
+      const shareBtn = qs('#pd-share-btn', nameRow);
+      if (shareBtn) {
+        // Load commission rate for badge
+        apiFetch('/affiliate/me').then(aff => {
+          if (aff.registered || aff.commission_rate) {
+            const badge = qs('#pd-share-badge', nameRow);
+            if (badge) { badge.textContent = `${aff.commission_rate || 5}%`; badge.style.display = ''; }
+          }
+        }).catch(() => {});
+
+        shareBtn.onclick = async () => {
+          try {
+            let aff = await apiFetch('/affiliate/me');
+            if (!aff.registered) {
+              aff = await apiFetch('/affiliate/register', { method: 'POST' });
+              aff.registered = true;
+              aff.commission_rate = aff.commission_rate || 5;
+            }
+            const rate = aff.commission_rate || 5;
+            const refCode = aff.ref_code;
+            const siteBase = location.origin;
+            const refLink = `${siteBase}/#/product/${p.slug}?ref=${refCode}`;
+            const shareText = encodeURIComponent(`${p.name} - Xem ngay!`);
+            const shareUrl = encodeURIComponent(refLink);
+
+            let pkgCommHtml = '';
+            if (p.packages?.length) {
+              pkgCommHtml = p.packages.map(pkg => {
+                const price = pkg.flash_sale ? pkg.flash_sale.sale_price : pkg.price;
+                const comm = Math.round(price * rate / 100);
+                const name = pkg.name.length > 22 ? pkg.name.slice(0, 22) + '…' : pkg.name;
+                return `<div class="share-comm-row"><span class="share-comm-name">${name}</span><span class="share-comm-price">${fmt(price)}</span><span class="share-comm-arrow">→</span><span class="share-comm-value">+${fmt(comm)}</span></div>`;
+              }).join('');
+            }
+
+            openModal(`
+              <div class="share-modal">
+                <div class="share-modal-header">
+                  <div class="share-modal-hicon"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                  <div><div class="share-modal-title">Chia sẻ kiếm tiền</div><div class="share-modal-sub">Sản phẩm: ${p.name}</div></div>
+                </div>
+                <div class="share-rate-banner">
+                  <div class="share-rate-icon"><i class="fa-solid fa-gift"></i></div>
+                  <div class="share-rate-text">Nhận ngay <strong>${rate}%</strong> hoa hồng khi bạn bè mua hàng qua link của bạn!</div>
+                </div>
+                ${pkgCommHtml ? `<div class="share-comm-section"><div class="share-comm-title"><i class="fa-solid fa-calculator"></i> Hoa hồng dự kiến</div><div class="share-comm-list">${pkgCommHtml}</div></div>` : ''}
+                <div class="share-link-section">
+                  <div class="share-link-title"><i class="fa-solid fa-link"></i> Link giới thiệu của bạn</div>
+                  <div class="share-link-row">
+                    <input type="text" class="share-link-input" id="share-ref-link" value="${refLink}" readonly />
+                    <button class="share-link-copy" id="share-copy-btn"><i class="fa-regular fa-copy"></i></button>
+                  </div>
+                  <div class="share-link-hint">Chia sẻ link này để nhận hoa hồng</div>
+                </div>
+                <div class="share-social-section">
+                  <div class="share-social-title">Chia sẻ nhanh</div>
+                  <div class="share-social-btns">
+                    <a href="https://www.facebook.com/sharer/sharer.php?u=${shareUrl}" target="_blank" class="share-btn share-btn-fb" title="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+                    <a href="https://twitter.com/intent/tweet?url=${shareUrl}&text=${shareText}" target="_blank" class="share-btn share-btn-x" title="X"><i class="fa-brands fa-x-twitter"></i></a>
+                    <a href="https://t.me/share/url?url=${shareUrl}&text=${shareText}" target="_blank" class="share-btn share-btn-tg" title="Telegram"><i class="fa-brands fa-telegram"></i></a>
+                    <a href="https://wa.me/?text=${shareText}%20${shareUrl}" target="_blank" class="share-btn share-btn-wa" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+                    <a href="https://www.facebook.com/dialog/send?link=${shareUrl}&app_id=0&redirect_uri=${shareUrl}" target="_blank" class="share-btn share-btn-msg" title="Messenger"><i class="fa-brands fa-facebook-messenger"></i></a>
+                    <a href="https://zalo.me/share?url=${shareUrl}" target="_blank" class="share-btn share-btn-zalo" title="Zalo"><span style="font-weight:900;font-size:16px;">Z</span></a>
+                  </div>
+                </div>
+                <a href="#/affiliate" class="share-stats-btn" onclick="closeModal()"><i class="fa-solid fa-chart-line"></i> Xem thống kê hoa hồng</a>
+              </div>
+            `);
+            qs('#share-copy-btn').onclick = () => {
+              navigator.clipboard.writeText(refLink).then(() => toast('Đã sao chép link', 'success')).catch(() => { qs('#share-ref-link').select(); document.execCommand('copy'); toast('Đã sao chép link', 'success'); });
+            };
+          } catch (err) { toast(err.message || 'Lỗi', 'error'); }
+        };
+      }
+
+      // Wire heart/wishlist button
+      const heartBtn = qs('#pd-heart-btn', nameRow);
+      if (heartBtn) {
+        heartBtn.onclick = async () => {
+          if (!currentUser) { toast('Đăng nhập để yêu thích', 'error'); return location.hash = '/login'; }
+          try {
+            const res = await apiFetch(`/wishlist/toggle/${p.id}`, { method: 'POST' });
+            const icon = heartBtn.querySelector('i');
+            if (res.wishlisted) {
+              icon.className = 'fa-solid fa-heart';
+              heartBtn.classList.add('active');
+              window._wishlistIds?.add(p.id);
+              toast('Đã thêm vào yêu thích', 'success');
+            } else {
+              icon.className = 'fa-regular fa-heart';
+              heartBtn.classList.remove('active');
+              window._wishlistIds?.delete(p.id);
+              toast('Đã bỏ yêu thích', 'info');
+            }
+          } catch (err) { toast(err.message || 'Lỗi', 'error'); }
+        };
+        // Set initial active state
+        if (currentUser && window._wishlistIds?.has(p.id)) heartBtn.classList.add('active');
+      }
 
       // Rating row
       const ratingRow = el('div', 'pd-rating-row');
@@ -718,12 +838,23 @@ async function renderProduct(view, { slug }) {
           const discountPct = (fs && pkg.price > 0) ? Math.round((1 - fs.sale_price / pkg.price) * 100) : 0;
 
           const pill = el('div', 'pd-pkg-pill' + (selectedPkg?.id === pkg.id ? ' selected' : '') + (oos ? ' oos' : '') + (fs ? ' flash' : ''));
+          const deliveryIcon = pkg.delivery_type === 'auto' ? '<i class="fa-solid fa-bolt pd-pkg-dtype-icon" title="Giao tự động"></i>' : '<i class="fa-solid fa-truck pd-pkg-dtype-icon" title="Giao thủ công"></i>';
+          const stockInfo = (() => {
+            if (pkg.delivery_type === 'auto') return pkg.stock_count > 0 ? `<span class="pd-pkg-stock">${deliveryIcon} Còn ${pkg.stock_count}</span>` : `<span class="pd-pkg-stock oos-text">${deliveryIcon} Hết hàng</span>`;
+            if (pkg.is_stock_managed) {
+              const sq = pkg.stock_quantity || 0;
+              if (sq <= 0) return `<span class="pd-pkg-stock oos-text">${deliveryIcon} Hết hàng</span>`;
+              if (sq <= 5) return `<span class="pd-pkg-stock warn-text">${deliveryIcon} Còn ${sq}</span>`;
+              return `<span class="pd-pkg-stock">${deliveryIcon} Còn ${sq}</span>`;
+            }
+            return `<span class="pd-pkg-stock">${deliveryIcon} Giao thủ công</span>`;
+          })();
           pill.innerHTML = `
             <div class="pd-pkg-main">
               <div class="pd-pkg-name${oos ? ' oos-text' : ''}">${pkg.name}</div>
               ${pkg.description ? `<div class="pd-pkg-desc">${pkg.description}</div>` : ''}
               <div class="pd-pkg-badges">
-                ${getStockBadge(pkg)}
+                ${stockInfo}
                 ${fs ? `<span class="pd-badge pd-badge-flash">${ico.zap} -${discountPct}%</span>` : ''}
               </div>
               ${fs?.ends_at ? `<div class="pd-pkg-timer" data-end="${fs.ends_at}">⏳ --:--:--</div>` : ''}
@@ -779,19 +910,6 @@ async function renderProduct(view, { slug }) {
           const oos = isOutOfStock(selectedPkg);
           const price = getDisplayPrice(selectedPkg);
 
-          // A) Quantity stepper — at TOP
-          orderBody.innerHTML = '';
-          const qtyRow = el('div', 'pd-qty-row');
-          qtyRow.innerHTML = `
-            <span class="pd-qty-label">Số lượng</span>
-            <div class="pd-qty-controls">
-              <button class="pd-qty-btn pd-qty-minus" id="pd-qty-minus">−</button>
-              <input class="pd-qty-val" id="pd-qty-val" type="text" value="${quantity}" readonly />
-              <button class="pd-qty-btn pd-qty-plus" id="pd-qty-plus">+</button>
-            </div>
-          `;
-          orderBody.appendChild(qtyRow);
-
           // B) Thông tin Order section
           const infoSection = el('div', 'pd-order-info');
           const infoTitle = el('div', 'pd-order-info-title', 'Thông tin Order');
@@ -843,33 +961,15 @@ async function renderProduct(view, { slug }) {
           priceSummary.innerHTML = `
             <div class="pd-price-row">
               <span class="pd-price-label">Tạm tính</span>
-              <span class="pd-price-value" id="pd-subtotal-price">${fmt(price * quantity)}</span>
+              <span class="pd-price-value" id="pd-subtotal-price">${fmt(price)}</span>
             </div>
             <div class="pd-price-divider"></div>
             <div class="pd-price-row pd-price-total-row">
               <span class="pd-price-label pd-price-total-label">Tổng cộng</span>
-              <span class="pd-price-value pd-price-total-value" id="pd-total-price">${fmt(price * quantity)}</span>
+              <span class="pd-price-value pd-price-total-value" id="pd-total-price">${fmt(price)}</span>
             </div>
           `;
           orderBody.appendChild(priceSummary);
-
-          // E) Stock info banner
-          if (selectedPkg.delivery_type === 'auto' && selectedPkg.stock_count >= 0) {
-            const stockBanner = el('div', 'pd-stock-banner');
-            stockBanner.innerHTML = `${ico.box} Kho hàng: <strong>${selectedPkg.stock_count}</strong> sản phẩm`;
-            orderBody.appendChild(stockBanner);
-          } else if (selectedPkg.is_stock_managed) {
-            const qty = selectedPkg.stock_quantity || 0;
-            const stockBanner = el('div', qty <= 0 ? 'pd-stock-banner pd-stock-banner-red' : qty <= 5 ? 'pd-stock-banner pd-stock-banner-orange' : 'pd-stock-banner');
-            if (qty <= 0) {
-              stockBanner.innerHTML = `${ico.box} <strong>Hết hàng</strong> — Sản phẩm tạm thời không còn`;
-            } else if (qty <= 5) {
-              stockBanner.innerHTML = `${ico.box} Sắp hết hàng! Chỉ còn <strong>${qty}</strong> sản phẩm`;
-            } else {
-              stockBanner.innerHTML = `${ico.box} Còn hàng: <strong>${qty}</strong> sản phẩm`;
-            }
-            orderBody.appendChild(stockBanner);
-          }
 
           // F) Action buttons row
           const btnRow = el('div', 'pd-btn-row');
@@ -900,15 +1000,6 @@ async function renderProduct(view, { slug }) {
               else fieldVals[inp.dataset.field] = inp.value.trim();
             });
             return valid ? fieldVals : null;
-          };
-
-          const minusBtn = qs('#pd-qty-minus', orderBody);
-          const plusBtn = qs('#pd-qty-plus', orderBody);
-          if (minusBtn) minusBtn.onclick = () => {
-            if (quantity > 1) { quantity--; qs('#pd-qty-val', orderBody).value = quantity; qs('#pd-subtotal-price', orderBody).textContent = fmt(price * quantity); qs('#pd-total-price', orderBody).textContent = fmt(price * quantity); }
-          };
-          if (plusBtn) plusBtn.onclick = () => {
-            quantity++; qs('#pd-qty-val', orderBody).value = quantity; qs('#pd-subtotal-price', orderBody).textContent = fmt(price * quantity); qs('#pd-total-price', orderBody).textContent = fmt(price * quantity);
           };
 
           // Coupon toggle
@@ -970,6 +1061,7 @@ async function renderProduct(view, { slug }) {
       }
 
       // ── Card 5: Đánh giá ──
+      if (appSettings.features?.reviews !== false) {
       const reviewCard = el('div', 'pd-card');
       reviewCard.innerHTML = `<div class="pd-card-title pd-review-card-header"><span class="pd-review-card-title-left">${ico.starFill} Đánh giá sản phẩm</span><span class="pd-review-card-badge" id="pd-review-badge">0 đánh giá</span></div>`;
       const reviewBody = el('div', 'pd-review-body');
@@ -1111,98 +1203,7 @@ async function renderProduct(view, { slug }) {
         reviewBody.appendChild(reviewAction);
       };
       renderReviews();
-
-      // ── Card: Chia sẻ kiếm tiền ──
-      if (currentUser) {
-        const shareCard = el('div', 'pd-card pd-share-card');
-        shareCard.innerHTML = `
-          <div class="pd-share-banner" id="pd-share-banner">
-            <div class="pd-share-banner-icon"><i class="fa-solid fa-dollar-sign"></i></div>
-            <div class="pd-share-banner-text">
-              <strong>Chia sẻ kiếm tiền</strong>
-              <span class="text-sm">Nhận hoa hồng khi bạn bè mua qua link của bạn</span>
-            </div>
-            <i class="fa-solid fa-chevron-right pd-share-chevron"></i>
-          </div>
-        `;
-        cards.appendChild(shareCard);
-
-        qs('#pd-share-banner', shareCard).onclick = async () => {
-          try {
-            let aff = await apiFetch('/affiliate/me');
-            if (!aff.registered) {
-              aff = await apiFetch('/affiliate/register', { method: 'POST' });
-              aff.registered = true;
-            }
-            const rate = aff.commission_rate || 5;
-            const refCode = aff.ref_code;
-            const siteBase = location.origin;
-            const refLink = `${siteBase}/#/product/${p.slug}?ref=${refCode}`;
-            const shareText = encodeURIComponent(`${p.name} - Xem ngay!`);
-            const shareUrl = encodeURIComponent(refLink);
-
-            // Build commission preview for packages
-            let pkgCommHtml = '';
-            if (p.packages?.length) {
-              pkgCommHtml = p.packages.map(pkg => {
-                const price = pkg.flash_sale ? pkg.flash_sale.sale_price : pkg.price;
-                const comm = Math.round(price * rate / 100);
-                const name = pkg.name.length > 20 ? pkg.name.slice(0, 20) + '…' : pkg.name;
-                return `<div class="share-comm-row"><span class="share-comm-name">${name}</span><span class="share-comm-price">${fmt(price)}</span><span class="share-comm-arrow">→</span><span class="share-comm-value">+${fmt(comm)}</span></div>`;
-              }).join('');
-            }
-
-            openModal(`
-              <div class="share-modal">
-                <div class="share-modal-header">
-                  <div class="share-modal-icon"><i class="fa-solid fa-dollar-sign"></i></div>
-                  <h3 class="share-modal-title">Chia sẻ kiếm tiền</h3>
-                </div>
-                <div class="share-rate-banner">
-                  <div class="share-rate-icon"><i class="fa-solid fa-gift"></i></div>
-                  <div class="share-rate-text">Nhận ngay <strong>${rate}%</strong> hoa hồng khi bạn bè mua hàng qua link của bạn!</div>
-                </div>
-                ${pkgCommHtml ? `
-                  <div class="share-comm-section">
-                    <div class="share-comm-title"><i class="fa-solid fa-calculator"></i> Hoa hồng dự kiến</div>
-                    <div class="share-comm-list">${pkgCommHtml}</div>
-                  </div>
-                ` : ''}
-                <div class="share-link-section">
-                  <div class="share-link-title"><i class="fa-solid fa-link"></i> Link giới thiệu của bạn</div>
-                  <div class="share-link-row">
-                    <input type="text" class="share-link-input" id="share-ref-link" value="${refLink}" readonly />
-                    <button class="share-link-copy" id="share-copy-btn"><i class="fa-regular fa-copy"></i></button>
-                  </div>
-                  <div class="share-link-hint">Chia sẻ link này để nhận hoa hồng</div>
-                </div>
-                <div class="share-social-section">
-                  <div class="share-social-title">Chia sẻ nhanh</div>
-                  <div class="share-social-btns">
-                    <a href="https://www.facebook.com/sharer/sharer.php?u=${shareUrl}" target="_blank" class="share-btn share-btn-fb" title="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
-                    <a href="https://twitter.com/intent/tweet?url=${shareUrl}&text=${shareText}" target="_blank" class="share-btn share-btn-x" title="X (Twitter)"><i class="fa-brands fa-x-twitter"></i></a>
-                    <a href="https://t.me/share/url?url=${shareUrl}&text=${shareText}" target="_blank" class="share-btn share-btn-tg" title="Telegram"><i class="fa-brands fa-telegram"></i></a>
-                    <a href="https://wa.me/?text=${shareText}%20${shareUrl}" target="_blank" class="share-btn share-btn-wa" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
-                    <a href="https://www.facebook.com/dialog/send?link=${shareUrl}&app_id=0&redirect_uri=${shareUrl}" target="_blank" class="share-btn share-btn-msg" title="Messenger"><i class="fa-brands fa-facebook-messenger"></i></a>
-                    <a href="https://zalo.me/share?url=${shareUrl}" target="_blank" class="share-btn share-btn-zalo" title="Zalo"><span style="font-weight:900;font-size:18px;">Z</span></a>
-                  </div>
-                </div>
-                <a href="#/affiliate" class="share-stats-btn" onclick="closeModal()"><i class="fa-solid fa-chart-line"></i> Xem thống kê hoa hồng</a>
-              </div>
-            `);
-
-            qs('#share-copy-btn').onclick = () => {
-              navigator.clipboard.writeText(refLink).then(() => toast('Đã sao chép link', 'success')).catch(() => {
-                qs('#share-ref-link').select();
-                document.execCommand('copy');
-                toast('Đã sao chép link', 'success');
-              });
-            };
-          } catch (err) {
-            toast(err.message || 'Lỗi tải thông tin affiliate', 'error');
-          }
-        };
-      }
+      } // end reviews feature check
 
       // ── Card 6: Sản phẩm liên quan ──
       if (p.related?.length) {
@@ -1487,6 +1488,66 @@ async function renderOffers(view) {
   } catch (e) {
     view.innerHTML = `<div class="empty-state"><h3>Lỗi tải ưu đãi</h3><p>${e.message}</p></div>`;
   }
+}
+
+async function renderWishlist(view) {
+  if (!currentUser) { location.hash = '/login'; return; }
+  view.innerHTML = '';
+  const heroHead = el('div', 'products-hero');
+  heroHead.innerHTML = `
+    <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <strong>Yêu thích</strong></div>
+    <h1 class="products-hero-title"><i class="fa-solid fa-heart" style="color:#ef4444"></i> Sản phẩm yêu thích</h1>
+    <p class="products-hero-desc">Danh sách sản phẩm bạn đã lưu</p>
+  `;
+  view.appendChild(heroHead);
+
+  // Search bar
+  const searchWrap = el('div', 'wl-search-wrap');
+  searchWrap.innerHTML = `<div class="wl-search-bar"><i class="fa-solid fa-search"></i><input type="text" class="wl-search-input" id="wl-search" placeholder="Tìm trong yêu thích..." /></div>`;
+  view.appendChild(searchWrap);
+
+  const container = el('div', 'wl-container');
+  view.appendChild(container);
+
+  let curPage = 1;
+  let searchQ = '';
+  let debounceTimer = null;
+
+  const loadPage = async (page) => {
+    container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+    try {
+      const data = await apiFetch(`/wishlist/?page=${page}&limit=12&q=${encodeURIComponent(searchQ)}`);
+      container.innerHTML = '';
+      if (!data.items?.length) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><i class="fa-regular fa-heart" style="font-size:48px;color:var(--text-muted);opacity:0.3;"></i></div><h3>${searchQ ? 'Không tìm thấy sản phẩm' : 'Chưa có sản phẩm yêu thích'}</h3><p class="text-muted">${searchQ ? 'Thử từ khóa khác' : 'Bấm nút ❤️ trên sản phẩm để thêm vào đây'}</p></div>`;
+        return;
+      }
+      const grid = el('div', 'product-grid');
+      data.items.forEach(p => grid.appendChild(productCard(p)));
+      container.appendChild(grid);
+
+      // Pagination
+      if (data.pages > 1) {
+        const pager = el('div', 'wl-pager');
+        for (let i = 1; i <= data.pages; i++) {
+          const btn = el('button', `wl-page-btn ${i === data.page ? 'active' : ''}`);
+          btn.textContent = i;
+          btn.onclick = () => { curPage = i; loadPage(i); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+          pager.appendChild(btn);
+        }
+        container.appendChild(pager);
+      }
+    } catch (e) {
+      container.innerHTML = `<div class="empty-state"><h3>Lỗi tải danh sách</h3><p>${e.message}</p></div>`;
+    }
+  };
+
+  qs('#wl-search', view).oninput = (e) => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => { searchQ = e.target.value.trim(); curPage = 1; loadPage(1); }, 300);
+  };
+
+  await loadPage(1);
 }
 
 async function renderCheckout(view) {
