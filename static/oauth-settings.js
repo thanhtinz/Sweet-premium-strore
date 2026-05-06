@@ -3,7 +3,8 @@
  */
 
 async function renderAdminOAuthSettings(view) {
-  const content = document.querySelector('#admin-content') || view;
+  const content = document.querySelector('#admin-content');
+  if (!content) return;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   
   try {
