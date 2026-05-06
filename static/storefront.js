@@ -635,10 +635,11 @@ async function renderProduct(view, { slug }) {
           bcCatHref = `#/all?cat=${p.category_slug || p.category_id}`;
         }
       }
-      view.appendChild(el('div', 'breadcrumb mb-16', `<a href="#/">Trang chủ</a> <span>›</span> ${p.category_name ? `<a href="${bcCatHref}">${p.category_name}</a> <span>›</span> ` : ''}${p.name}`));
-
       // ── Top section: stacked layout ──
       const topSection = el('div', 'pd-top-section');
+
+      // Breadcrumb inside top section
+      topSection.appendChild(el('div', 'breadcrumb', `<a href="#/">Trang chủ</a> <span>›</span> ${p.category_name ? `<a href="${bcCatHref}">${p.category_name}</a> <span>›</span> ` : ''}${p.name}`));
 
       // Image with overlay badges
       const imgWrap = el('div', 'pd-hero-img');

@@ -3167,7 +3167,13 @@ a.support-contact-value:hover {
 /* ── Top section: stacked layout ── */
 .pd-top-section {
   display: flex; flex-direction: column; gap: 16px;
-  margin-bottom: 28px;
+  margin: -24px -28px 28px;
+  padding: 24px 28px 24px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+@media (max-width: 768px) {
+  .pd-top-section { margin: -16px -16px 20px; padding: 16px 16px 20px; }
 }
 
 /* Hero image */
