@@ -103,6 +103,7 @@ class GiftCodeCreate(BaseModel):
     starts_at: Optional[str] = None
     expires_at: Optional[str] = None
     is_active: bool = True
+    is_public: bool = False
 
 
 @router.get("/admin/list", dependencies=[Depends(get_current_admin)])
@@ -126,6 +127,7 @@ def create_gift_code(body: GiftCodeCreate, db: Session = Depends(get_db)):
         starts_at=datetime.fromisoformat(body.starts_at) if body.starts_at else None,
         expires_at=datetime.fromisoformat(body.expires_at) if body.expires_at else None,
         is_active=body.is_active,
+        is_public=body.is_public,
     )
     db.add(gc)
     db.commit()
@@ -147,6 +149,7 @@ def update_gift_code(gid: int, body: GiftCodeCreate, db: Session = Depends(get_d
     gc.starts_at = datetime.fromisoformat(body.starts_at) if body.starts_at else None
     gc.expires_at = datetime.fromisoformat(body.expires_at) if body.expires_at else None
     gc.is_active = body.is_active
+    gc.is_public = body.is_public
     db.commit()
     db.refresh(gc)
     return _to_dict(gc)
@@ -175,4 +178,5 @@ def _to_dict(gc: GiftCode):
         "starts_at": gc.starts_at.isoformat() if gc.starts_at else None,
         "expires_at": gc.expires_at.isoformat() if gc.expires_at else None,
         "is_active": gc.is_active,
+        "is_public": gc.is_public,
     }

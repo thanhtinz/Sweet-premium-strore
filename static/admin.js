@@ -1434,7 +1434,7 @@ async function renderAdminGiftCodes(view) {
     content.innerHTML = `
       <div class="page-header"><div class="page-title">Gift Codes</div><button class="btn btn-primary" id="btn-add-gc">+ Thêm mã</button></div>
       <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Mã</th><th>Loại</th><th>Giá trị</th><th>Đơn tối thiểu</th><th>Giảm tối đa</th><th>Đã dùng/Giới hạn</th><th>Hết hạn</th><th>Trạng thái</th><th></th></tr></thead>
+        <thead><tr><th>Mã</th><th>Loại</th><th>Giá trị</th><th>Đơn tối thiểu</th><th>Giảm tối đa</th><th>Đã dùng/Giới hạn</th><th>Hết hạn</th><th>Trạng thái</th><th>Ưu đãi</th><th></th></tr></thead>
         <tbody>${codes.length ? codes.map(c => `<tr>
           <td class="td-bold td-mono">${c.code}</td>
           <td><span class="badge ${c.discount_type === 'percent' ? 'badge-blue' : 'badge-purple'}">${c.discount_type === 'percent' ? '%' : 'Fixed'}</span></td>
@@ -1444,8 +1444,9 @@ async function renderAdminGiftCodes(view) {
           <td>${c.used_count || 0}/${c.usage_limit || '∞'}</td>
           <td class="text-sm">${fmtDate(c.expires_at)}</td>
           <td>${c.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-gray">Off</span>'}</td>
+          <td>${c.is_public ? '<span class="badge badge-blue">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td>
           <td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit-gc="${c.id}">Sửa</button><button class="tbl-btn tbl-delete" data-del-gc="${c.id}">Xóa</button></div></td>
-        </tr>`).join('') : '<tr><td colspan="9" class="text-center text-muted">Chưa có gift code nào</td></tr>'}</tbody>
+        </tr>`).join('') : '<tr><td colspan="10" class="text-center text-muted">Chưa có gift code nào</td></tr>'}</tbody>
       </table></div></div>
     `;
     qs('#btn-add-gc', content).onclick = () => showGiftCodeModal(null, refresh);
@@ -1479,6 +1480,7 @@ function showGiftCodeModal(gc, onDone) {
         <div class="form-group"><label class="form-label">Hết hạn</label><input type="datetime-local" class="form-input" id="gc-exp" value="${gc?.expires_at ? gc.expires_at.slice(0,16) : ''}" /></div>
       </div>
       <div class="form-group"><label class="form-label"><input type="checkbox" id="gc-active" ${gc?.is_active !== false ? 'checked' : ''} /> Active</label></div>
+      <div class="form-group"><label class="form-label"><input type="checkbox" id="gc-public" ${gc?.is_public ? 'checked' : ''} /> Hiện trên trang Ưu đãi</label></div>
       <div id="gc-form-err" class="form-error mb-12" style="display:none"></div>
       <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">${isEdit ? 'Cập nhật' : 'Tạo mới'}</button><button type="button" class="btn btn-ghost" id="gc-cancel">Hủy</button></div>
     </form>
@@ -1496,6 +1498,7 @@ function showGiftCodeModal(gc, onDone) {
       starts_at: qs('#gc-start').value || null,
       expires_at: qs('#gc-exp').value || null,
       is_active: qs('#gc-active').checked,
+      is_public: qs('#gc-public').checked,
     };
     try {
       if (isEdit) await apiFetch(`/gift-codes/admin/${gc.id}`, { method: 'PUT', body: JSON.stringify(body) });
