@@ -136,6 +136,11 @@ async function loadSidebar() {
     offersItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-gift"></i></div><span>Ưu đãi</span>';
     nav.appendChild(offersItem);
 
+    const supportItem = el('a', 'nav-item' + (location.hash.startsWith('#/support') ? ' active' : ''));
+    supportItem.href = '#/support';
+    supportItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-headset"></i></div><span>Hỗ trợ</span>';
+    nav.appendChild(supportItem);
+
     const blogItem = el('a', 'nav-item' + (location.hash === '#/blog' ? ' active' : ''));
     blogItem.href = '#/blog';
     blogItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-newspaper"></i></div><span>Blog</span>';
