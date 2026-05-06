@@ -253,7 +253,13 @@ async function renderCategory(view, { slug }) {
   try {
     const [cat, data] = await Promise.all([apiFetch(`/categories/${slug}`), apiFetch(`/products/?category_slug=${slug}&limit=40`)]);
     view.innerHTML = '';
-    view.appendChild(el('div', 'page-header', `<div class="page-title">${cat.name}</div><div class="page-subtitle">${data.total} sản phẩm</div>`));
+    const heroHead = el('div', 'products-hero');
+    heroHead.innerHTML = `
+      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <strong>${cat.name}</strong></div>
+      <h1 class="products-hero-title"><i class="fa-solid fa-folder-open"></i> ${cat.name}</h1>
+      <p class="products-hero-desc">${data.total} sản phẩm trong danh mục này</p>
+    `;
+    view.appendChild(heroHead);
     if (!data.items.length) {
       view.appendChild(el('div', 'empty-state', '<div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><h3>Danh mục này chưa có sản phẩm</h3>'));
     } else {
@@ -488,7 +494,25 @@ async function renderProduct(view, { slug }) {
     let reviewData = null;
 
     // ── Helpers ──
-    const isOutOfStock = (pkg) => pkg.delivery_type === 'auto' && pkg.stock_count < 1;
+    const isOutOfStock = (pkg) => {
+      if (pkg.delivery_type === 'auto') return pkg.stock_count < 1;
+      if (pkg.is_stock_managed) return pkg.stock_quantity < 1;
+      return false;
+    };
+    const getStockBadge = (pkg) => {
+      if (pkg.delivery_type === 'auto') {
+        return pkg.stock_count > 0
+          ? `<span class="pd-badge pd-badge-green">Còn hàng (${pkg.stock_count})</span>`
+          : `<span class="pd-badge pd-badge-red">Hết hàng</span>`;
+      }
+      if (pkg.is_stock_managed) {
+        const qty = pkg.stock_quantity || 0;
+        if (qty <= 0) return `<span class="pd-badge pd-badge-red">Hết hàng</span>`;
+        if (qty <= 5) return `<span class="pd-badge pd-badge-orange">Sắp hết (${qty})</span>`;
+        return `<span class="pd-badge pd-badge-green">Còn hàng (${qty})</span>`;
+      }
+      return `<span class="pd-badge pd-badge-blue">Giao thủ công</span>`;
+    };
     const getDisplayPrice = (pkg) => pkg.flash_sale ? pkg.flash_sale.sale_price : pkg.price;
     const getStrikePrice = (pkg) => pkg.flash_sale ? pkg.price : pkg.original_price;
     const starsHtml = (rating, size = 16) => {
@@ -636,12 +660,7 @@ async function renderProduct(view, { slug }) {
               <div class="pd-pkg-name${oos ? ' oos-text' : ''}">${pkg.name}</div>
               ${pkg.description ? `<div class="pd-pkg-desc">${pkg.description}</div>` : ''}
               <div class="pd-pkg-badges">
-                ${pkg.delivery_type === 'auto'
-                  ? (pkg.stock_count > 0
-                    ? `<span class="pd-badge pd-badge-green">Còn hàng (${pkg.stock_count})</span>`
-                    : `<span class="pd-badge pd-badge-red">Hết hàng</span>`)
-                  : `<span class="pd-badge pd-badge-blue">Giao thủ công</span>`
-                }
+                ${getStockBadge(pkg)}
                 ${fs ? `<span class="pd-badge pd-badge-flash">${ico.zap} -${discountPct}%</span>` : ''}
               </div>
               ${fs?.ends_at ? `<div class="pd-pkg-timer" data-end="${fs.ends_at}">⏳ --:--:--</div>` : ''}
@@ -717,13 +736,18 @@ async function renderProduct(view, { slug }) {
           if (selectedPkg.fields?.length) {
             selectedPkg.fields.forEach(f => {
               const fg = el('div', 'form-group');
+              const label = el('label', 'form-label', f.field_name + (f.is_required ? ' *' : ''));
+              fg.appendChild(label);
               let input;
-              if (f.field_type === 'textarea') { input = el('textarea', 'form-textarea pd-order-input'); }
+              if (f.field_type === 'textarea') { input = el('textarea', 'form-textarea pd-order-input'); input.placeholder = f.field_name; }
               else if (f.field_type === 'select') {
                 const opts = JSON.parse(f.options || '[]');
                 input = el('select', 'form-select pd-order-input');
+                const defaultOpt = document.createElement('option'); defaultOpt.value = ''; defaultOpt.textContent = `-- Chọn ${f.field_name} --`; input.appendChild(defaultOpt);
                 opts.forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; input.appendChild(opt); });
-              } else { input = el('input', 'form-input pd-order-input'); input.type = f.field_type === 'email' ? 'email' : 'text'; input.placeholder = f.field_name; }
+              } else if (f.field_type === 'number') { input = el('input', 'form-input pd-order-input'); input.type = 'number'; input.placeholder = f.field_name; }
+              else if (f.field_type === 'email') { input = el('input', 'form-input pd-order-input'); input.type = 'email'; input.placeholder = f.field_name; }
+              else { input = el('input', 'form-input pd-order-input'); input.type = 'text'; input.placeholder = f.field_name; }
               input.dataset.field = f.field_name;
               input.required = f.is_required;
               fg.appendChild(input);
@@ -766,10 +790,21 @@ async function renderProduct(view, { slug }) {
           `;
           orderBody.appendChild(priceSummary);
 
-          // E) Stock info banner (auto-delivery only)
+          // E) Stock info banner
           if (selectedPkg.delivery_type === 'auto' && selectedPkg.stock_count >= 0) {
             const stockBanner = el('div', 'pd-stock-banner');
             stockBanner.innerHTML = `${ico.box} Kho hàng: <strong>${selectedPkg.stock_count}</strong> sản phẩm`;
+            orderBody.appendChild(stockBanner);
+          } else if (selectedPkg.is_stock_managed) {
+            const qty = selectedPkg.stock_quantity || 0;
+            const stockBanner = el('div', qty <= 0 ? 'pd-stock-banner pd-stock-banner-red' : qty <= 5 ? 'pd-stock-banner pd-stock-banner-orange' : 'pd-stock-banner');
+            if (qty <= 0) {
+              stockBanner.innerHTML = `${ico.box} <strong>Hết hàng</strong> — Sản phẩm tạm thời không còn`;
+            } else if (qty <= 5) {
+              stockBanner.innerHTML = `${ico.box} Sắp hết hàng! Chỉ còn <strong>${qty}</strong> sản phẩm`;
+            } else {
+              stockBanner.innerHTML = `${ico.box} Còn hàng: <strong>${qty}</strong> sản phẩm`;
+            }
             orderBody.appendChild(stockBanner);
           }
 
@@ -1303,6 +1338,14 @@ async function renderCheckout(view) {
   if (!currentUser) { toast('Đăng nhập', 'error'); return location.hash = '/login'; }
   view.innerHTML = '';
   
+  const heroHead = el('div', 'products-hero');
+  heroHead.innerHTML = `
+    <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/cart">Giỏ hàng</a> <span>›</span> <strong>Thanh toán</strong></div>
+    <h1 class="products-hero-title"><i class="fa-solid fa-clipboard-check"></i> Xác nhận đơn hàng</h1>
+    <p class="products-hero-desc">Kiểm tra lại thông tin và hoàn tất thanh toán</p>
+  `;
+  view.appendChild(heroHead);
+
   // 3 Steps
   view.innerHTML += `
     <div class="checkout-steps-card">
@@ -1468,7 +1511,13 @@ async function renderOrderDetail(view, { code }) {
       `;
     }
 
-    view.appendChild(el('div', 'page-header', `<div class="page-title"><i class="fa-solid fa-file-invoice"></i> Chi tiết đơn hàng</div><a href="#/orders" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i> Quay lại</a>`));
+    const heroHead = el('div', 'products-hero');
+    heroHead.innerHTML = `
+      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/orders">Đơn hàng</a> <span>›</span> <strong>#${d.order_code}</strong></div>
+      <h1 class="products-hero-title"><i class="fa-solid fa-file-invoice"></i> Chi tiết đơn hàng</h1>
+      <p class="products-hero-desc">Đơn hàng #${d.order_code} — ${fmtDate(d.created_at)}</p>
+    `;
+    view.appendChild(heroHead);
 
     // Determine status badge classes
     let statusClass = 'badge-gray';

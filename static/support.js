@@ -1,374 +1,368 @@
 /**
  * Support System JS
- * - Support pages (warranty, FAQ, policies, etc)
- * - Create tickets
- * - View tickets and messages
+ * All render functions use `view` (#app-view) — NEVER write to .main-content
+ * Uses same design components as storefront: .products-hero, .info-card, etc.
  */
 
-// ─── SUPPORT PAGES ──────────────────────────────────
+// ─── SUPPORT PAGES (warranty, faq, privacy, etc) ────
 
 async function renderSupportPage(slug) {
+  const view = qs('#app-view');
+  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
-    const res = await apiFetch(`/support/pages/${slug}`);
-    const page = res;
+    const page = await apiFetch(`/support/pages/${slug}`);
+    view.innerHTML = '';
 
-    const content = `
-      <div class="page-wrapper">
-        <div class="page-header" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);">
-          <div class="container">
-            <h1 style="color: white; margin: 0;">${page.title}</h1>
-          </div>
-        </div>
-
-        <div class="container" style="max-width: 900px; margin: 40px auto; padding: 0 24px;">
-          <article class="support-article">
-            ${page.content}
-          </article>
-        </div>
-      </div>
+    // Hero header — same pattern as profile/orders
+    const hero = el('div', 'products-hero');
+    hero.innerHTML = `
+      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/support">Hỗ trợ</a> <span>›</span> <strong>${page.title}</strong></div>
+      <h1 class="products-hero-title"><i class="fa-solid fa-file-lines"></i> ${page.title}</h1>
     `;
+    view.appendChild(hero);
 
-    const main = qs(".main-content");
-    main.innerHTML = content;
+    // Article layout — blog post style
+    const container = el('div', 'support-article-container');
+    container.innerHTML = `
+      <div class="support-article-meta">
+        <span class="fw-600"><i class="fa-solid fa-user-circle"></i> Admin</span>
+        <span><i class="fa-solid fa-calendar"></i> Cập nhật: ${fmtDate(page.updated_at || page.created_at || new Date())}</span>
+      </div>
+      <article class="support-article">${page.content}</article>
+    `;
+    view.appendChild(container);
     window.scrollTo(0, 0);
   } catch (err) {
-    showError("Không thể tải trang này");
+    view.innerHTML = `
+      <div class="empty-state" style="margin-top:40px;">
+        <div class="empty-state-icon"><i class="fa-solid fa-exclamation-triangle" style="font-size:36px;color:var(--red);"></i></div>
+        <h3>Không thể tải trang này</h3>
+        <a href="#/support" class="btn btn-primary mt-12">Quay lại Hỗ trợ</a>
+      </div>`;
   }
 }
 
-// ─── SUPPORT HOME (Contact + Create Ticket) ─────────
+// ─── SUPPORT HOME ────────────────────────────────────
 
-async function renderSupportHome() {
-  const config = await apiFetch("/support/config");
-
-  const html = `
-    <div class="page-wrapper">
-      <div class="page-header" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);">
-        <div class="container">
-          <h1 style="color: white; margin: 0;">Hỗ trợ & Liên hệ</h1>
-        </div>
-      </div>
-
-      <div class="container" style="max-width: 1200px; margin: 40px auto; padding: 0 24px;">
-        <div class="support-grid">
-          <!-- Contact Info -->
-          <div class="contact-card">
-            <h2>${ico.mail} Thông tin liên hệ</h2>
-            <div class="contact-info">
-              <div class="info-item">
-                <i class="fa-solid fa-envelope"></i>
-                <div>
-                  <strong>Email</strong>
-                  <p><a href="mailto:${config.contact_email}">${config.contact_email}</a></p>
-                </div>
-              </div>
-              <div class="info-item">
-                <i class="fa-solid fa-phone"></i>
-                <div>
-                  <strong>Điện thoại</strong>
-                  <p><a href="tel:${config.contact_phone}">${config.contact_phone}</a></p>
-                </div>
-              </div>
-              <div class="info-item">
-                <i class="fa-solid fa-location-dot"></i>
-                <div>
-                  <strong>Địa chỉ</strong>
-                  <p>${config.contact_address}</p>
-                </div>
-              </div>
-              <div class="info-item">
-                <i class="fa-solid fa-clock"></i>
-                <div>
-                  <strong>Giờ làm việc</strong>
-                  <p>${config.working_hours}</p>
-                </div>
-              </div>
-            </div>
-            <div style="margin-top: 24px;">
-              <a href="${config.contact_facebook}" target="_blank" class="btn btn-primary">
-                <i class="fa-brands fa-facebook-f"></i> Theo dõi Facebook
-              </a>
-            </div>
-          </div>
-
-          <!-- Create Ticket Form -->
-          <div class="ticket-form-card">
-            <h2>${ico.flag} Tạo yêu cầu hỗ trợ</h2>
-            <form id="create-ticket-form">
-              <div class="form-group">
-                <label>Họ tên <span class="required">*</span></label>
-                <input type="text" name="name" required class="form-control">
-              </div>
-              <div class="form-group">
-                <label>Email <span class="required">*</span></label>
-                <input type="email" name="email" required class="form-control">
-              </div>
-              <div class="form-group">
-                <label>Danh mục <span class="required">*</span></label>
-                <select name="category" required class="form-control">
-                  <option value="">-- Chọn danh mục --</option>
-                  <option value="order">Vấn đề đơn hàng</option>
-                  <option value="product">Vấn đề sản phẩm</option>
-                  <option value="payment">Vấn đề thanh toán</option>
-                  <option value="other">Khác</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Độ ưu tiên <span class="required">*</span></label>
-                <select name="priority" required class="form-control">
-                  <option value="normal">Bình thường</option>
-                  <option value="high">Cao</option>
-                  <option value="urgent">Khẩn cấp</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Tiêu đề <span class="required">*</span></label>
-                <input type="text" name="subject" required class="form-control" placeholder="Mô tả ngắn vấn đề">
-              </div>
-              <div class="form-group">
-                <label>Mô tả chi tiết <span class="required">*</span></label>
-                <textarea name="description" required class="form-control" rows="5" placeholder="Mô tả chi tiết vấn đề của bạn..."></textarea>
-              </div>
-              <button type="submit" class="btn btn-primary">Gửi yêu cầu</button>
-            </form>
-          </div>
-        </div>
-
-        <!-- Quick Links -->
-        <div class="support-links" style="margin-top: 60px;">
-          <h2>Các trang hữu ích</h2>
-          <div class="links-grid">
-            <a href="#/support/warranty" class="link-card">
-              <i class="fa-solid fa-shield"></i>
-              <h3>Chính sách bảo hành</h3>
-              <p>Tìm hiểu về chính sách bảo hành của chúng tôi</p>
-            </a>
-            <a href="#/support/purchase-guide" class="link-card">
-              <i class="fa-solid fa-book"></i>
-              <h3>Hướng dẫn mua hàng</h3>
-              <p>Các bước mua hàng dễ dàng trên ShopKey</p>
-            </a>
-            <a href="#/support/faq" class="link-card">
-              <i class="fa-solid fa-circle-question"></i>
-              <h3>Câu hỏi thường gặp</h3>
-              <p>Trả lời các câu hỏi phổ biến</p>
-            </a>
-            <a href="#/support/privacy" class="link-card">
-              <i class="fa-solid fa-lock"></i>
-              <h3>Chính sách bảo mật</h3>
-              <p>Bảo vệ thông tin của bạn</p>
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  const main = qs(".main-content");
-  main.innerHTML = html;
-  window.scrollTo(0, 0);
-
-  // Handle form submission
-  const form = qs("#create-ticket-form");
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData);
-
-    try {
-      const res = await apiFetch("/support/tickets", {
-        method: "POST",
-        body: JSON.stringify(data)
-      });
-      toast(`Tạo yêu cầu thành công! Mã: ${res.ticket_number}`, "success");
-      form.reset();
-      setTimeout(() => {
-        window.location.hash = `#/support/tickets/${res.ticket_id}`;
-      }, 1500);
-    } catch (err) {
-      toast("Lỗi tạo yêu cầu", "error");
-    }
-  };
-}
-
-// ─── USER TICKETS ───────────────────────────────────
-
-async function renderUserTickets() {
+async function renderSupportHome(view) {
+  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
-    const userId = localStorage.getItem("userId");
-    if (!userId) {
-      showError("Vui lòng đăng nhập để xem yêu cầu hỗ trợ");
-      window.location.hash = "#/login";
-      return;
-    }
+    const [config, pages] = await Promise.all([
+      apiFetch("/support/config").catch(() => ({})),
+      apiFetch("/support/pages").catch(() => [])
+    ]);
 
-    const tickets = await apiFetch(`/support/tickets?user_id=${userId}`);
+    const contactEmail = config.contact_email || 'support@shopkey.vn';
+    const contactPhone = config.contact_phone || '';
+    const contactHours = config.working_hours || '8:00 - 22:00';
 
-    const html = `
-      <div class="page-wrapper">
-        <div class="page-header">
-          <h1>Yêu cầu hỗ trợ của bạn</h1>
-        </div>
+    const pageMeta = {
+      warranty:         { icon: "fa-shield-halved", color: "#3b82f6" },
+      "purchase-guide": { icon: "fa-book-open",     color: "#10b981" },
+      faq:              { icon: "fa-circle-question",color: "#f59e0b" },
+      privacy:          { icon: "fa-lock",           color: "#8b5cf6" },
+    };
 
-        <div class="container" style="max-width: 1000px; margin: 40px auto; padding: 0 24px;">
-          ${tickets.length === 0 ? `
-            <div class="empty-state">
-              <i class="fa-solid fa-inbox" style="font-size: 48px; color: var(--text-muted); margin-bottom: 16px;"></i>
-              <p>Chưa có yêu cầu hỗ trợ nào</p>
-              <a href="#/support" class="btn btn-primary">Tạo yêu cầu mới</a>
+    view.innerHTML = '';
+
+    // Hero
+    const hero = el('div', 'products-hero');
+    hero.innerHTML = `
+      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <strong>Hỗ trợ</strong></div>
+      <h1 class="products-hero-title"><i class="fa-solid fa-headset"></i> Hỗ trợ & Liên hệ</h1>
+      <p class="products-hero-desc">Chúng tôi luôn sẵn sàng giúp đỡ bạn mọi lúc</p>
+    `;
+    view.appendChild(hero);
+
+    // Contact Info Card
+    const contactCard = el('div', 'info-card');
+    contactCard.innerHTML = `
+      <div class="info-card-head">
+        <div class="info-card-title"><i class="fa-solid fa-address-book"></i> Thông tin liên hệ</div>
+      </div>
+      <div class="info-card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:44px;height:44px;border-radius:12px;background:#dbeafe;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="fa-solid fa-envelope" style="color:#3b82f6;font-size:18px;"></i>
             </div>
-          ` : `
-            <div class="tickets-list">
-              ${tickets.map(t => `
-                <div class="ticket-item">
-                  <div class="ticket-header">
-                    <div class="ticket-info">
-                      <a href="#/support/tickets/${t.id}" class="ticket-number">${t.ticket_number}</a>
-                      <div class="ticket-subject">${t.subject}</div>
-                      <div class="ticket-meta">
-                        <span class="badge status-${t.status}">${statusLabel(t.status)}</span>
-                        <span class="badge priority-${t.priority}">${priorityLabel(t.priority)}</span>
-                        <span style="color: var(--text-muted); font-size: 13px;">Tạo: ${new Date(t.created_at).toLocaleDateString("vi-VN")}</span>
-                      </div>
-                    </div>
-                    <div class="ticket-actions">
-                      <a href="#/support/tickets/${t.id}" class="btn btn-sm btn-ghost">Xem chi tiết</a>
-                    </div>
-                  </div>
-                </div>
-              `).join("")}
+            <div>
+              <div style="font-size:12px;color:var(--text-muted);font-weight:600;text-transform:uppercase;">Email</div>
+              <a href="mailto:${contactEmail}" style="color:var(--text-heading);font-weight:600;font-size:14px;text-decoration:none;">${contactEmail}</a>
             </div>
-          `}
+          </div>
+          ${contactPhone ? `
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:44px;height:44px;border-radius:12px;background:#dcfce7;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="fa-solid fa-phone" style="color:#10b981;font-size:18px;"></i>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--text-muted);font-weight:600;text-transform:uppercase;">Hotline</div>
+              <a href="tel:${contactPhone}" style="color:var(--text-heading);font-weight:600;font-size:14px;text-decoration:none;">${contactPhone}</a>
+            </div>
+          </div>` : ''}
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:44px;height:44px;border-radius:12px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="fa-solid fa-clock" style="color:#f59e0b;font-size:18px;"></i>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--text-muted);font-weight:600;text-transform:uppercase;">Giờ làm việc</div>
+              <div style="color:var(--text-heading);font-weight:600;font-size:14px;">${contactHours}</div>
+            </div>
+          </div>
         </div>
       </div>
     `;
+    view.appendChild(contactCard);
 
-    const main = qs(".main-content");
-    main.innerHTML = html;
+    // Support Pages Card
+    if (pages.length) {
+      const pagesCard = el('div', 'info-card');
+      pagesCard.innerHTML = `
+        <div class="info-card-head">
+          <div class="info-card-title"><i class="fa-solid fa-book"></i> Thông tin & Chính sách</div>
+        </div>
+        <div class="info-card-body" style="padding:0;">
+          ${pages.map(p => {
+            const meta = pageMeta[p.slug] || { icon: "fa-file-lines", color: "#6b7280" };
+            return `
+            <a href="#/support/${p.slug}" style="display:flex;align-items:center;gap:14px;padding:16px 20px;text-decoration:none;border-bottom:1px solid var(--border);transition:background .15s;" onmouseover="this.style.background='var(--bg-page)'" onmouseout="this.style.background='transparent'">
+              <div style="width:40px;height:40px;border-radius:10px;background:${meta.color}15;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fa-solid ${meta.icon}" style="color:${meta.color};font-size:16px;"></i>
+              </div>
+              <div style="flex:1;">
+                <div style="font-weight:600;font-size:14px;color:var(--text-heading);">${p.title}</div>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </a>`;
+          }).join('')}
+        </div>
+      `;
+      view.appendChild(pagesCard);
+    }
+
+    // Create Ticket Card
+    const ticketCard = el('div', 'info-card');
+    ticketCard.innerHTML = `
+      <div class="info-card-head" style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="info-card-title"><i class="fa-solid fa-paper-plane"></i> Gửi yêu cầu hỗ trợ</div>
+        <a href="#/support/tickets" style="color:rgba(255,255,255,.8);font-size:13px;text-decoration:none;font-weight:500;">Xem yêu cầu của tôi →</a>
+      </div>
+      <div class="info-card-body">
+        ${currentUser ? `
+        <form id="support-ticket-form">
+          <div class="support-form-row">
+            <div class="form-group">
+              <label>Tiêu đề</label>
+              <input type="text" name="subject" required class="form-input" placeholder="Vấn đề của bạn...">
+            </div>
+            <div class="form-group">
+              <label>Danh mục</label>
+              <select name="category" class="form-select">
+                <option value="general">Chung</option>
+                <option value="order">Đơn hàng</option>
+                <option value="product">Sản phẩm</option>
+                <option value="payment">Thanh toán</option>
+                <option value="account">Tài khoản</option>
+                <option value="other">Khác</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Mô tả chi tiết</label>
+            <textarea name="message" required class="form-textarea" rows="4" placeholder="Mô tả chi tiết vấn đề..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> Gửi yêu cầu</button>
+        </form>
+        ` : `
+        <div style="text-align:center;padding:24px 0;">
+          <p style="color:var(--text-muted);margin:0 0 12px;">Vui lòng đăng nhập để gửi yêu cầu hỗ trợ</p>
+          <a href="#/login" class="btn btn-primary">Đăng nhập</a>
+        </div>
+        `}
+      </div>
+    `;
+    view.appendChild(ticketCard);
+
+    // Ticket form handler
+    if (currentUser) {
+      const form = qs('#support-ticket-form');
+      if (form) {
+        form.onsubmit = async (e) => {
+          e.preventDefault();
+          const fd = new FormData(form);
+          try {
+            await apiFetch('/support/tickets', {
+              method: 'POST',
+              body: JSON.stringify({
+                subject: fd.get('subject'),
+                category: fd.get('category'),
+                message: fd.get('message'),
+                priority: 'normal'
+              })
+            });
+            toast('Đã gửi yêu cầu hỗ trợ!', 'success');
+            form.reset();
+          } catch (err) {
+            toast(err.message || 'Lỗi gửi yêu cầu', 'error');
+          }
+        };
+      }
+    }
     window.scrollTo(0, 0);
   } catch (err) {
-    showError("Không thể tải danh sách yêu cầu");
+    view.innerHTML = `<div class="empty-state" style="margin-top:40px;"><h3>Không thể tải trang hỗ trợ</h3></div>`;
   }
 }
 
-// ─── TICKET DETAIL + MESSAGES ──────────────────────
+// ─── USER TICKETS LIST ──────────────────────────────
+
+async function renderUserTickets(view) {
+  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  try {
+    const tickets = await apiFetch('/support/tickets');
+    view.innerHTML = '';
+
+    const hero = el('div', 'products-hero');
+    hero.innerHTML = `
+      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/support">Hỗ trợ</a> <span>›</span> <strong>Yêu cầu của tôi</strong></div>
+      <h1 class="products-hero-title"><i class="fa-solid fa-clipboard-list"></i> Yêu cầu hỗ trợ</h1>
+      <p class="products-hero-desc">Theo dõi trạng thái các yêu cầu hỗ trợ của bạn</p>
+    `;
+    view.appendChild(hero);
+
+    const card = el('div', 'info-card');
+    card.innerHTML = `
+      <div class="info-card-head" style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="info-card-title"><i class="fa-solid fa-list"></i> Danh sách yêu cầu</div>
+        <a href="#/support" style="color:rgba(255,255,255,.8);font-size:13px;text-decoration:none;font-weight:500;">← Quay lại Hỗ trợ</a>
+      </div>
+      <div class="info-card-body" style="padding:0;">
+        ${tickets.length ? tickets.map(t => `
+          <a href="#/support/tickets/${t.id}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;text-decoration:none;border-bottom:1px solid var(--border);transition:background .15s;" onmouseover="this.style.background='var(--bg-page)'" onmouseout="this.style.background='transparent'">
+            <div>
+              <div style="font-weight:600;font-size:14px;color:var(--text-heading);">${t.subject}</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">#${t.ticket_number || t.id} · ${t.category || 'Chung'} · ${new Date(t.created_at).toLocaleDateString('vi-VN')}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="badge badge-${t.status === 'open' ? 'blue' : t.status === 'closed' ? 'gray' : 'yellow'}">${statusLabel(t.status)}</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          </a>
+        `).join('') : `
+          <div style="text-align:center;padding:48px 20px;">
+            <i class="fa-solid fa-inbox" style="font-size:36px;color:var(--text-muted);margin-bottom:12px;"></i>
+            <p style="color:var(--text-muted);">Bạn chưa có yêu cầu hỗ trợ nào</p>
+            <a href="#/support" class="btn btn-primary mt-12">Tạo yêu cầu mới</a>
+          </div>
+        `}
+      </div>
+    `;
+    view.appendChild(card);
+    window.scrollTo(0, 0);
+  } catch (err) {
+    view.innerHTML = `<div class="empty-state" style="margin-top:40px;"><h3>Vui lòng đăng nhập</h3><a href="#/login" class="btn btn-primary mt-12">Đăng nhập</a></div>`;
+  }
+}
+
+// ─── TICKET DETAIL ──────────────────────────────────
 
 async function renderTicketDetail(ticketId) {
+  const view = qs('#app-view');
+  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
-    const userId = localStorage.getItem("userId");
-    const res = await apiFetch(`/support/tickets/${ticketId}?user_id=${userId}`);
-    const { ticket, messages } = res;
+    const ticket = await apiFetch(`/support/tickets/${ticketId}`);
+    const messages = await apiFetch(`/support/tickets/${ticketId}/messages`).catch(() => []);
+    view.innerHTML = '';
 
-    const html = `
-      <div class="page-wrapper">
-        <div class="container" style="max-width: 900px; margin: 40px auto; padding: 0 24px;">
-          <div style="margin-bottom: 24px;">
-            <a href="#/support/tickets" class="back-link">${ico.arrow} Quay lại danh sách</a>
-          </div>
+    const hero = el('div', 'products-hero');
+    hero.innerHTML = `
+      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/support">Hỗ trợ</a> <span>›</span> <a href="#/support/tickets">Yêu cầu</a> <span>›</span> <strong>#${ticket.ticket_number || ticket.id}</strong></div>
+      <h1 class="products-hero-title">${ticket.subject}</h1>
+      <p class="products-hero-desc">
+        <span class="badge badge-${ticket.status === 'open' ? 'blue' : ticket.status === 'closed' ? 'gray' : 'yellow'}" style="margin-right:8px;">${statusLabel(ticket.status)}</span>
+        <span class="badge badge-${ticket.priority === 'high' || ticket.priority === 'urgent' ? 'red' : 'gray'}">${priorityLabel(ticket.priority)}</span>
+        <span style="margin-left:12px;opacity:.8;">${ticket.category || 'Chung'} · ${new Date(ticket.created_at).toLocaleDateString('vi-VN')}</span>
+      </p>
+    `;
+    view.appendChild(hero);
 
-          <!-- Ticket Header -->
-          <div class="ticket-detail-header">
-            <div>
-              <h1>${ticket.subject}</h1>
-              <div class="ticket-meta">
-                <span class="meta-item">Mã: <strong>${ticket.ticket_number}</strong></span>
-                <span class="badge status-${ticket.status}">${statusLabel(ticket.status)}</span>
-                <span class="badge priority-${ticket.priority}">${priorityLabel(ticket.priority)}</span>
-              </div>
+    // Messages Card
+    const msgCard = el('div', 'info-card');
+    msgCard.innerHTML = `
+      <div class="info-card-head">
+        <div class="info-card-title"><i class="fa-solid fa-comments"></i> Tin nhắn (${messages.length})</div>
+      </div>
+      <div class="info-card-body" style="padding:0;">
+        ${messages.map(msg => `
+          <div style="padding:16px 20px;border-bottom:1px solid var(--border);${msg.sender_type === 'admin' ? 'background:#f8f9ff;' : ''}">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+              <strong style="font-size:13px;color:${msg.sender_type === 'admin' ? 'var(--primary)' : 'var(--text-heading)'};">
+                ${msg.sender_name}
+                ${msg.sender_type === 'admin' ? '<span style="font-size:11px;background:var(--primary);color:#fff;padding:1px 6px;border-radius:4px;margin-left:6px;">Admin</span>' : ''}
+              </strong>
+              <span style="font-size:12px;color:var(--text-muted);">${new Date(msg.created_at).toLocaleString('vi-VN')}</span>
             </div>
+            <div style="font-size:14px;line-height:1.7;color:var(--text-body);white-space:pre-wrap;">${msg.message}</div>
           </div>
-
-          <!-- Messages -->
-          <div class="messages-container" id="messages-list">
-            ${messages.map(msg => `
-              <div class="message-item ${msg.sender_type}">
-                <div class="message-header">
-                  <strong>${msg.sender_name}</strong>
-                  <span class="message-type">${msg.sender_type === 'admin' ? 'Phòng hỗ trợ' : 'Bạn'}</span>
-                  <span class="message-time">${new Date(msg.created_at).toLocaleString("vi-VN")}</span>
-                </div>
-                <div class="message-body">${msg.message}</div>
-              </div>
-            `).join("")}
-          </div>
-
-          <!-- Add Reply -->
-          ${ticket.status !== "closed" ? `
-            <div class="reply-form">
-              <h3>Phản hồi</h3>
-              <form id="reply-form">
-                <textarea name="message" required class="form-control" rows="4" placeholder="Nhập tin nhắn của bạn..."></textarea>
-                <button type="submit" class="btn btn-primary" style="margin-top: 12px;">Gửi phản hồi</button>
-              </form>
-            </div>
-          ` : `
-            <div class="alert alert-info">Yêu cầu này đã được đóng</div>
-          `}
-        </div>
+        `).join('')}
+        ${!messages.length ? '<div style="padding:32px 20px;text-align:center;color:var(--text-muted);">Chưa có tin nhắn</div>' : ''}
       </div>
     `;
+    view.appendChild(msgCard);
 
-    const main = qs(".main-content");
-    main.innerHTML = html;
-    window.scrollTo(0, 0);
+    // Reply Card
+    if (ticket.status !== 'closed') {
+      const replyCard = el('div', 'info-card');
+      replyCard.innerHTML = `
+        <div class="info-card-head">
+          <div class="info-card-title"><i class="fa-solid fa-reply"></i> Phản hồi</div>
+        </div>
+        <div class="info-card-body">
+          <form id="reply-form">
+            <textarea name="message" required class="input" rows="4" placeholder="Nhập tin nhắn phản hồi..."></textarea>
+            <button type="submit" class="btn btn-primary" style="margin-top:10px;"><i class="fa-solid fa-paper-plane"></i> Gửi phản hồi</button>
+          </form>
+        </div>
+      `;
+      view.appendChild(replyCard);
 
-    // Handle reply
-    if (ticket.status !== "closed") {
-      const form = qs("#reply-form");
-      form.onsubmit = async (e) => {
+      qs('#reply-form').onsubmit = async (e) => {
         e.preventDefault();
-        const message = form.querySelector('[name="message"]').value;
+        const msg = qs('#reply-form [name="message"]').value;
         try {
           await apiFetch(`/support/tickets/${ticketId}/messages`, {
-            method: "POST",
+            method: 'POST',
             body: JSON.stringify({
-              sender_name: localStorage.getItem("userName") || "Khách hàng",
-              sender_type: "user",
-              message: message
+              sender_name: currentUser?.name || 'Khách hàng',
+              sender_type: 'user',
+              message: msg
             })
           });
-          toast("Gửi phản hồi thành công", "success");
-          form.reset();
-          // Reload messages
+          toast('Gửi phản hồi thành công', 'success');
           renderTicketDetail(ticketId);
         } catch (err) {
-          toast("Lỗi gửi phản hồi", "error");
+          toast('Lỗi gửi phản hồi', 'error');
         }
       };
+    } else {
+      const closedNotice = el('div', 'info-card');
+      closedNotice.style.cssText = 'text-align:center;padding:20px;background:var(--bg-page);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-muted);';
+      closedNotice.textContent = 'Yêu cầu này đã được đóng';
+      view.appendChild(closedNotice);
     }
+    window.scrollTo(0, 0);
   } catch (err) {
-    showError("Không thể tải chi tiết yêu cầu");
+    view.innerHTML = `<div class="empty-state" style="margin-top:40px;"><h3>Không thể tải chi tiết yêu cầu</h3><a href="#/support/tickets" class="btn btn-primary mt-12">Quay lại</a></div>`;
   }
 }
 
-// ─── HELPER FUNCTIONS ──────────────────────────────
+// ─── HELPERS ─────────────────────────────────────────
 
 function statusLabel(status) {
-  const labels = {
-    open: "Đang mở",
-    in_progress: "Đang xử lý",
-    resolved: "Đã giải quyết",
-    closed: "Đã đóng"
-  };
-  return labels[status] || status;
+  return { open: 'Đang mở', in_progress: 'Đang xử lý', resolved: 'Đã giải quyết', closed: 'Đã đóng' }[status] || status;
 }
 
 function priorityLabel(priority) {
-  const labels = {
-    low: "Thấp",
-    normal: "Bình thường",
-    high: "Cao",
-    urgent: "Khẩn cấp"
-  };
-  return labels[priority] || priority;
-}
-
-function showError(msg) {
-  const main = qs(".main-content");
-  main.innerHTML = `
-    <div class="container" style="text-align: center; padding: 60px 24px;">
-      <i class="fa-solid fa-exclamation-triangle" style="font-size: 48px; color: var(--red); margin-bottom: 16px;"></i>
-      <p>${msg}</p>
-    </div>
-  `;
+  return { low: 'Thấp', normal: 'Bình thường', high: 'Cao', urgent: 'Khẩn cấp' }[priority] || priority;
 }

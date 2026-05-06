@@ -49,6 +49,8 @@ class PackageCreate(BaseModel):
     original_price: Optional[float] = None
     description: Optional[str] = None
     delivery_type: str = "manual"
+    is_stock_managed: bool = False
+    stock_quantity: int = 0
     sort_order: int = 0
     is_active: bool = True
 
@@ -59,6 +61,8 @@ class PackageUpdate(BaseModel):
     original_price: Optional[float] = None
     description: Optional[str] = None
     delivery_type: Optional[str] = None
+    is_stock_managed: Optional[bool] = None
+    stock_quantity: Optional[int] = None
     sort_order: Optional[int] = None
     is_active: Optional[bool] = None
 
@@ -69,6 +73,14 @@ class FieldCreate(BaseModel):
     is_required: bool = True
     options: Optional[str] = None
     sort_order: int = 0
+
+
+class FieldUpdate(BaseModel):
+    field_name: Optional[str] = None
+    field_type: Optional[str] = None
+    is_required: Optional[bool] = None
+    options: Optional[str] = None
+    sort_order: Optional[int] = None
 
 
 def pkg_to_dict(pkg: ProductPackage, db: Session = None) -> dict:
@@ -106,6 +118,8 @@ def pkg_to_dict(pkg: ProductPackage, db: Session = None) -> dict:
         "original_price": float(pkg.original_price) if pkg.original_price else None,
         "description": pkg.description,
         "delivery_type": pkg.delivery_type,
+        "is_stock_managed": pkg.is_stock_managed if pkg.is_stock_managed else False,
+        "stock_quantity": pkg.stock_quantity if pkg.stock_quantity else 0,
         "sort_order": pkg.sort_order,
         "is_active": pkg.is_active,
         "stock_count": stock_count,
@@ -373,6 +387,25 @@ def add_field(pkg_id: int, data: FieldCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(field)
     return {"id": field.id, **data.model_dump()}
+
+
+@router.put("/fields/{field_id}", dependencies=[Depends(get_current_admin)])
+def update_field(field_id: int, data: FieldUpdate, db: Session = Depends(get_db)):
+    field = db.query(PackageField).filter(PackageField.id == field_id).first()
+    if not field:
+        raise HTTPException(status_code=404, detail="Field not found")
+    for attr, val in data.model_dump(exclude_none=True).items():
+        setattr(field, attr, val)
+    db.commit()
+    db.refresh(field)
+    return {
+        "id": field.id,
+        "field_name": field.field_name,
+        "field_type": field.field_type,
+        "is_required": field.is_required,
+        "options": field.options,
+        "sort_order": field.sort_order,
+    }
 
 
 @router.delete("/fields/{field_id}", dependencies=[Depends(get_current_admin)])

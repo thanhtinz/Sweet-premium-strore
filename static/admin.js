@@ -76,7 +76,11 @@ function renderAdminShell(wrap) {
           </button>
           <button class="admin-nav-item ${activeSection === '/tickets' ? 'active' : ''}" data-href="#/admin/tickets">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
-            <span>Support Tickets</span>
+            <span>Hỗ trợ (Tickets)</span>
+          </button>
+          <button class="admin-nav-item ${activeSection === '/bot-config' ? 'active' : ''}" data-href="#/admin/bot-config">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><path d="M9 13v2"/><path d="M15 13v2"/><path d="M12 17h.01"/></svg>
+            <span>Cấu hình Bot & Mail</span>
           </button>
           <div class="divider"></div>
           <button class="admin-nav-item ${activeSection === '/oauth-settings' ? 'active' : ''}" data-href="#/admin/oauth-settings">
@@ -89,14 +93,35 @@ function renderAdminShell(wrap) {
           </button>
         </nav>
       </aside>
-      <main class="admin-content" id="admin-content"><div class="page-loading"><div class="spinner"></div></div></main>
+      <div class="admin-sidebar-overlay" id="admin-sidebar-overlay"></div>
+      <main class="admin-main">
+        <div class="admin-topbar">
+          <button class="admin-mobile-hamburger" id="admin-hamburger" aria-label="Menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div class="admin-topbar-title">Admin Panel</div>
+        </div>
+        <div id="admin-content">
+          <div class="page-loading"><div class="spinner"></div></div>
+        </div>
+      </main>
     </div>
   `;
 
-  qsa('[data-href]', wrap).forEach(btn => { btn.onclick = () => { location.hash = btn.dataset.href; }; });
+  qsa('[data-href]', wrap).forEach(btn => { btn.onclick = () => {
+    location.hash = btn.dataset.href;
+    // Close sidebar on mobile after nav
+    qs('#admin-sidebar', wrap)?.classList.remove('open');
+    qs('#admin-sidebar-overlay', wrap)?.classList.remove('open');
+  }; });
   // Admin hamburger (mobile)
   qs('#admin-hamburger', wrap)?.addEventListener('click', () => {
     qs('#admin-sidebar', wrap)?.classList.toggle('open');
+    qs('#admin-sidebar-overlay', wrap)?.classList.toggle('open');
+  });
+  qs('#admin-sidebar-overlay', wrap)?.addEventListener('click', () => {
+    qs('#admin-sidebar', wrap)?.classList.remove('open');
+    qs('#admin-sidebar-overlay', wrap)?.classList.remove('open');
   });
 }
 
@@ -131,42 +156,99 @@ async function renderAdminCategories(view) {
   const content = qs('#admin-content'); if (!content) return;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   const refresh = async () => {
-    const cats = await apiFetch('/categories/all');
+    const [cats, tree] = await Promise.all([apiFetch('/categories/all'), apiFetch('/categories/')]);
+    // Build a flat lookup for edit/delete handlers
+    const catMap = {};
+    cats.forEach(c => { catMap[c.id] = c; });
+    // Render rows: parents first, then their children indented
+    const renderRows = (items, depth = 0) => items.map(c => {
+      const indent = depth > 0 ? `padding-left:${depth * 24}px;` : '';
+      const prefix = depth > 0 ? '<span style="color:var(--text-muted);margin-right:6px;">↳</span>' : '';
+      const iconImg = c.icon_url ? `<img src="${c.icon_url}" style="width:18px;height:18px;border-radius:4px;vertical-align:middle;margin-right:6px;object-fit:cover;" alt="" />` : '';
+      let row = `<tr><td class="text-muted">#${c.id}</td><td class="td-bold" style="${indent}">${prefix}${iconImg}${c.name}</td><td class="td-mono">${c.slug}</td><td>${c.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td><td>${c.sort_order}</td><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit="${c.id}">Sửa</button><button class="tbl-btn tbl-delete" data-del="${c.id}">Xóa</button></div></td></tr>`;
+      if (c.children?.length) row += renderRows(c.children, depth + 1);
+      return row;
+    }).join('');
     content.innerHTML = `
       <div class="page-header"><div class="page-title">Danh mục</div><button class="btn btn-primary" id="btn-add-cat">+ Thêm</button></div>
       <div class="table-wrap"><table>
         <thead><tr><th>ID</th><th>Tên</th><th>Slug</th><th>Trạng thái</th><th>Thứ tự</th><th></th></tr></thead>
-        <tbody>${cats.map(c => `<tr><td class="text-muted">#${c.id}</td><td class="td-bold">${c.name}</td><td class="td-mono">${c.slug}</td><td>${c.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td><td>${c.sort_order}</td><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit="${c.id}">Sửa</button><button class="tbl-btn tbl-delete" data-del="${c.id}">Xóa</button></div></td></tr>`).join('')}</tbody>
+        <tbody>${renderRows(tree)}</tbody>
       </table></div>
     `;
     qs('#btn-add-cat', content).onclick = () => showCatModal(null, refresh);
-    qsa('[data-edit]', content).forEach(btn => { btn.onclick = () => showCatModal(cats.find(c => c.id === parseInt(btn.dataset.edit)), refresh); });
+    qsa('[data-edit]', content).forEach(btn => { btn.onclick = () => showCatModal(catMap[parseInt(btn.dataset.edit)], refresh); });
     qsa('[data-del]', content).forEach(btn => { btn.onclick = async () => { if (!confirm('Xóa?')) return; await apiFetch(`/categories/${btn.dataset.del}`, { method: 'DELETE' }); toast('Đã xóa', 'success'); refresh(); }; });
   };
   await refresh();
 }
 
 function showCatModal(cat, refresh) {
-  openModal(`
-    <form id="cat-form">
-      <div class="form-group"><label class="form-label">Tên<span class="req">*</span></label><input class="form-input" id="cf-name" value="${cat?.name || ''}" required /></div>
-      <div class="form-group"><label class="form-label">Slug</label><input class="form-input" id="cf-slug" value="${cat?.slug || ''}" placeholder="tự động" /></div>
-      <div class="form-group"><label class="form-label">URL icon</label><input class="form-input" id="cf-icon" value="${cat?.icon_url || ''}" placeholder="https://..." /></div>
-      <div class="form-row form-row-2">
-        <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="cf-order" value="${cat?.sort_order ?? 0}" /></div>
-        <div class="form-group"><label class="form-label">Hiển thị</label><select class="form-select" id="cf-active"><option value="true" ${cat?.is_active !== false ? 'selected' : ''}>Hiện</option><option value="false" ${cat?.is_active === false ? 'selected' : ''}>Ẩn</option></select></div>
-      </div>
-      <div id="cat-form-err" class="form-error mb-12" style="display:none"></div>
-      <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">${cat ? 'Cập nhật' : 'Tạo mới'}</button><button type="button" class="btn btn-ghost" id="cat-cancel">Hủy</button></div>
-    </form>
-  `, cat ? `Sửa: ${cat.name}` : 'Thêm danh mục');
-  qs('#cat-cancel').onclick = closeModal;
-  qs('#cat-form').onsubmit = async (e) => {
-    e.preventDefault();
-    const body = { name: qs('#cf-name').value, slug: qs('#cf-slug').value || undefined, icon_url: qs('#cf-icon').value || undefined, sort_order: parseInt(qs('#cf-order').value) || 0, is_active: qs('#cf-active').value === 'true' };
-    try { if (cat) await apiFetch(`/categories/${cat.id}`, { method: 'PUT', body: JSON.stringify(body) }); else await apiFetch('/categories/', { method: 'POST', body: JSON.stringify(body) }); closeModal(); toast(cat ? 'Cập nhật!' : 'Tạo mới!', 'success'); refresh(); }
-    catch (err) { const e = qs('#cat-form-err'); e.textContent = err.message; e.style.display = 'block'; }
-  };
+  // Fetch categories for parent select
+  apiFetch('/categories/all').then(allCats => {
+    const excludeId = cat?.id;
+    // Only show top-level categories as parent options (no sub-categories as parents of sub-categories to keep it simple)
+    const topLevelCats = allCats.filter(c => !c.parent_id && c.id !== excludeId);
+    const parentOptions = topLevelCats
+      .map(c => `<option value="${c.id}" ${cat?.parent_id === c.id ? 'selected' : ''}>${c.name}</option>`)
+      .join('');
+
+    openModal(`
+      <form id="cat-form">
+        <div class="form-group"><label class="form-label">Tên<span class="req">*</span></label><input class="form-input" id="cf-name" value="${cat?.name || ''}" required /></div>
+        <div class="form-group"><label class="form-label">Slug</label><input class="form-input" id="cf-slug" value="${cat?.slug || ''}" placeholder="tự động" /></div>
+        <div class="form-group"><label class="form-label">Danh mục cha</label><select class="form-select" id="cf-parent"><option value="">Không có (danh mục gốc)</option>${parentOptions}</select></div>
+        <div class="form-group">
+          <label class="form-label">URL icon</label>
+          <div class="flex gap-8 items-center">
+            <input class="form-input flex-1" id="cf-icon" value="${cat?.icon_url || ''}" placeholder="https://..." />
+            <label class="btn btn-ghost btn-sm" style="white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-upload"></i> Upload<input type="file" accept="image/*" id="cf-icon-upload" style="display:none" /></label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Hình ảnh (URL)</label>
+          <div class="flex gap-8 items-center">
+            <input class="form-input flex-1" id="cf-image" value="${cat?.image_url || ''}" placeholder="https://..." />
+            <label class="btn btn-ghost btn-sm" style="white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-upload"></i> Upload<input type="file" accept="image/*" id="cf-image-upload" style="display:none" /></label>
+          </div>
+        </div>
+        <div class="form-row form-row-2">
+          <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="cf-order" value="${cat?.sort_order ?? 0}" /></div>
+          <div class="form-group"><label class="form-label">Hiển thị</label><select class="form-select" id="cf-active"><option value="true" ${cat?.is_active !== false ? 'selected' : ''}>Hiện</option><option value="false" ${cat?.is_active === false ? 'selected' : ''}>Ẩn</option></select></div>
+        </div>
+        <div id="cat-form-err" class="form-error mb-12" style="display:none"></div>
+        <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">${cat ? 'Cập nhật' : 'Tạo mới'}</button><button type="button" class="btn btn-ghost" id="cat-cancel">Hủy</button></div>
+      </form>
+    `, cat ? `Sửa: ${cat.name}` : 'Thêm danh mục');
+    qs('#cat-cancel').onclick = closeModal;
+
+    // Image upload handlers
+    const uploadCatImage = async (file, inputEl) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const res = await fetch('/api/banners/admin/upload-image', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${authToken}` },
+          body: fd,
+        });
+        if (!res.ok) throw new Error('Upload failed');
+        const data = await res.json();
+        inputEl.value = data.url;
+        toast('Upload thành công', 'success');
+      } catch (err) { toast('Upload thất bại: ' + err.message, 'error'); }
+    };
+    qs('#cf-icon-upload').onchange = (e) => { if (e.target.files[0]) uploadCatImage(e.target.files[0], qs('#cf-icon')); };
+    qs('#cf-image-upload').onchange = (e) => { if (e.target.files[0]) uploadCatImage(e.target.files[0], qs('#cf-image')); };
+
+    qs('#cat-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const parentId = qs('#cf-parent').value;
+      const body = { name: qs('#cf-name').value, slug: qs('#cf-slug').value || undefined, icon_url: qs('#cf-icon').value || undefined, image_url: qs('#cf-image').value || undefined, parent_id: parentId ? parseInt(parentId) : null, sort_order: parseInt(qs('#cf-order').value) || 0, is_active: qs('#cf-active').value === 'true' };
+      try { if (cat) await apiFetch(`/categories/${cat.id}`, { method: 'PUT', body: JSON.stringify(body) }); else await apiFetch('/categories/', { method: 'POST', body: JSON.stringify(body) }); closeModal(); toast(cat ? 'Cập nhật!' : 'Tạo mới!', 'success'); refresh(); }
+      catch (err) { const e = qs('#cat-form-err'); e.textContent = err.message; e.style.display = 'block'; }
+    };
+  });
 }
 
 // ADMIN PRODUCTS
@@ -191,10 +273,18 @@ async function renderAdminProducts(view) {
 }
 
 function showProductModal(prod, cats, refresh) {
+  // Build a lookup for parent names
+  const catMap = {};
+  cats.forEach(c => { catMap[c.id] = c; });
+  const catOptions = cats.map(c => {
+    const prefix = c.parent_id && catMap[c.parent_id] ? catMap[c.parent_id].name + ' > ' : '';
+    return `<option value="${c.id}" ${prod?.category_id === c.id ? 'selected' : ''}>${prefix}${c.name}</option>`;
+  }).join('');
+
   openModal(`
     <form id="prod-form">
       <div class="form-group"><label class="form-label">Tên<span class="req">*</span></label><input class="form-input" id="pf-name" value="${prod?.name || ''}" required /></div>
-      <div class="form-group"><label class="form-label">Danh mục</label><select class="form-select" id="pf-cat"><option value="">--</option>${cats.map(c => `<option value="${c.id}" ${prod?.category_id === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}</select></div>
+      <div class="form-group"><label class="form-label">Danh mục</label><select class="form-select" id="pf-cat"><option value="">--</option>${catOptions}</select></div>
       <div class="form-group"><label class="form-label">Mô tả</label><textarea class="form-textarea" id="pf-desc">${prod?.description || ''}</textarea></div>
       <div class="form-group"><label class="form-label">URL ảnh</label><input class="form-input" id="pf-img" value="${prod?.image_url || ''}" /></div>
       <div class="form-row form-row-3">
@@ -219,10 +309,40 @@ function showProductModal(prod, cats, refresh) {
 async function showPackagesModal(productId, productName) {
   const prod = await apiFetch('/products/admin/all').then(ps => ps.find(p => p.id === productId));
   const packages = prod?.packages || [];
-  const renderPkgList = () => packages.map(pkg => `
-    <div class="package-item mb-8"><div><div class="pkg-name">${pkg.name}</div><div class="pkg-desc">${pkg.delivery_type === 'auto' ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Tự động' : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Thủ công'} • Kho: ${pkg.stock_count}</div></div>
-    <div style="text-align:right"><div class="pkg-price">${fmt(pkg.price)}</div><button class="tbl-btn tbl-delete mt-4" data-delpkg="${pkg.id}">Xóa</button></div></div>
+
+  const renderFieldRows = (fields) => fields.map(f => `
+    <div class="flex gap-8 items-center mb-4" data-field-id="${f.id}">
+      <input class="form-input flex-1" value="${f.field_name}" data-fname disabled style="flex:2" />
+      <select class="form-select" data-ftype disabled style="flex:1">
+        <option value="text" ${f.field_type==='text'?'selected':''}>Text</option>
+        <option value="number" ${f.field_type==='number'?'selected':''}>Number</option>
+        <option value="textarea" ${f.field_type==='textarea'?'selected':''}>Textarea</option>
+        <option value="email" ${f.field_type==='email'?'selected':''}>Email</option>
+        <option value="select" ${f.field_type==='select'?'selected':''}>Select</option>
+      </select>
+      <label class="toggle-switch" style="flex-shrink:0"><input type="checkbox" data-freq ${f.is_required?'checked':''} disabled /><span class="toggle-slider"></span></label>
+      <button type="button" class="tbl-btn tbl-delete" data-delfield="${f.id}">Xóa</button>
+    </div>
   `).join('');
+
+  const renderPkgList = () => packages.map(pkg => {
+    const stockInfo = pkg.delivery_type === 'auto'
+      ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Tự động • Kho: ${pkg.stock_count}`
+      : pkg.is_stock_managed
+        ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Thủ công • Kho: ${pkg.stock_quantity}`
+        : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Thủ công`;
+    const fieldsHtml = (pkg.fields && pkg.fields.length)
+      ? `<div class="mt-8" style="padding:8px 12px;background:var(--bg-page);border-radius:var(--radius);font-size:12px;color:var(--text-muted);">
+          <i class="fa-solid fa-list-check"></i> Trường tùy chỉnh: ${pkg.fields.map(f => f.field_name + (f.is_required ? ' *' : '')).join(', ')}
+        </div>`
+      : '';
+    return `
+    <div class="package-item mb-8"><div><div class="pkg-name">${pkg.name}</div><div class="pkg-desc">${stockInfo}</div>${fieldsHtml}</div>
+    <div style="text-align:right"><div class="pkg-price">${fmt(pkg.price)}</div>
+      <button class="tbl-btn tbl-edit mt-4" data-editpkg="${pkg.id}">Sửa</button>
+      <button class="tbl-btn tbl-delete mt-4" data-delpkg="${pkg.id}">Xóa</button>
+    </div></div>
+  `;}).join('');
 
   openModal(`
     <div id="pkg-list">${renderPkgList()}</div><div class="divider"></div>
@@ -236,20 +356,248 @@ async function showPackagesModal(productId, productName) {
         <div class="form-group"><label class="form-label">Giao hàng</label><select class="form-select" id="pkg-delivery"><option value="manual">Thủ công</option><option value="auto">Tự động</option></select></div>
         <div class="form-group"><label class="form-label">Mô tả</label><input class="form-input" id="pkg-desc" placeholder="Mô tả..." /></div>
       </div>
+      <div class="form-row form-row-2" id="pkg-stock-row">
+        <div class="form-group">
+          <label class="form-label">Quản lý kho</label>
+          <label class="toggle-switch"><input type="checkbox" id="pkg-stock-toggle" /><span class="toggle-slider"></span></label>
+        </div>
+        <div class="form-group" id="pkg-stock-qty-group" style="display:none">
+          <label class="form-label">Số lượng tồn kho</label>
+          <input type="number" class="form-input" id="pkg-stock-qty" min="0" value="0" placeholder="0" />
+        </div>
+      </div>
+      <div class="divider mt-12 mb-12"></div>
+      <div class="fw-600 mb-8"><i class="fa-solid fa-list-check"></i> Trường tùy chỉnh</div>
+      <div id="pkg-fields-list"></div>
+      <button type="button" class="btn btn-ghost btn-sm mb-8" id="pkg-add-field">+ Thêm trường</button>
+      <div class="divider mt-4 mb-12"></div>
       <button type="submit" class="btn btn-primary">+ Thêm gói</button>
     </form>
   `, `Gói: ${productName}`);
 
   const modal = qs('#modal-content');
+
+  // Toggle stock quantity visibility
+  const deliverySelect = qs('#pkg-delivery', modal);
+  const stockToggle = qs('#pkg-stock-toggle', modal);
+  const stockQtyGroup = qs('#pkg-stock-qty-group', modal);
+  const stockRow = qs('#pkg-stock-row', modal);
+
+  const updateStockVisibility = () => {
+    const isAuto = deliverySelect.value === 'auto';
+    if (isAuto) {
+      stockRow.style.display = 'none';
+    } else {
+      stockRow.style.display = '';
+      stockQtyGroup.style.display = stockToggle.checked ? '' : 'none';
+    }
+  };
+  deliverySelect.onchange = updateStockVisibility;
+  stockToggle.onchange = updateStockVisibility;
+  updateStockVisibility();
+
+  // Dynamic field rows for new package
+  let fieldCounter = 0;
+  qs('#pkg-add-field', modal).onclick = () => {
+    const idx = fieldCounter++;
+    const row = document.createElement('div');
+    row.className = 'mb-4';
+    row.dataset.newField = idx;
+    row.innerHTML = `
+      <div class="flex gap-8 items-center">
+        <input class="form-input" data-new-fname placeholder="Tên trường" style="flex:2" />
+        <select class="form-select" data-new-ftype style="flex:1">
+          <option value="text">Text</option>
+          <option value="number">Number</option>
+          <option value="textarea">Textarea</option>
+          <option value="email">Email</option>
+          <option value="select">Select</option>
+        </select>
+        <label class="toggle-switch" style="flex-shrink:0"><input type="checkbox" data-new-freq checked /><span class="toggle-slider"></span></label>
+        <button type="button" class="tbl-btn tbl-delete" data-remove-field>Xóa</button>
+      </div>
+      <div class="new-field-opts" style="display:none;margin-top:4px;"><input class="form-input" data-new-fopts placeholder='Options: ["Option 1","Option 2"]' /></div>
+    `;
+    qs('#pkg-fields-list', modal).appendChild(row);
+    row.querySelector('[data-remove-field]').onclick = () => row.remove();
+    // Show/hide options input based on type
+    row.querySelector('[data-new-ftype]').onchange = (e) => {
+      row.querySelector('.new-field-opts').style.display = e.target.value === 'select' ? '' : 'none';
+    };
+  };
+
+  // Delete package
   modal.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-delpkg]');
     if (btn) { if (!confirm('Xóa?')) return; await apiFetch(`/products/packages/${btn.dataset.delpkg}`, { method: 'DELETE' }); toast('Đã xóa', 'success'); const idx = packages.findIndex(p => p.id === parseInt(btn.dataset.delpkg)); if (idx >= 0) packages.splice(idx, 1); qs('#pkg-list', modal).innerHTML = renderPkgList(); }
   });
+
+  // Edit package (opens sub-modal for fields)
+  modal.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-editpkg]');
+    if (!btn) return;
+    const pkgId = parseInt(btn.dataset.editpkg);
+    const pkg = packages.find(p => p.id === pkgId);
+    if (!pkg) return;
+    showPackageFieldModal(pkg, () => {
+      // Refresh packages data
+      apiFetch('/products/admin/all').then(ps => {
+        const updated = ps.find(p => p.id === productId);
+        packages.length = 0;
+        packages.push(...(updated?.packages || []));
+        qs('#pkg-list', modal).innerHTML = renderPkgList();
+      });
+    });
+  });
+
   qs('#pkg-form', modal).onsubmit = async (e) => {
     e.preventDefault();
-    const body = { name: qs('#pkg-name', modal).value, price: parseFloat(qs('#pkg-price', modal).value), delivery_type: qs('#pkg-delivery', modal).value, description: qs('#pkg-desc', modal).value || null };
-    try { const np = await apiFetch(`/products/${productId}/packages`, { method: 'POST', body: JSON.stringify(body) }); packages.push(np); qs('#pkg-list', modal).innerHTML = renderPkgList(); e.target.reset(); toast('Đã thêm gói', 'success'); }
+    const isStockManaged = qs('#pkg-stock-toggle', modal).checked;
+    const body = {
+      name: qs('#pkg-name', modal).value,
+      price: parseFloat(qs('#pkg-price', modal).value),
+      delivery_type: qs('#pkg-delivery', modal).value,
+      description: qs('#pkg-desc', modal).value || null,
+      is_stock_managed: isStockManaged,
+      stock_quantity: isStockManaged ? parseInt(qs('#pkg-stock-qty', modal).value) || 0 : 0,
+    };
+    try {
+      const np = await apiFetch(`/products/${productId}/packages`, { method: 'POST', body: JSON.stringify(body) });
+      // Create fields for the new package
+      const newFieldRows = qsa('[data-new-fname]', modal);
+      for (const row of newFieldRows) {
+        const fname = row.querySelector('[data-new-fname]').value.trim();
+        if (!fname) continue;
+        const ftype = row.querySelector('[data-new-ftype]').value;
+        const freq = row.querySelector('[data-new-freq]').checked;
+        const fieldData = { field_name: fname, field_type: ftype, is_required: freq };
+        if (ftype === 'select') {
+          const optsInput = row.querySelector('[data-new-fopts]');
+          if (optsInput?.value.trim()) fieldData.options = optsInput.value.trim();
+        }
+        await apiFetch(`/products/packages/${np.id}/fields`, {
+          method: 'POST',
+          body: JSON.stringify(fieldData)
+        });
+      }
+      // Re-fetch to get fields included
+      const refreshed = await apiFetch('/products/admin/all').then(ps => ps.find(p => p.id === productId));
+      packages.length = 0;
+      packages.push(...(refreshed?.packages || []));
+      qs('#pkg-list', modal).innerHTML = renderPkgList();
+      e.target.reset();
+      qs('#pkg-fields-list', modal).innerHTML = '';
+      fieldCounter = 0;
+      updateStockVisibility();
+      toast('Đã thêm gói', 'success');
+    }
     catch (err) { toast(err.message, 'error'); }
+  };
+}
+
+function showPackageFieldModal(pkg, refresh) {
+  const fields = [...(pkg.fields || [])];
+  const renderFields = () => fields.map((f, i) => {
+    const isSelect = f.field_type === 'select';
+    const optsVal = f.options ? (typeof f.options === 'string' ? f.options : JSON.stringify(f.options)) : '';
+    return `
+    <div class="flex gap-8 items-center mb-4" data-fidx="${i}">
+      <input class="form-input flex-1" value="${f.field_name}" data-efname style="flex:2" />
+      <select class="form-select" data-eftype style="flex:1">
+        <option value="text" ${f.field_type==='text'?'selected':''}>Text</option>
+        <option value="number" ${f.field_type==='number'?'selected':''}>Number</option>
+        <option value="textarea" ${f.field_type==='textarea'?'selected':''}>Textarea</option>
+        <option value="email" ${f.field_type==='email'?'selected':''}>Email</option>
+        <option value="select" ${f.field_type==='select'?'selected':''}>Select</option>
+      </select>
+      <label class="toggle-switch" style="flex-shrink:0"><input type="checkbox" data-efreq ${f.is_required?'checked':''} /><span class="toggle-slider"></span></label>
+      <button type="button" class="tbl-btn tbl-delete" data-rmefield="${i}">Xóa</button>
+    </div>
+    ${isSelect ? `<div class="mb-4" style="margin-left:0"><input class="form-input" data-efopts value="${optsVal}" placeholder='Options: ["Option 1","Option 2"]' style="flex:1" /></div>` : ''}
+  `;}).join('');
+
+  openModal(`
+    <div class="fw-600 mb-12"><i class="fa-solid fa-list-check"></i> Trường tùy chỉnh: ${pkg.name}</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;font-size:12px;color:var(--text-muted);font-weight:600;">
+      <span style="flex:2">Tên trường</span><span style="flex:1">Loại</span><span>Bắt buộc</span><span></span>
+    </div>
+    <div id="efields-list">${renderFields()}</div>
+    <button type="button" class="btn btn-ghost btn-sm mb-12" id="ef-add-field">+ Thêm trường</button>
+    <div class="divider mb-12"></div>
+    <div class="flex gap-8"><button type="button" class="btn btn-primary flex-1" id="ef-save">Lưu</button><button type="button" class="btn btn-ghost" id="ef-cancel">Hủy</button></div>
+  `, `Trường tùy chỉnh`);
+
+  const emodal = qs('#modal-content');
+
+  // Add new field row
+  qs('#ef-add-field', emodal).onclick = () => {
+    fields.push({ field_name: '', field_type: 'text', is_required: true, _new: true });
+    qs('#efields-list', emodal).innerHTML = renderFields();
+  };
+
+  // Remove field row
+  emodal.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-rmefield]');
+    if (!btn) return;
+    const idx = parseInt(btn.dataset.rmefield);
+    fields.splice(idx, 1);
+    qs('#efields-list', emodal).innerHTML = renderFields();
+  });
+
+  // Toggle options input visibility when type changes
+  emodal.addEventListener('change', (e) => {
+    if (!e.target.matches('[data-eftype]')) return;
+    const row = e.target.closest('[data-fidx]');
+    if (!row) return;
+    const nextDiv = row.nextElementSibling;
+    if (e.target.value === 'select') {
+      if (!nextDiv || !nextDiv.querySelector('[data-efopts]')) {
+        const optsDiv = document.createElement('div');
+        optsDiv.className = 'mb-4';
+        optsDiv.innerHTML = `<input class="form-input" data-efopts placeholder='Options: ["Option 1","Option 2"]' />`;
+        row.after(optsDiv);
+      }
+    } else {
+      if (nextDiv && nextDiv.querySelector('[data-efopts]')) {
+        nextDiv.remove();
+      }
+    }
+  });
+
+  qs('#ef-cancel', emodal).onclick = closeModal;
+
+  qs('#ef-save', emodal).onclick = async () => {
+    try {
+      // Delete existing fields first
+      for (const f of pkg.fields || []) {
+        await apiFetch(`/products/fields/${f.id}`, { method: 'DELETE' });
+      }
+      // Re-create all fields from current state
+      const rows = qsa('[data-fidx]', emodal);
+      for (const row of rows) {
+        const fname = row.querySelector('[data-efname]').value.trim();
+        if (!fname) continue;
+        const ftype = row.querySelector('[data-eftype]').value;
+        const freq = row.querySelector('[data-efreq]').checked;
+        const fieldData = { field_name: fname, field_type: ftype, is_required: freq };
+        // For select type, get options from the adjacent input
+        if (ftype === 'select') {
+          const optsInput = row.parentElement.querySelector('[data-efopts]');
+          if (optsInput?.value.trim()) {
+            fieldData.options = optsInput.value.trim();
+          }
+        }
+        await apiFetch(`/products/packages/${pkg.id}/fields`, {
+          method: 'POST',
+          body: JSON.stringify(fieldData)
+        });
+      }
+      toast('Đã lưu trường tùy chỉnh', 'success');
+      closeModal();
+      if (refresh) refresh();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
   };
 }
 
@@ -303,17 +651,26 @@ async function renderAdminStock(view) {
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   const products = await apiFetch('/products/admin/all');
   const autoProducts = products.filter(p => p.packages?.some(pkg => pkg.delivery_type === 'auto'));
+  const managedProducts = products.filter(p => p.packages?.some(pkg => pkg.is_stock_managed));
   content.innerHTML = `
-    <div class="page-header"><div class="page-title">Kho hàng tự động</div></div>
+    <div class="page-header"><div class="page-title">Kho hàng</div></div>
     <div class="flex gap-16 items-start flex-wrap">
       <div style="flex:1;min-width:260px">
-        <div class="fw-600 mb-8">Chọn gói</div>
+        <div class="fw-600 mb-8">Gói tự động</div>
         ${autoProducts.length ? autoProducts.map(p => `<div class="card mb-8 p-16"><div class="fw-600 mb-8">${p.name}</div>${p.packages.filter(pk => pk.delivery_type === 'auto').map(pk => `<button class="btn btn-ghost btn-sm btn-full mb-4" data-viewstock="${pk.id}" data-pkgname="${encodeURIComponent(pk.name)}">${pk.name} — Kho: ${pk.stock_count}</button>`).join('')}</div>`).join('') : '<p class="text-muted">Chưa có gói tự động.</p>'}
+        <div class="divider mt-16 mb-16"></div>
+        <div class="fw-600 mb-8">Gói quản lý kho</div>
+        ${managedProducts.length ? managedProducts.map(p => `<div class="card mb-8 p-16"><div class="fw-600 mb-8">${p.name}</div>${p.packages.filter(pk => pk.is_stock_managed).map(pk => {
+          const qty = pk.stock_quantity || 0;
+          const badge = qty <= 0 ? '🔴' : qty <= 5 ? '🟠' : '🟢';
+          return `<button class="btn btn-ghost btn-sm btn-full mb-4" data-editstockpkg="${pk.id}" data-pkgname="${encodeURIComponent(pk.name)}" data-qty="${qty}">${badge} ${pk.name} — SL: ${qty}</button>`;
+        }).join('')}</div>`).join('') : '<p class="text-muted">Chưa có gói quản lý kho.</p>'}
       </div>
       <div style="flex:2;min-width:300px" id="stock-detail"><div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><h3>Chọn gói để xem kho</h3></div></div>
     </div>
   `;
   qsa('[data-viewstock]', content).forEach(btn => { btn.onclick = () => showStockDetail(parseInt(btn.dataset.viewstock), decodeURIComponent(btn.dataset.pkgname)); });
+  qsa('[data-editstockpkg]', content).forEach(btn => { btn.onclick = () => showManagedStockDetail(parseInt(btn.dataset.editstockpkg), decodeURIComponent(btn.dataset.pkgname), parseInt(btn.dataset.qty)); });
 }
 
 async function showStockDetail(pkgId, pkgName) {
@@ -324,14 +681,100 @@ async function showStockDetail(pkgId, pkgName) {
     detail.innerHTML = `
       <div class="fw-600 mb-8">${pkgName} — ${items.length} có sẵn</div>
       <div class="card p-16 mb-16">
-        <div class="form-group"><label class="form-label">Thêm hàng loạt (1 dòng/item)</label><textarea class="form-textarea" id="bulk-stock" rows="5" placeholder="account1@gmail.com:pass1&#10;account2@gmail.com:pass2"></textarea></div>
-        <button class="btn btn-primary" id="btn-add-bulk">+ Thêm</button>
+        <div class="form-group">
+          <label class="form-label" style="margin-bottom:6px">Nhập thủ công (1 dòng / 1 item)</label>
+          <textarea class="form-textarea" id="bulk-stock" rows="5" placeholder="account1@gmail.com:pass1&#10;account2@gmail.com:pass2"></textarea>
+          <button class="btn btn-primary mt-8" id="btn-add-bulk">+ Thêm</button>
+        </div>
+        <div style="border-top:1px solid var(--border);margin:16px 0"></div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label" style="margin-bottom:6px">Tải file (.txt, .csv, .docx)</label>
+          <div class="d-flex align-center gap-8">
+            <label class="btn btn-ghost" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+              <i class="fa-solid fa-file-arrow-up"></i> Chọn file
+              <input type="file" id="stock-file-input" accept=".txt,.csv,.docx" style="display:none">
+            </label>
+            <span id="stock-file-name" class="text-sm text-muted">Chưa chọn file</span>
+          </div>
+        </div>
       </div>
       <div class="table-wrap"><table><thead><tr><th>Dữ liệu</th><th>Ngày thêm</th><th></th></tr></thead>
       <tbody>${items.map(i => `<tr><td class="td-mono text-sm">${i.data}</td><td class="text-sm text-muted">${fmtDate(i.created_at)}</td><td><button class="tbl-btn tbl-delete" data-del-stock="${i.id}">Xóa</button></td></tr>`).join('')}</tbody></table></div>
     `;
     qs('#btn-add-bulk', detail).onclick = async () => { const txt = qs('#bulk-stock', detail).value.trim(); if (!txt) return; const res = await apiFetch('/stock/bulk', { method: 'POST', body: JSON.stringify({ package_id: pkgId, items: txt }) }); toast(`Đã thêm ${res.added} mục`, 'success'); refresh(); };
+    qs('#stock-file-input', detail).onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const fname = file.name.toLowerCase();
+      qs('#stock-file-name', detail).textContent = file.name;
+      if (fname.endsWith('.txt') || fname.endsWith('.csv')) {
+        // Client-side for .txt/.csv: populate textarea
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const txt = ev.target.result;
+          const ta = qs('#bulk-stock', detail);
+          ta.value = ta.value ? ta.value.trimEnd() + '\n' + txt : txt;
+          toast('Đã nạp nội dung file vào ô nhập', 'info');
+        };
+        reader.readAsText(file);
+      } else if (fname.endsWith('.docx')) {
+        // Server-side for .docx
+        const fd = new FormData();
+        fd.append('file', file);
+        try {
+          const token = authToken;
+          const res = await fetch('/api/stock/upload/' + pkgId, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: fd });
+          if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || 'Lỗi tải file'); }
+          const data = await res.json();
+          toast(`Đã thêm ${data.added} mục từ file .docx`, 'success');
+          refresh();
+        } catch (err) { toast(err.message, 'error'); }
+      }
+      e.target.value = '';
+    };
     qsa('[data-del-stock]', detail).forEach(btn => { btn.onclick = async () => { await apiFetch(`/stock/${btn.dataset.delStock}`, { method: 'DELETE' }); toast('Đã xóa', 'success'); refresh(); }; });
+  };
+  await refresh();
+}
+
+async function showManagedStockDetail(pkgId, pkgName, currentQty) {
+  const detail = qs('#stock-detail');
+  const refresh = async () => {
+    // Re-fetch the package to get latest stock_quantity
+    const products = await apiFetch('/products/admin/all');
+    let pkg = null;
+    for (const p of products) {
+      pkg = p.packages?.find(pk => pk.id === pkgId);
+      if (pkg) break;
+    }
+    const qty = pkg?.stock_quantity ?? currentQty;
+    const badge = qty <= 0 ? '🔴 Hết hàng' : qty <= 5 ? '🟠 Sắp hết' : '🟢 Còn hàng';
+    detail.innerHTML = `
+      <div class="fw-600 mb-8">${pkgName} — Quản lý kho</div>
+      <div class="card p-16 mb-16">
+        <div class="flex items-center gap-12 mb-12">
+          <div class="text-2xl fw-700">${qty}</div>
+          <div>${badge}</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cập nhật số lượng tồn kho</label>
+          <div class="flex gap-8">
+            <input type="number" class="form-input" id="managed-stock-qty" min="0" value="${qty}" style="max-width:160px" />
+            <button class="btn btn-primary" id="btn-update-managed-stock">Cập nhật</button>
+          </div>
+        </div>
+      </div>
+    `;
+    qs('#btn-update-managed-stock', detail).onclick = async () => {
+      const newQty = parseInt(qs('#managed-stock-qty', detail).value) || 0;
+      try {
+        await apiFetch(`/products/packages/${pkgId}`, { method: 'PUT', body: JSON.stringify({ stock_quantity: newQty }) });
+        toast('Đã cập nhật số lượng', 'success');
+        refresh();
+        // Also refresh the sidebar
+        renderAdminStock(qs('#admin-content'));
+      } catch (err) { toast(err.message, 'error'); }
+    };
   };
   await refresh();
 }
@@ -340,85 +783,279 @@ async function showStockDetail(pkgId, pkgName) {
 async function renderAdminSettings(view) {
   const content = qs('#admin-content'); if (!content) return;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
-  const [settings, cats] = await Promise.all([apiFetch('/admin/settings'), apiFetch('/categories/')]);
-  const homeCats = (settings.home_categories || '').split(',').map(s=>s.trim());
+
+  // Fetch both legacy (SiteSetting) and unified (SiteConfig) settings
+  const [legacy, unified] = await Promise.all([
+    apiFetch('/admin/settings'),
+    apiFetch('/admin/settings/unified').catch(() => ({}))
+  ]);
+
+  const g = unified.settings_general || {};
+  const ap = unified.settings_appearance || {};
+  const sc = unified.settings_scripts || {};
+  const im = unified.settings_images || {};
+  const se = unified.settings_security || {};
+  const ca = unified.settings_captcha || {};
+
+  // Helper: escape HTML
+  const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  // Helper: toggle row HTML
+  const toggleRow = (id, label, desc, checked) => `
+    <div class="settings-toggle-row">
+      <div><div class="settings-toggle-label">${label}</div>${desc ? `<div class="settings-toggle-desc">${desc}</div>` : ''}</div>
+      <label class="toggle-switch"><input type="checkbox" id="${id}" ${checked ? 'checked' : ''}><span class="toggle-slider"></span></label>
+    </div>`;
+
+  // Helper: form field
+  const field = (id, label, val, opts = {}) => `
+    <div class="form-group">
+      <label class="form-label" for="${id}">${label}</label>
+      ${opts.type === 'textarea'
+        ? `<textarea class="form-input form-textarea" id="${id}" placeholder="${esc(opts.placeholder || '')}" rows="${opts.rows || 4}">${esc(val)}</textarea>`
+        : opts.type === 'select'
+          ? `<select class="form-select" id="${id}">${(opts.options || []).map(o => `<option value="${o.value}" ${String(val) === String(o.value) ? 'selected' : ''}>${o.label}</option>`).join('')}</select>`
+          : `<input class="form-input" id="${id}" type="${opts.type || 'text'}" value="${esc(val)}" placeholder="${esc(opts.placeholder || '')}" ${opts.step ? `step="${opts.step}"` : ''} />`
+      }
+    </div>`;
+
+  const tabs = [
+    { id: 'general', label: 'Chung', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' },
+    { id: 'appearance', label: 'Giao diện', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>' },
+    { id: 'scripts', label: 'Scripts', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>' },
+    { id: 'images', label: 'Hình ảnh', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' },
+    { id: 'security', label: 'Bảo mật', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' },
+    { id: 'captcha', label: 'Captcha', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' },
+  ];
+
   content.innerHTML = `
-    <div class="page-header"><div class="page-title">Cài đặt</div></div>
-    <div class="card p-24" style="max-width:600px">
-      <form id="settings-form">
-        <div class="fw-600 mb-12">Thông tin website</div>
-        <div class="form-group"><label class="form-label">Tên website</label><input class="form-input" id="s-name" value="${settings.site_name || ''}" placeholder="ShopKey" /></div>
-        <div class="form-group"><label class="form-label">Mô tả</label><input class="form-input" id="s-desc" value="${settings.site_description || ''}" /></div>
-        <div class="form-group"><label class="form-label">URL Logo</label><input class="form-input" id="s-logo" value="${settings.site_logo || ''}" /></div>
-        <div class="form-group"><label class="form-label">Tiền tệ</label><select class="form-select" id="s-currency"><option value="VND" ${settings.currency === 'VND' ? 'selected' : ''}>VND</option><option value="USD" ${settings.currency === 'USD' ? 'selected' : ''}>USD</option></select></div>
-        <div class="form-group"><label class="form-label">URL Website (cho PayOS redirect)</label><input class="form-input" id="s-baseurl" value="${settings.app_base_url || ''}" placeholder="https://yourdomain.com" /></div>
-        <div class="form-group"><label class="form-label">Thuế (%)</label><input type="number" step="0.1" class="form-input" id="s-tax-rate" value="${settings.tax_rate || '0'}" placeholder="Ví dụ: 10" /></div>
-        <div class="form-group">
-          <label class="form-label">Danh mục hiển thị trang chủ</label>
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--bg-page); padding: 16px; border-radius: 8px;">
-            ${cats.map(c => `<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" class="home-cat-cb" value="${c.slug}" ${homeCats.includes(c.slug) ? 'checked' : ''}> <span class="fw-500">${c.name}</span></label>`).join('')}
-          </div>
-        </div>
-
-        <div class="divider"></div>
-        <div class="fw-600 mb-12">💳 Cấu hình PayOS</div>
-        <p class="text-muted text-sm mb-12">Lấy từ <a href="https://my.payos.vn" target="_blank" style="color:var(--primary)">my.payos.vn</a> → Kênh thanh toán → API Keys</p>
-        <div class="form-group"><label class="form-label">Client ID</label><input class="form-input" id="s-payos-client" value="${settings.payos_client_id || ''}" placeholder="PayOS Client ID" /></div>
-        <div class="form-group"><label class="form-label">API Key</label><input class="form-input" id="s-payos-api" value="${settings.payos_api_key ? '••••••••' : ''}" placeholder="PayOS API Key" type="password" /></div>
-        <div class="form-group"><label class="form-label">Checksum Key</label><input class="form-input" id="s-payos-checksum" value="${settings.payos_checksum_key ? '••••••••' : ''}" placeholder="PayOS Checksum Key" type="password" /></div>
-
-        <div class="divider"></div>
-        <div class="fw-600 mb-12">🔐 Cấu hình OAuth (Đăng nhập MXH)</div>
-        <p class="text-muted text-sm mb-12">Để trống nếu không dùng</p>
-        <div class="form-group"><label class="form-label">Google Client ID</label><input class="form-input" id="s-google-id" value="${settings.google_client_id || ''}" placeholder="xxxxxxx.apps.googleusercontent.com" /></div>
-        <div class="form-group"><label class="form-label">Google Client Secret</label><input class="form-input" id="s-google-secret" value="${settings.google_client_secret ? '••••••••' : ''}" placeholder="Google Client Secret" type="password" /></div>
-        <div class="form-group"><label class="form-label">Discord Client ID</label><input class="form-input" id="s-discord-id" value="${settings.discord_client_id || ''}" placeholder="Discord Application ID" /></div>
-        <div class="form-group"><label class="form-label">Discord Client Secret</label><input class="form-input" id="s-discord-secret" value="${settings.discord_client_secret ? '••••••••' : ''}" placeholder="Discord Client Secret" type="password" /></div>
-
-        <div class="divider"></div>
-        <div class="fw-600 mb-12">Tạo Admin</div>
-        <div class="form-row form-row-3">
-          <div class="form-group"><label class="form-label">User ID</label><input class="form-input" id="admin-uid" placeholder="ID user" /></div>
-          <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="admin-email" placeholder="admin@..." /></div>
-          <div class="form-group"><label class="form-label">Secret</label><input class="form-input" id="admin-secret" type="password" /></div>
-        </div>
-        <button type="button" class="btn btn-ghost btn-sm mb-16" id="btn-make-admin">Cấp quyền Admin</button>
-        <button type="submit" class="btn btn-primary btn-lg btn-full">Lưu cài đặt</button>
-      </form>
+    <div class="page-header"><div class="page-title">Cài đặt hệ thống</div></div>
+    <div class="settings-tabs" role="tablist">
+      ${tabs.map((t, i) => `<button class="settings-tab ${i === 0 ? 'active' : ''}" data-tab="${t.id}" role="tab" aria-selected="${i === 0}">${t.icon} ${t.label}</button>`).join('')}
     </div>
+
+    <form id="settings-unified-form">
+      <!-- ═══ General ═══ -->
+      <div class="settings-section active" data-section="general">
+        <div class="settings-card">
+          <div class="settings-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Cài đặt chung
+          </div>
+          ${field('g-title', 'Tiêu đề trang', g.title, { placeholder: 'Tên website của bạn' })}
+          ${field('g-description', 'Mô tả', g.description, { placeholder: 'Mô tả ngắn gọn về website' })}
+          ${field('g-keywords', 'Từ khóa (Keywords)', g.keywords, { placeholder: 'shop, digital, key, game' })}
+          ${field('g-author', 'Tác giả (Author)', g.author, { placeholder: 'Tên tác giả' })}
+          ${field('g-timezone', 'Múi giờ (Timezone)', g.timezone, {
+            type: 'select',
+            options: [
+              { value: 'Asia/Ho_Chi_Minh', label: 'Asia/Ho_Chi_Minh (UTC+7)' },
+              { value: 'Asia/Bangkok', label: 'Asia/Bangkok (UTC+7)' },
+              { value: 'Asia/Tokyo', label: 'Asia/Tokyo (UTC+9)' },
+              { value: 'Asia/Shanghai', label: 'Asia/Shanghai (UTC+8)' },
+              { value: 'Asia/Singapore', label: 'Asia/Singapore (UTC+8)' },
+              { value: 'America/New_York', label: 'America/New_York (UTC-5)' },
+              { value: 'America/Los_Angeles', label: 'America/Los_Angeles (UTC-8)' },
+              { value: 'Europe/London', label: 'Europe/London (UTC+0)' },
+              { value: 'UTC', label: 'UTC' },
+            ]
+          })}
+        </div>
+      </div>
+
+      <!-- ═══ Appearance ═══ -->
+      <div class="settings-section" data-section="appearance">
+        <div class="settings-card">
+          <div class="settings-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+            Giao diện & Hiển thị
+          </div>
+          ${toggleRow('ap-show-slider', 'Hiển thị Slider', 'Bật/tắt slider trên trang chủ', ap.show_slider !== false)}
+          ${toggleRow('ap-show-banner', 'Hiển thị Banner', 'Bật/tắt banner quảng cáo', ap.show_banner !== false)}
+          ${toggleRow('ap-show-viewed', 'Hiển thị Sản phẩm đã xem', 'Hiển thị section sản phẩm đã xem gần đây', ap.show_viewed !== false)}
+        </div>
+      </div>
+
+      <!-- ═══ Scripts ═══ -->
+      <div class="settings-section" data-section="scripts">
+        <div class="settings-card">
+          <div class="settings-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            Scripts & HTML tùy chỉnh
+          </div>
+          ${field('sc-header', 'Script/HTML Header (Trang Khách)', sc.header_script, { type: 'textarea', rows: 6, placeholder: '<script>...</script> hoặc HTML chèn vào <head>' })}
+          ${field('sc-footer', 'Script/HTML Footer (Trang Khách)', sc.footer_script, { type: 'textarea', rows: 6, placeholder: '<script>...</script> hoặc HTML chèn trước </body>' })}
+        </div>
+      </div>
+
+      <!-- ═══ Images ═══ -->
+      <div class="settings-section" data-section="images">
+        <div class="settings-card">
+          <div class="settings-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            Hình ảnh
+          </div>
+          ${field('im-logo', 'Logo URL', im.logo_url, { placeholder: 'https://example.com/logo.png' })}
+          ${field('im-favicon', 'Favicon URL', im.favicon_url, { placeholder: 'https://example.com/favicon.ico' })}
+          ${field('im-default', 'Default Image URL', im.default_image_url, { placeholder: 'https://example.com/default.png' })}
+          ${field('im-avatar', 'Default Avatar URL', im.default_avatar_url, { placeholder: 'https://example.com/avatar.png' })}
+        </div>
+      </div>
+
+      <!-- ═══ Security ═══ -->
+      <div class="settings-section" data-section="security">
+        <div class="settings-card">
+          <div class="settings-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Bảo mật & Khóa IP
+          </div>
+          <p class="text-muted text-sm mb-16">Cấu hình các giới hạn bảo mật. Đặt 0 để vô hiệu hóa.</p>
+          <div class="settings-row">
+            ${field('se-lock-login', 'Khóa IP nếu đăng nhập sai (lần)', se.lock_ip_login_fail, { type: 'number', placeholder: '5' })}
+            ${field('se-lock-pass', 'Khóa tài khoản nếu sai pass (lần)', se.lock_account_pass_fail, { type: 'number', placeholder: '5' })}
+          </div>
+          <div class="settings-row">
+            ${field('se-lock-api', 'Khóa IP nếu sai API KEY (lần)', se.lock_ip_api_fail, { type: 'number', placeholder: '5' })}
+            ${field('se-lock-2fa', 'Khóa IP nếu sai 2FA/OTP (lần)', se.lock_ip_2fa_fail, { type: 'number', placeholder: '5' })}
+          </div>
+          <div class="settings-row">
+            ${field('se-lock-invoice', 'Khóa IP nếu tạo hóa đơn spam (lần)', se.lock_ip_invoice_spam, { type: 'number', placeholder: '5' })}
+            ${field('se-lock-forgot', 'Khóa IP nếu spam quên mật khẩu (lần)', se.lock_ip_forgot_spam, { type: 'number', placeholder: '5' })}
+          </div>
+          <div class="settings-row">
+            ${field('se-lock-admin', 'Khóa IP truy cập Admin trái phép (lần)', se.lock_ip_admin_illegal, { type: 'number', placeholder: '5' })}
+            ${field('se-max-accounts', 'Số tài khoản tối đa trên 1 IP', se.max_accounts_per_ip, { type: 'number', placeholder: '3' })}
+          </div>
+          <div class="settings-row">
+            ${field('se-login-duration', 'Thời gian lưu đăng nhập (giây)', se.login_duration, { type: 'number', placeholder: '2592000' })}
+            ${field('se-cron-secret', 'Mã bí mật Cron Job', se.cron_secret, { placeholder: 'Nhập mã bí mật' })}
+          </div>
+          ${field('se-admin-path', 'Đường dẫn Admin Panel', se.admin_path, { placeholder: 'admin' })}
+        </div>
+        <div class="settings-card">
+          <div class="settings-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Bảo mật nâng cao
+          </div>
+          ${toggleRow('se-admin-one-ip', 'Chỉ cho phép Admin từ 1 IP', 'Giới hạn truy cập admin chỉ từ 1 IP duy nhất', se.admin_one_ip === true)}
+          ${toggleRow('se-admin-one-device', 'Chỉ cho phép Admin từ 1 thiết bị', 'Mỗi tài khoản admin chỉ đăng nhập trên 1 thiết bị', se.admin_one_device === true)}
+          ${toggleRow('se-client-one-device', 'Chỉ cho phép Client từ 1 thiết bị', 'Mỗi tài khoản client chỉ đăng nhập trên 1 thiết bị', se.client_one_device === true)}
+          ${toggleRow('se-hide-admin-btn', 'Ẩn nút truy cập Admin Panel', 'Ẩn nút Admin trên giao diện trang khách', se.hide_admin_button === true)}
+          ${toggleRow('se-strong-pass', 'Bắt buộc mật khẩu phức tạp', 'Yêu cầu mật khẩu có chữ hoa, chữ thường, số và ký tự đặc biệt', se.strong_password === true)}
+        </div>
+      </div>
+
+      <!-- ═══ Captcha ═══ -->
+      <div class="settings-section" data-section="captcha">
+        <div class="settings-card">
+          <div class="settings-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Cấu hình Captcha
+          </div>
+          ${toggleRow('ca-enabled', 'Bật Captcha', 'Kích hoạt xác minh Captcha trên các form', ca.enabled === true)}
+          <div class="divider"></div>
+          ${field('ca-type', 'Loại Captcha', ca.type, {
+            type: 'select',
+            options: [
+              { value: '', label: '— Chọn loại Captcha —' },
+              { value: 'recaptcha_v2', label: 'reCAPTCHA v2' },
+              { value: 'recaptcha_v3', label: 'reCAPTCHA v3' },
+              { value: 'turnstile', label: 'Cloudflare Turnstile' },
+              { value: 'hcaptcha', label: 'hCaptcha' },
+            ]
+          })}
+          ${field('ca-site-key', 'Site Key', ca.site_key, { placeholder: 'Nhập Site Key' })}
+          ${field('ca-secret-key', 'Secret Key', ca.secret_key, { type: 'password', placeholder: 'Nhập Secret Key' })}
+        </div>
+      </div>
+
+      <!-- Save bar -->
+      <div class="settings-save-bar">
+        <button type="button" class="btn btn-ghost" id="btn-reset-settings">Hoàn tác</button>
+        <button type="submit" class="btn btn-primary btn-lg">Lưu cài đặt</button>
+      </div>
+    </form>
   `;
-  qs('#btn-make-admin', content).onclick = async () => {
-    const uid = qs('#admin-uid', content).value.trim(), email = qs('#admin-email', content).value.trim(), secret = qs('#admin-secret', content).value;
-    if (!uid || !email || !secret) return toast('Điền đủ thông tin', 'error');
-    try { const r = await apiFetch('/auth/make-admin', { method: 'POST', body: JSON.stringify({ user_id: uid, email, secret }) }); toast(r.message, 'success'); }
-    catch (err) { toast(err.message, 'error'); }
-  };
-  qs('#settings-form', content).onsubmit = async (e) => {
-    e.preventDefault();
-    const selectedCats = Array.from(content.querySelectorAll('.home-cat-cb:checked')).map(cb => cb.value).join(',');
-    const payload = {
-      site_name: qs('#s-name', content).value,
-      site_description: qs('#s-desc', content).value,
-      site_logo: qs('#s-logo', content).value,
-      currency: qs('#s-currency', content).value,
-      app_base_url: qs('#s-baseurl', content).value,
-      tax_rate: qs('#s-tax-rate', content).value,
-      home_categories: selectedCats,
-      payos_client_id: qs('#s-payos-client', content).value,
-      google_client_id: qs('#s-google-id', content).value,
-      discord_client_id: qs('#s-discord-id', content).value,
+
+  // ── Tab switching ──
+  qsa('.settings-tab', content).forEach(tab => {
+    tab.onclick = () => {
+      qsa('.settings-tab', content).forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+      qsa('.settings-section', content).forEach(s => s.classList.remove('active'));
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+      const section = qs(`.settings-section[data-section="${tab.dataset.tab}"]`, content);
+      if (section) section.classList.add('active');
     };
-    // Only send secret fields if user actually typed (not the masked ••••)
-    const payosApi = qs('#s-payos-api', content).value;
-    const payosCheck = qs('#s-payos-checksum', content).value;
-    const googleSec = qs('#s-google-secret', content).value;
-    const discordSec = qs('#s-discord-secret', content).value;
-    if (payosApi && !payosApi.startsWith('••')) payload.payos_api_key = payosApi;
-    if (payosCheck && !payosCheck.startsWith('••')) payload.payos_checksum_key = payosCheck;
-    if (googleSec && !googleSec.startsWith('••')) payload.google_client_secret = googleSec;
-    if (discordSec && !discordSec.startsWith('••')) payload.discord_client_secret = discordSec;
-    try { await apiFetch('/admin/settings', { method: 'POST', body: JSON.stringify(payload) }); toast('Đã lưu', 'success'); }
-    catch (err) { toast(err.message, 'error'); }
+  });
+
+  // ── Reset button ──
+  qs('#btn-reset-settings', content).onclick = () => {
+    renderAdminSettings(view);
+  };
+
+  // ── Save handler ──
+  qs('#settings-unified-form', content).onsubmit = async (e) => {
+    e.preventDefault();
+    const val = (id) => qs(`#${id}`, content)?.value ?? '';
+    const chk = (id) => qs(`#${id}`, content)?.checked ?? false;
+    const num = (id) => { const v = val(id); return v === '' ? '' : Number(v); };
+
+    const payload = {
+      settings_general: {
+        title: val('g-title'),
+        description: val('g-description'),
+        keywords: val('g-keywords'),
+        author: val('g-author'),
+        timezone: val('g-timezone'),
+      },
+      settings_appearance: {
+        show_slider: chk('ap-show-slider'),
+        show_banner: chk('ap-show-banner'),
+        show_viewed: chk('ap-show-viewed'),
+      },
+      settings_scripts: {
+        header_script: val('sc-header'),
+        footer_script: val('sc-footer'),
+      },
+      settings_images: {
+        logo_url: val('im-logo'),
+        favicon_url: val('im-favicon'),
+        default_image_url: val('im-default'),
+        default_avatar_url: val('im-avatar'),
+      },
+      settings_security: {
+        lock_ip_login_fail: num('se-lock-login'),
+        lock_account_pass_fail: num('se-lock-pass'),
+        lock_ip_api_fail: num('se-lock-api'),
+        lock_ip_2fa_fail: num('se-lock-2fa'),
+        lock_ip_invoice_spam: num('se-lock-invoice'),
+        lock_ip_forgot_spam: num('se-lock-forgot'),
+        lock_ip_admin_illegal: num('se-lock-admin'),
+        max_accounts_per_ip: num('se-max-accounts'),
+        login_duration: num('se-login-duration'),
+        cron_secret: val('se-cron-secret'),
+        admin_path: val('se-admin-path'),
+        admin_one_ip: chk('se-admin-one-ip'),
+        admin_one_device: chk('se-admin-one-device'),
+        client_one_device: chk('se-client-one-device'),
+        hide_admin_button: chk('se-hide-admin-btn'),
+        strong_password: chk('se-strong-pass'),
+      },
+      settings_captcha: {
+        enabled: chk('ca-enabled'),
+        type: val('ca-type'),
+        site_key: val('ca-site-key'),
+        secret_key: val('ca-secret-key'),
+      },
+    };
+
+    try {
+      await apiFetch('/admin/settings/unified', { method: 'PUT', body: JSON.stringify(payload) });
+      toast('Đã lưu cài đặt', 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
   };
 }
 
