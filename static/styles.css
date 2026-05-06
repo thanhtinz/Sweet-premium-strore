@@ -3207,21 +3207,19 @@ a.support-contact-value:hover {
 .pd-rating-avg { font-size: 16px; font-weight: 700; color: var(--text-heading); }
 .pd-rating-count { font-size: 13px; color: var(--text-muted); }
 
-/* Info pills */
-.pd-info-pills {
-  display: flex; gap: 10px; flex-wrap: wrap;
+/* Meta row: category + sold */
+.pd-meta-row {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-size: 13px; color: var(--text-muted);
 }
-.pd-pill {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 13px; font-weight: 600;
-  padding: 6px 14px; border-radius: 12px;
-  background: var(--bg-card); border: 1px solid var(--border);
-  color: var(--text-body);
+.pd-meta-link {
+  color: var(--text-body); font-weight: 500; text-decoration: none;
+  transition: color 0.15s;
 }
-.pd-pill-icon {
-  width: 20px; height: 20px; object-fit: contain; border-radius: 4px;
-}
-.pd-pill-sold { color: var(--amber, #f59e0b); }
+.pd-meta-link:hover { color: var(--primary); }
+.pd-meta-sep { color: var(--text-muted); font-size: 12px; opacity: 0.6; }
+.pd-meta-divider { color: var(--border-dark); font-weight: 300; }
+.pd-meta-sold { color: var(--amber, #f59e0b); font-weight: 600; }
 
 /* Image placeholder */
 .pd-top-img-ph {

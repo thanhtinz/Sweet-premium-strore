@@ -772,6 +772,7 @@ async function renderProduct(view, { slug }) {
         if (currentUser && window._wishlistIds?.has(p.id)) heartBtn.classList.add('active');
       }
 
+      // Rating + category + sold — single row
       // Rating row
       const ratingRow = el('div', 'pd-rating-row');
       ratingRow.innerHTML = `
@@ -781,23 +782,28 @@ async function renderProduct(view, { slug }) {
       `;
       topSection.appendChild(ratingRow);
 
-      // Info pills: category + sold count
-      const pillsRow = el('div', 'pd-info-pills');
+      // Meta row: parent category › child category | sold count
+      const metaRow = el('div', 'pd-meta-row');
+      let metaParts = [];
       if (p.category_name) {
-        const catIcon = p.category_icon ? `<img src="${p.category_icon}" class="pd-pill-icon" alt="" loading="lazy" decoding="async" />` : '';
-        let pdCatHref = '';
-        if (p.category_slug) {
-            const pCat = categories.find(c => c.children?.some(s => s.slug === p.category_slug || s.id === p.category_id));
-            if (pCat) pdCatHref = `#/all?cat=${pCat.slug}&sub=${p.category_slug || p.category_id}`;
-            else pdCatHref = `#/all?cat=${p.category_slug || p.category_id}`;
+        const parentCat = categories.find(c => c.children?.some(s => s.slug === p.category_slug || s.id === p.category_id));
+        if (parentCat) {
+          metaParts.push(`<a href="#/all?cat=${parentCat.slug}" class="pd-meta-link">${esc(parentCat.name)}</a>`);
+          metaParts.push(`<span class="pd-meta-sep">›</span>`);
+          const subHref = `#/all?cat=${parentCat.slug}&sub=${p.category_slug || p.category_id}`;
+          metaParts.push(`<a href="${subHref}" class="pd-meta-link">${esc(p.category_name)}</a>`);
+        } else {
+          metaParts.push(`<a href="#/all?cat=${p.category_slug || p.category_id}" class="pd-meta-link">${esc(p.category_name)}</a>`);
         }
-        
-        pillsRow.innerHTML += `<a href="${pdCatHref}" class="pd-pill pd-pill-cat">${catIcon}${p.category_name}</a>`;
       }
       if (p.sold_count > 0) {
-        pillsRow.innerHTML += `<span class="pd-pill pd-pill-sold">🔥 Đã bán ${p.sold_count}</span>`;
+        if (metaParts.length) metaParts.push(`<span class="pd-meta-divider">|</span>`);
+        metaParts.push(`<span class="pd-meta-sold">🔥 Đã bán ${p.sold_count}</span>`);
       }
-      topSection.appendChild(pillsRow);
+      if (metaParts.length) {
+        metaRow.innerHTML = metaParts.join('');
+        topSection.appendChild(metaRow);
+      }
 
       view.appendChild(topSection);
 
