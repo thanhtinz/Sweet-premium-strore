@@ -181,6 +181,7 @@ def admin_update_blog_category(
 
 
 @router.delete("/admin/categories/{cat_id}")
+@router.post("/admin/categories/{cat_id}/delete", dependencies=[Depends(get_current_admin)])
 def admin_delete_blog_category(
     cat_id: int, _admin=Depends(get_current_admin), db: Session = Depends(get_db),
 ):
@@ -295,6 +296,7 @@ def admin_update_blog_post(
 
 
 @router.delete("/admin/posts/{post_id}")
+@router.post("/admin/posts/{post_id}/delete", dependencies=[Depends(get_current_admin)])
 def admin_delete_blog_post(
     post_id: int, _admin=Depends(get_current_admin), db: Session = Depends(get_db),
 ):

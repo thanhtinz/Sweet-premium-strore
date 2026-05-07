@@ -99,6 +99,7 @@ def update_flash_sale(fid: int, body: FlashSaleCreate, db: Session = Depends(get
 
 
 @router.delete("/admin/{fid}", dependencies=[Depends(get_current_admin)])
+@router.post("/admin/{fid}/delete", dependencies=[Depends(get_current_admin)])
 def delete_flash_sale(fid: int, db: Session = Depends(get_db)):
     fs = db.query(FlashSale).get(fid)
     if not fs:

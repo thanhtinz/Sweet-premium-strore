@@ -349,7 +349,7 @@ def get_product(slug: str, db: Session = Depends(get_db)):
 @router.get("/admin/all", dependencies=[Depends(get_current_admin)])
 def admin_list_products(db: Session = Depends(get_db)):
     products = db.query(Product).options(joinedload(Product.category), joinedload(Product.packages)).order_by(Product.sort_order, Product.id).all()
-    return [product_to_dict(p) for p in products]
+    return [product_to_dict(p, db=db) for p in products]
 
 
 @router.post("/", dependencies=[Depends(get_current_admin)])
@@ -383,12 +383,33 @@ def update_product(product_id: int, data: ProductUpdate, db: Session = Depends(g
 
 
 @router.delete("/{product_id}", dependencies=[Depends(get_current_admin)])
+@router.post("/{product_id}/delete", dependencies=[Depends(get_current_admin)])
 def delete_product(product_id: int, db: Session = Depends(get_db)):
     p = db.query(Product).filter(Product.id == product_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="Product not found")
-    db.delete(p)
-    db.commit()
+        
+    from db.models import Order, ProductPackage
+    # Check if any package of this product has orders
+    pkg_ids = [pkg.id for pkg in p.packages]
+    has_orders = False
+    if pkg_ids:
+        has_orders = db.query(Order).filter(Order.package_id.in_(pkg_ids)).first() is not None
+        
+    if has_orders:
+        # Soft delete
+        p.is_active = False
+        p.name = f"[Đã xóa] {p.name}"
+        p.slug = f"deleted-{p.slug}-{int(datetime.now().timestamp())}"
+        # Disable all packages
+        for pkg in p.packages:
+            pkg.is_active = False
+        db.commit()
+    else:
+        # Hard delete
+        db.delete(p)
+        db.commit()
+        
     return {"ok": True}
 
 
@@ -419,6 +440,7 @@ def update_package(pkg_id: int, data: PackageUpdate, db: Session = Depends(get_d
 
 
 @router.delete("/packages/{pkg_id}", dependencies=[Depends(get_current_admin)])
+@router.post("/packages/{pkg_id}/delete", dependencies=[Depends(get_current_admin)])
 def delete_package(pkg_id: int, db: Session = Depends(get_db)):
     pkg = db.query(ProductPackage).filter(ProductPackage.id == pkg_id).first()
     if not pkg:
@@ -462,6 +484,7 @@ def update_field(field_id: int, data: FieldUpdate, db: Session = Depends(get_db)
 
 
 @router.delete("/fields/{field_id}", dependencies=[Depends(get_current_admin)])
+@router.post("/fields/{field_id}/delete", dependencies=[Depends(get_current_admin)])
 def delete_field(field_id: int, db: Session = Depends(get_db)):
     field = db.query(PackageField).filter(PackageField.id == field_id).first()
     if not field:

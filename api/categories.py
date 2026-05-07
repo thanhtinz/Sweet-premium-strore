@@ -114,10 +114,20 @@ def update_category(cat_id: int, data: CategoryUpdate, db: Session = Depends(get
 
 
 @router.delete("/{cat_id}", dependencies=[Depends(get_current_admin)])
+@router.post("/{cat_id}/delete", dependencies=[Depends(get_current_admin)])
 def delete_category(cat_id: int, db: Session = Depends(get_db)):
     cat = db.query(Category).filter(Category.id == cat_id).first()
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
+    
+    # Detach products
+    from db.models import Product
+    db.query(Product).filter(Product.category_id == cat_id).update({"category_id": None})
+    
+    # Detach or delete children categories
+    for child in cat.children:
+        child.parent_id = None
+        
     db.delete(cat)
     db.commit()
     return {"ok": True}

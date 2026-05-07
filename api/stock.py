@@ -64,6 +64,7 @@ def add_single_stock(data: StockAdd, db: Session = Depends(get_db)):
 
 
 @router.delete("/{item_id}", dependencies=[Depends(get_current_admin)])
+@router.post("/{item_id}/delete", dependencies=[Depends(get_current_admin)])
 def delete_stock(item_id: int, db: Session = Depends(get_db)):
     item = db.query(StockItem).filter(StockItem.id == item_id, StockItem.is_sold == False).first()
     if not item:

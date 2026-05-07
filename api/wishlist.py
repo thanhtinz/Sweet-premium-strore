@@ -38,6 +38,7 @@ def toggle_wishlist(product_id: int, user=Depends(get_current_user), db: Session
 
 
 @router.delete("/{product_id}")
+@router.post("/{product_id}/delete", dependencies=[Depends(get_current_user)])
 def remove_wishlist(product_id: int, user=Depends(get_current_user), db: Session = Depends(get_db)):
     uid = str(user["user_id"])
     w = db.query(Wishlist).filter(

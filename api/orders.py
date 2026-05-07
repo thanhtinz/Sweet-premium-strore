@@ -2,13 +2,15 @@ import os
 import random
 import string
 from datetime import datetime, timezone
+from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 from db import get_db
-from db.models import Order, ProductPackage, StockItem
+from db.models import Order, ProductPackage, StockItem, BalanceTransaction, User
 from api.auth import get_current_user, get_current_admin
+from api.order_notifications import notify_order_status_change
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -61,6 +63,15 @@ class OrderCreate(BaseModel):
 
 class OrderDelivery(BaseModel):
     delivery_data: str
+    notes: Optional[str] = None
+
+
+class OrderStatusUpdate(BaseModel):
+    status: str
+    notes: Optional[str] = None
+
+
+class OrderCancelRequest(BaseModel):
     notes: Optional[str] = None
 
 
@@ -188,7 +199,7 @@ def deliver_order(order_id: int, data: OrderDelivery, db: Session = Depends(get_
     o = db.query(Order).filter(Order.id == order_id).first()
     if not o:
         raise HTTPException(status_code=404, detail="Order not found")
-    # Decrement stock for stock-managed manual packages
+    previous_status = o.status
     if o.package and o.package.is_stock_managed and o.status != "completed":
         o.package.stock_quantity = max(0, (o.package.stock_quantity or 0) - o.quantity)
     o.delivery_data = data.delivery_data
@@ -196,24 +207,88 @@ def deliver_order(order_id: int, data: OrderDelivery, db: Session = Depends(get_
     o.status = "completed"
     o.updated_at = datetime.now(timezone.utc)
     db.commit()
+    db.refresh(o)
+    notify_order_status_change(db, o, previous_status=previous_status, note=data.notes)
     return order_to_dict(o)
 
 
 @router.put("/admin/{order_id}/status", dependencies=[Depends(get_current_admin)])
-def update_order_status(order_id: int, body: dict, db: Session = Depends(get_db)):
+def update_order_status(order_id: int, body: OrderStatusUpdate, db: Session = Depends(get_db)):
     o = db.query(Order).filter(Order.id == order_id).first()
     if not o:
         raise HTTPException(status_code=404, detail="Order not found")
-    new_status = body.get("status")
+    new_status = body.status
     valid = ["pending", "paid", "processing", "completed", "cancelled"]
     if new_status not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid status. Valid: {valid}")
-    # Decrement stock for stock-managed manual packages when completing
+
+    allowed_transitions = {
+        "pending": {"paid", "cancelled"},
+        "paid": {"processing", "completed", "cancelled"},
+        "processing": {"completed", "cancelled"},
+        "completed": set(),
+        "cancelled": set(),
+    }
+    if new_status != o.status and new_status not in allowed_transitions.get(o.status, set()):
+        raise HTTPException(status_code=400, detail=f"Không thể chuyển từ {o.status} sang {new_status}")
+
+    previous_status = o.status
     if new_status == "completed" and o.status != "completed" and o.package and o.package.is_stock_managed:
         o.package.stock_quantity = max(0, (o.package.stock_quantity or 0) - o.quantity)
     o.status = new_status
+    if body.notes:
+        o.notes = body.notes
     o.updated_at = datetime.now(timezone.utc)
     db.commit()
+    db.refresh(o)
+    notify_order_status_change(db, o, previous_status=previous_status, note=body.notes)
+    return order_to_dict(o)
+
+
+@router.post("/admin/{order_id}/cancel", dependencies=[Depends(get_current_admin)])
+def cancel_order(order_id: int, body: OrderCancelRequest, db: Session = Depends(get_db)):
+    o = db.query(Order).filter(Order.id == order_id).first()
+    if not o:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if o.status == "completed":
+        raise HTTPException(status_code=400, detail="Đơn đã hoàn thành, không thể hủy")
+    if o.status == "cancelled":
+        raise HTTPException(status_code=400, detail="Đơn đã bị hủy trước đó")
+
+    previous_status = o.status
+    refund_amount = None
+    if o.status in {"paid", "processing"}:
+        existing_refund = db.query(BalanceTransaction).filter(
+            BalanceTransaction.reference == o.order_code,
+            BalanceTransaction.type == "refund",
+            BalanceTransaction.status == "completed",
+        ).first()
+        if existing_refund:
+            raise HTTPException(status_code=400, detail="Đơn này đã được hoàn tiền trước đó")
+
+        user = db.query(User).filter(User.id == int(o.user_id)).with_for_update().first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        refund_amount = Decimal(o.total_amount or 0)
+        user.balance = Decimal(user.balance or 0) + refund_amount
+        db.add(BalanceTransaction(
+            user_id=user.id,
+            amount=refund_amount,
+            balance_after=user.balance,
+            type="refund",
+            status="completed",
+            reference=o.order_code,
+            description=f"Hoàn tiền đơn {o.order_code}",
+        ))
+
+    o.status = "cancelled"
+    if body.notes:
+        o.notes = body.notes
+    o.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(o)
+    notify_order_status_change(db, o, previous_status=previous_status, note=body.notes, refund_amount=refund_amount)
     return order_to_dict(o)
 
 

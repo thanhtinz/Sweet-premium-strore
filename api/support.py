@@ -109,6 +109,7 @@ async def update_support_page(page_id: int, data: dict, db: Session = Depends(ge
     return page
 
 @router.delete("/pages/{page_id}", dependencies=[Depends(get_current_admin)])
+@router.post("/pages/{page_id}/delete", dependencies=[Depends(get_current_admin)])
 async def delete_support_page(page_id: int, db: Session = Depends(get_db)):
     """Admin: Delete support page"""
     page = db.query(SupportPage).filter_by(id=page_id).first()

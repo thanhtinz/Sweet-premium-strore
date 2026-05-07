@@ -328,7 +328,7 @@ async function init() {
     const logoLink = qs('#logo-link');
     if (logoLink) {
       if (logoUrl) {
-        logoLink.innerHTML = `<img src="${logoUrl}" alt="${appSettings.site_name || 'Logo'}" style="height: 28px; width: auto; object-fit: contain;">`;
+        logoLink.innerHTML = `<img src="${logoUrl}" alt="${appSettings.site_name || 'Logo'}" style="height: 92px; width: auto; max-width: 100%; object-fit: contain;">`;
       } else if (appSettings.site_name) {
         const logoText = logoLink.querySelector('.logo-text');
         if (logoText) logoText.textContent = appSettings.site_name;
@@ -337,11 +337,7 @@ async function init() {
 
     const fSiteName = qs('#f-site-name');
     if (fSiteName) {
-      if (logoUrl) {
-        fSiteName.innerHTML = `<img src="${logoUrl}" alt="${appSettings.site_name || 'Logo'}" style="height: 24px; width: auto; object-fit: contain; vertical-align: middle;">`;
-      } else {
-        fSiteName.textContent = appSettings.site_name || 'ShopKey';
-      }
+      fSiteName.textContent = appSettings.site_name || 'ShopKey';
     }
 
     const fSiteDesc = qs('#f-site-desc');

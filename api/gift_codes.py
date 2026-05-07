@@ -161,6 +161,7 @@ def update_gift_code(gid: int, body: GiftCodeCreate, db: Session = Depends(get_d
 
 
 @router.delete("/admin/{gid}", dependencies=[Depends(get_current_admin)])
+@router.post("/admin/{gid}/delete", dependencies=[Depends(get_current_admin)])
 def delete_gift_code(gid: int, db: Session = Depends(get_db)):
     gc = db.query(GiftCode).get(gid)
     if not gc:

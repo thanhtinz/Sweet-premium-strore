@@ -1,6 +1,6 @@
 // ─── ADMIN BOT & SMTP CONFIG ─────────────────────────────────────
 async function renderAdminBotConfig(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return; const content = view; 
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
     const config = await apiFetch('/admin/bot-config/settings');

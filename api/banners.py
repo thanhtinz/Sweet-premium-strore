@@ -70,6 +70,7 @@ def update_banner(bid: int, body: BannerCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/admin/{bid}", dependencies=[Depends(get_current_admin)])
+@router.post("/admin/{bid}/delete", dependencies=[Depends(get_current_admin)])
 def delete_banner(bid: int, db: Session = Depends(get_db)):
     b = db.query(Banner).get(bid)
     if not b:

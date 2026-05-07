@@ -25,6 +25,16 @@ def _mask_secret(s: str) -> str:
         return "****" if s else ""
     return s[:4] + "****" + s[-4:]
 
+@router.get("/public-config")
+async def get_oauth_public_config(db: Session = Depends(get_db)):
+    """Public: Get which OAuth providers are enabled (no secrets)"""
+    config = {}
+    for provider in OAUTH_PROVIDERS:
+        enabled_key = f"oauth_{provider}_enabled"
+        enabled = db.query(SiteConfig).filter_by(key=enabled_key).first()
+        config[provider] = {"enabled": enabled.value == "true" if enabled else False}
+    return config
+
 @router.get("/config", dependencies=[Depends(get_current_admin)])
 async def get_oauth_config(db: Session = Depends(get_db)):
     """Admin: Get all OAuth configurations (secrets masked)"""

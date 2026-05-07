@@ -53,14 +53,6 @@ def create_app(static_dir: str) -> FastAPI:
         allow_headers=["Authorization", "Content-Type"],
     )
 
-    # Security Headers Middleware
-    @app.middleware("http")
-    async def add_security_headers(request: Request, call_next):
-        response = await call_next(request)
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        return response
-
     # Init DB on startup
     init_db()
 
@@ -111,13 +103,11 @@ def create_app(static_dir: str) -> FastAPI:
                 return RedirectResponse(url=target, status_code=307)
             # Already has slash but still no route matched — return 404
             return JSONResponse({"detail": "Not found"}, status_code=404)
-        css_hash = get_file_hash(os.path.join(static_dir, "styles.css"))
-        # Combine hashes of all JS modules for cache busting
-        js_files = ["core.js", "storefront.js", "admin.js", "admin-bot.js", "admin-mobile.js", "blog.js", "profile.js", "app.js"]
-        combined = "".join(get_file_hash(os.path.join(static_dir, f)) for f in js_files)
-        js_hash = hashlib.md5(combined.encode()).hexdigest()[:8]
+        
+        import time
+        nocache = str(int(time.time() * 1000))
         return templates.TemplateResponse(
-            request, "index.html", {"css_hash": css_hash, "js_hash": js_hash}
+            request, "index.html", {"css_hash": nocache, "js_hash": nocache}
         )
 
     return app

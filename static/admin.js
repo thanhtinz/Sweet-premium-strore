@@ -239,7 +239,21 @@ function showProductModal(prod, cats, refresh) {
         <div class="form-group"><label class="form-label">Danh mục lớn</label><select class="form-select" id="pf-cat-parent"><option value="">-- Chọn danh mục lớn --</option>${parentOptions}</select></div>
         <div class="form-group"><label class="form-label">Danh mục con</label><select class="form-select" id="pf-cat-child">${childOptionsForParent(selectedParentId)}</select></div>
       </div>
-      <div class="form-group"><label class="form-label">Mô tả</label><textarea class="form-textarea" id="pf-desc">${prod?.description || ''}</textarea></div>
+      <div class="form-group">
+        <label class="form-label">Mô tả</label>
+        <div class="editor-toolbar" id="pf-desc-toolbar">
+          <button type="button" class="btn btn-ghost btn-sm" data-insert-html="bold"><b>B</b></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-insert-html="italic"><i>I</i></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-insert-html="link"><i class="fa-solid fa-link"></i> Link</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-insert-html="image"><i class="fa-regular fa-image"></i> Ảnh</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-insert-html="table"><i class="fa-solid fa-table"></i> Table</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-insert-html="ul"><i class="fa-solid fa-list-ul"></i> List</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-insert-html="h2">H2</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-insert-html="html"><i class="fa-solid fa-code"></i> HTML</button>
+        </div>
+        <textarea class="form-textarea rich-textarea" id="pf-desc" rows="10" placeholder="Hỗ trợ HTML: link, ảnh, bảng, heading, list...">${prod?.description || ''}</textarea>
+        <div class="form-hint">Bạn có thể nhập HTML trực tiếp hoặc dùng các nút chèn nhanh phía trên.</div>
+      </div>
       <div class="form-group"><label class="form-label">URL ảnh</label><input class="form-input" id="pf-img" value="${prod?.image_url || ''}" /></div>
       <div class="form-row form-row-3">
         <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="pf-order" value="${prod?.sort_order ?? 0}" /></div>
@@ -258,6 +272,33 @@ function showProductModal(prod, cats, refresh) {
   };
 
   qs('#prod-cancel').onclick = closeModal;
+
+  const descEl = qs('#pf-desc');
+  const insertAtCursor = (text) => {
+    const start = descEl.selectionStart ?? descEl.value.length;
+    const end = descEl.selectionEnd ?? descEl.value.length;
+    descEl.value = `${descEl.value.slice(0, start)}${text}${descEl.value.slice(end)}`;
+    const nextPos = start + text.length;
+    descEl.focus();
+    descEl.setSelectionRange(nextPos, nextPos);
+  };
+
+  qs('#pf-desc-toolbar').onclick = (e) => {
+    const btn = e.target.closest('[data-insert-html]');
+    if (!btn) return;
+    const type = btn.dataset.insertHtml;
+    const snippets = {
+      bold: '<strong>Nội dung in đậm</strong>',
+      italic: '<em>Nội dung in nghiêng</em>',
+      link: '<a href="https://example.com" target="_blank" rel="noopener noreferrer">Tên liên kết</a>',
+      image: '<img src="https://example.com/image.jpg" alt="Mô tả ảnh" style="max-width:100%;border-radius:12px;" />',
+      table: '<table><thead><tr><th>Cột 1</th><th>Cột 2</th></tr></thead><tbody><tr><td>Dữ liệu 1</td><td>Dữ liệu 2</td></tr></tbody></table>',
+      ul: '<ul><li>Mục 1</li><li>Mục 2</li></ul>',
+      h2: '<h2>Tiêu đề nội dung</h2>',
+      html: '<div class="content-block">Nội dung HTML tùy chỉnh</div>',
+    };
+    insertAtCursor(snippets[type] || '');
+  };
   qs('#prod-form').onsubmit = async (e) => {
     e.preventDefault();
     const cat_id = qs('#pf-cat-child').value || qs('#pf-cat-parent').value;
@@ -446,12 +487,17 @@ async function showPackagesModal(productId, productName, prefetchedProduct = nul
     try {
       const np = await apiFetch(`/products/${productId}/packages`, { method: 'POST', body: JSON.stringify(body) });
       // Create fields for the new package
-      const newFieldRows = qsa('[data-new-fname]', modal);
+      const newFieldRows = qsa('[data-new-field]', modal);
       for (const row of newFieldRows) {
-        const fname = row.querySelector('[data-new-fname]').value.trim();
+        const fnameInput = row.querySelector('[data-new-fname]');
+        const ftypeInput = row.querySelector('[data-new-ftype]');
+        const freqInput = row.querySelector('[data-new-freq]');
+        if (!fnameInput || !ftypeInput || !freqInput) continue;
+
+        const fname = fnameInput.value.trim();
         if (!fname) continue;
-        const ftype = row.querySelector('[data-new-ftype]').value;
-        const freq = row.querySelector('[data-new-freq]').checked;
+        const ftype = ftypeInput.value;
+        const freq = freqInput.checked;
         const fieldData = { field_name: fname, field_type: ftype, is_required: freq };
         if (ftype === 'select') {
           const optsInput = row.querySelector('[data-new-fopts]');

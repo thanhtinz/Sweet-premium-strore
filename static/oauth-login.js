@@ -4,7 +4,7 @@
 
 async function renderOAuthLoginButtons(container) {
   try {
-    const config = await apiFetch('/admin/oauth/config');
+    const config = await apiFetch('/admin/oauth/public-config');
     
     const html = `
       <div class="oauth-buttons-group">

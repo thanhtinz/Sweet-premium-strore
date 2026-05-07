@@ -19,7 +19,7 @@ class Category(Base):
     slug = Column(String(255), unique=True, nullable=False, index=True)
     icon_url = Column(Text)
     image_url = Column(String(500), nullable=True)
-    parent_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    parent_id = Column(Integer, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=now_utc)
@@ -118,7 +118,7 @@ class Order(Base):
     order_code = Column(String(50), unique=True, nullable=False, index=True)
     user_id = Column(String(255), nullable=False, index=True)
     user_email = Column(String(255))
-    package_id = Column(Integer, ForeignKey("product_packages.id"), nullable=True)
+    package_id = Column(Integer, ForeignKey("product_packages.id", ondelete="SET NULL"), nullable=True)
     quantity = Column(Integer, default=1)
     total_amount = Column(Numeric(12, 2), nullable=False)
     status = Column(String(20), default="pending")  # pending, paid, processing, completed, cancelled

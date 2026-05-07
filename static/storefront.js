@@ -1180,7 +1180,11 @@ async function renderProduct(view, { slug }) {
       const notesCard = el('div', 'pd-card pd-card-notes');
       notesCard.id = 'pd-notes-card';
       notesCard.style.display = 'none';
-      cards.appendChild(notesCard);
+      if (p.description) {
+        cards.insertBefore(notesCard, cards.children[1] || null);
+      } else {
+        cards.appendChild(notesCard);
+      }
 
       const updateNotesCard = () => {
         const productNotes = p.notes || '';

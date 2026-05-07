@@ -125,6 +125,7 @@ def admin_update_announcement(
 
 
 @router.delete("/admin/{ann_id}")
+@router.post("/admin/{ann_id}/delete", dependencies=[Depends(get_current_admin)])
 def admin_delete_announcement(
     ann_id: int,
     _admin=Depends(get_current_admin),
