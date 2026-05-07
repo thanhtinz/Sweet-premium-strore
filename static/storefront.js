@@ -285,24 +285,6 @@ async function renderHome(view) {
     frag.appendChild(grid);
   }
 
-  // ── Wishlist / Favorites on Home ──────────────────────────
-  if (currentUser && appSettings.features?.wishlist !== false) {
-    try {
-      const wlData = await apiFetch('/wishlist/?limit=6');
-      const wlHead = el('div', 'section-head mt-32');
-      wlHead.innerHTML = `<div class="section-title mb-0"><i class="fa-solid fa-heart" style="color:#ef4444"></i> Sản phẩm yêu thích</div><a href="#/wishlist" class="btn btn-primary btn-sm" style="font-weight: 600;">Xem tất cả <i class="fa-solid fa-arrow-right"></i></a>`;
-      frag.appendChild(wlHead);
-      if (wlData.items?.length) {
-        const wlScroll = el('div', 'home-wl-scroll');
-        wlData.items.forEach(p => wlScroll.appendChild(productCard(p)));
-        frag.appendChild(wlScroll);
-      } else {
-        const emptyWl = el('div', 'wishlist-empty-hint');
-        emptyWl.innerHTML = `<i class="fa-regular fa-heart"></i><p>Nhấn <i class="fa-solid fa-heart" style="color:#ef4444"></i> trên sản phẩm để thêm vào danh sách yêu thích</p>`;
-        frag.appendChild(emptyWl);
-      }
-    } catch (_) {}
-  }
 
   // ── Selected Categories on Home ──────────────────────────
   if (appSettings.home_categories) {
@@ -324,6 +306,25 @@ async function renderHome(view) {
         frag.appendChild(el('p', 'text-muted mb-32', 'Đang cập nhật sản phẩm...'));
       }
     }
+  }
+
+  // ── Wishlist / Favorites on Home ──────────────────────────
+  if (currentUser && appSettings.features?.wishlist !== false) {
+    try {
+      const wlData = await apiFetch('/wishlist/?limit=6');
+      const wlHead = el('div', 'section-head mt-32');
+      wlHead.innerHTML = `<div class="section-title mb-0"><i class="fa-solid fa-heart" style="color:#ef4444"></i> Sản phẩm yêu thích</div><a href="#/wishlist" class="btn btn-primary btn-sm" style="font-weight: 600;">Xem tất cả <i class="fa-solid fa-arrow-right"></i></a>`;
+      frag.appendChild(wlHead);
+      if (wlData.items?.length) {
+        const wlScroll = el('div', 'home-wl-scroll');
+        wlData.items.forEach(p => wlScroll.appendChild(productCard(p)));
+        frag.appendChild(wlScroll);
+      } else {
+        const emptyWl = el('div', 'wishlist-empty-hint');
+        emptyWl.innerHTML = `<i class="fa-regular fa-heart"></i><p>Nhấn <i class="fa-solid fa-heart" style="color:#ef4444"></i> trên sản phẩm để thêm vào danh sách yêu thích</p>`;
+        frag.appendChild(emptyWl);
+      }
+    } catch (_) {}
   }
 
   // ── Single DOM write ─────────────────────────────────────

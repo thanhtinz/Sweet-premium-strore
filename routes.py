@@ -53,6 +53,14 @@ def create_app(static_dir: str) -> FastAPI:
         allow_headers=["Authorization", "Content-Type"],
     )
 
+    # Security Headers Middleware
+    @app.middleware("http")
+    async def add_security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        return response
+
     # Init DB on startup
     init_db()
 

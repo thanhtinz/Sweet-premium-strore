@@ -80,16 +80,33 @@ function toast(msg, type = 'info', duration = 3000) {
 }
 
 // ── API Client ─────────────────────────────────────────────────
+const apiCache = new Map();
+
 async function apiFetch(path, options = {}) {
+  const isGET = (!options.method || options.method === 'GET');
+  const cacheKey = path;
+
+  // Simple 60-second RAM cache for unauthenticated GET requests (categories, public products, configs)
+  if (isGET && !authToken && apiCache.has(cacheKey)) {
+    const cached = apiCache.get(cacheKey);
+    if (Date.now() - cached.time < 60000) return cached.data;
+  }
+
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  
   const res = await fetch(`${API}${path}`, { ...options, headers });
   if (!res.ok) {
     let err = `HTTP ${res.status}`;
     try { const j = await res.json(); err = j.detail || err; } catch (_) {}
     throw new Error(err);
   }
-  return res.json();
+  
+  const data = await res.json();
+  if (isGET && !authToken && !path.startsWith('/admin')) {
+    apiCache.set(cacheKey, { time: Date.now(), data });
+  }
+  return data;
 }
 
 // ── Auth ───────────────────────────────────────────────────────

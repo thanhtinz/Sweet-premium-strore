@@ -748,13 +748,13 @@ async function renderAdminOrders(view) {
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   const refresh = async (status = '') => {
     try {
-    const data = await apiFetch(`/orders/admin/all${status ? '?status=' + status : ''}&limit=50`);
+    const data = await apiFetch(`/orders/admin/all?limit=50${status ? '&status=' + status : ''}`);
     content.innerHTML = `
       <div class="page-header"><div class="page-title">Đơn hàng</div></div>
       <div class="flex gap-6 mb-16 flex-wrap">${['', 'pending', 'paid', 'processing', 'completed', 'cancelled'].map(s => `<button class="btn btn-sm ${status === s ? 'btn-primary' : 'btn-ghost'}" data-filter="${s}">${s || 'Tất cả'}</button>`).join('')}</div>
       <div class="table-wrap"><table>
         <thead><tr><th>Mã đơn</th><th>Khách</th><th>SP</th><th>Tiền</th><th>TT</th><th>Ngày</th><th></th></tr></thead>
-        <tbody>${data.items.map(o => `<tr><td class="td-mono">${o.order_code}</td><td class="text-sm">${o.user_email || '—'}</td><td class="text-sm">${o.product_name || '—'}</td><td class="text-primary">${fmt(o.total_amount)}</td><td>${statusBadge(o.status)}</td><td class="text-sm text-muted">${fmtDate(o.created_at)}</td><td><div class="tbl-actions">${o.status !== 'completed' ? `<button class="tbl-btn tbl-success" data-deliver="${o.id}">Giao</button>` : ''}<button class="tbl-btn tbl-view" data-view-order="${o.id}" data-od="${encodeURIComponent(JSON.stringify(o))}">Xem</button></div></td></tr>`).join('')}</tbody>
+        <tbody>${data.items.map(o => `<tr><td class="td-mono">${o.order_code}</td><td class="text-sm">${esc(o.user_email) || '—'}</td><td class="text-sm">${esc(o.product_name) || '—'}</td><td class="text-primary">${fmt(o.total_amount)}</td><td>${statusBadge(o.status)}</td><td class="text-sm text-muted">${fmtDate(o.created_at)}</td><td><div class="tbl-actions">${o.status !== 'completed' ? `<button class="tbl-btn tbl-success" data-deliver="${o.id}">Giao</button>` : ''}<button class="tbl-btn tbl-view" data-view-order="${o.id}" data-od="${encodeURIComponent(JSON.stringify(o))}">Xem</button></div></td></tr>`).join('')}</tbody>
       </table></div>
     `;
     qsa('[data-filter]', content).forEach(btn => { btn.onclick = () => refresh(btn.dataset.filter); });
@@ -762,8 +762,8 @@ async function renderAdminOrders(view) {
     qsa('[data-view-order]', content).forEach(btn => {
       const o = JSON.parse(decodeURIComponent(btn.dataset.od));
       btn.onclick = () => openModal(`
-        <div class="order-meta">${Object.entries({ 'Mã đơn': o.order_code, 'Khách': o.user_email, 'SP': o.product_name, 'Gói': o.package_name, 'Tiền': fmt(o.total_amount), 'TT': o.status, 'Ngày': fmtDate(o.created_at) }).map(([k, v]) => `<div class="order-meta-item"><div class="order-meta-label">${k}</div><div class="order-meta-value">${v || '—'}</div></div>`).join('')}</div>
-        ${o.delivery_data ? `<div class="delivery-box mt-12"><div class="delivery-box-title">Dữ liệu giao</div><div class="delivery-data">${o.delivery_data}</div></div>` : ''}
+        <div class="order-meta">${Object.entries({ 'Mã đơn': o.order_code, 'Khách': esc(o.user_email), 'SP': esc(o.product_name), 'Gói': esc(o.package_name), 'Tiền': fmt(o.total_amount), 'TT': o.status, 'Ngày': fmtDate(o.created_at) }).map(([k, v]) => `<div class="order-meta-item"><div class="order-meta-label">${k}</div><div class="order-meta-value">${v || '—'}</div></div>`).join('')}</div>
+        ${o.delivery_data ? `<div class="delivery-box mt-12"><div class="delivery-box-title">Dữ liệu giao</div><div class="delivery-data">${esc(o.delivery_data)}</div></div>` : ''}
       `, `Đơn: ${o.order_code}`);
     });
     } catch (err) { content.innerHTML = `<div class="empty-state"><h3>Lỗi tải đơn hàng</h3><p class="text-muted">${err.message}</p></div>`; }
@@ -795,88 +795,338 @@ async function renderAdminStock(view) {
   const products = await apiFetch('/products/admin/all');
   const autoProducts = products.filter(p => p.packages?.some(pkg => pkg.delivery_type === 'auto'));
   const managedProducts = products.filter(p => p.packages?.some(pkg => pkg.is_stock_managed));
-  content.innerHTML = `
+  
+  let html = `
     <div class="page-header"><div class="page-title">Kho hàng</div></div>
-    <div class="flex gap-16 items-start flex-wrap">
-      <div style="flex:1;min-width:260px">
-        <div class="fw-600 mb-8">Gói tự động</div>
-        ${autoProducts.length ? autoProducts.map(p => `<div class="card mb-8 p-16"><div class="fw-600 mb-8">${p.name}</div>${p.packages.filter(pk => pk.delivery_type === 'auto').map(pk => `<button class="btn btn-ghost btn-sm btn-full mb-4" data-viewstock="${pk.id}" data-pkgname="${encodeURIComponent(pk.name)}">${pk.name} — Kho: ${pk.stock_count}</button>`).join('')}</div>`).join('') : '<p class="text-muted">Chưa có gói tự động.</p>'}
-        <div class="divider mt-16 mb-16"></div>
-        <div class="fw-600 mb-8">Gói quản lý kho</div>
-        ${managedProducts.length ? managedProducts.map(p => `<div class="card mb-8 p-16"><div class="fw-600 mb-8">${p.name}</div>${p.packages.filter(pk => pk.is_stock_managed).map(pk => {
-          const qty = pk.stock_quantity || 0;
-          const badge = qty <= 0 ? '🔴' : qty <= 5 ? '🟠' : '🟢';
-          return `<button class="btn btn-ghost btn-sm btn-full mb-4" data-editstockpkg="${pk.id}" data-pkgname="${encodeURIComponent(pk.name)}" data-qty="${qty}">${badge} ${pk.name} — SL: ${qty}</button>`;
-        }).join('')}</div>`).join('') : '<p class="text-muted">Chưa có gói quản lý kho.</p>'}
-      </div>
-      <div style="flex:2;min-width:300px" id="stock-detail"><div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><h3>Chọn gói để xem kho</h3></div></div>
-    </div>
+    
+    <div class="card mb-16 p-16">
+      <h3 style="margin-top:0; margin-bottom:16px; font-size:16px;">Gói tự động (Giao tự động / Random)</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Sản phẩm</th><th>Tên gói</th><th>Trong kho</th><th>Thao tác</th></tr></thead>
+          <tbody>
   `;
-  qsa('[data-viewstock]', content).forEach(btn => { btn.onclick = () => showStockDetail(parseInt(btn.dataset.viewstock), decodeURIComponent(btn.dataset.pkgname)); });
-  qsa('[data-editstockpkg]', content).forEach(btn => { btn.onclick = () => showManagedStockDetail(parseInt(btn.dataset.editstockpkg), decodeURIComponent(btn.dataset.pkgname), parseInt(btn.dataset.qty)); });
+  
+  if (autoProducts.length) {
+    autoProducts.forEach(p => {
+      p.packages.filter(pk => pk.delivery_type === 'auto').forEach(pk => {
+        html += `
+          <tr>
+            <td class="text-muted">#${pk.id}</td>
+            <td class="fw-600">${esc(p.name)}</td>
+            <td><span class="badge badge-blue">${esc(pk.name)}</span></td>
+            <td><span class="badge ${pk.stock_count > 0 ? 'badge-green' : 'badge-red'}">${pk.stock_count}</span></td>
+            <td><button class="btn btn-sm btn-primary" data-viewstock="${pk.id}" data-pkgname="${encodeURIComponent(p.name + ' - ' + pk.name)}">Xem kho hàng</button></td>
+          </tr>
+        `;
+      });
+    });
+  } else {
+    html += `<tr><td colspan="5" class="text-center text-muted">Chưa có gói tự động.</td></tr>`;
+  }
+  html += `</tbody></table></div></div>`;
+  
+  html += `
+    <div class="card p-16">
+      <h3 style="margin-top:0; margin-bottom:16px; font-size:16px;">Gói quản lý tồn kho thủ công</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Sản phẩm</th><th>Tên gói</th><th>Số lượng tồn</th><th>Thao tác</th></tr></thead>
+          <tbody>
+  `;
+  
+  if (managedProducts.length) {
+    managedProducts.forEach(p => {
+      p.packages.filter(pk => pk.is_stock_managed).forEach(pk => {
+        const qty = pk.stock_quantity || 0;
+        const bCls = qty <= 0 ? 'badge-red' : qty <= 5 ? 'badge-yellow' : 'badge-green';
+        html += `
+          <tr>
+            <td class="text-muted">#${pk.id}</td>
+            <td class="fw-600">${esc(p.name)}</td>
+            <td><span class="badge badge-gray">${esc(pk.name)}</span></td>
+            <td><span class="badge ${bCls}">${qty}</span></td>
+            <td><button class="btn btn-sm btn-outline" data-editstockpkg="${pk.id}" data-pkgname="${encodeURIComponent(p.name + ' - ' + pk.name)}" data-qty="${qty}">Sửa số lượng</button></td>
+          </tr>
+        `;
+      });
+    });
+  } else {
+    html += `<tr><td colspan="5" class="text-center text-muted">Chưa có gói quản lý kho.</td></tr>`;
+  }
+  html += `</tbody></table></div></div>`;
+  
+  content.innerHTML = html;
+
+  qsa('[data-viewstock]', content).forEach(btn => { 
+    btn.onclick = () => showStockDetail(parseInt(btn.dataset.viewstock), decodeURIComponent(btn.dataset.pkgname), view); 
+  });
+  
+  qsa('[data-editstockpkg]', content).forEach(btn => { 
+    btn.onclick = () => showManagedStockDetail(parseInt(btn.dataset.editstockpkg), decodeURIComponent(btn.dataset.pkgname), parseInt(btn.dataset.qty)); 
+  });
 }
 
 async function showStockDetail(pkgId, pkgName) {
-  const detail = qs('#stock-detail');
-  detail.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  const content = qs('#admin-content');
+  if (!content) return;
+  
+  let currentStatus = 'all';
+  let currentPage = 1;
+  let itemsPerPage = 20;
+  let searchQuery = '';
+  let allItems = [];
+
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+
   const refresh = async () => {
-    const items = await apiFetch(`/stock/package/${pkgId}?sold=false`);
-    detail.innerHTML = `
-      <div class="fw-600 mb-8">${pkgName} — ${items.length} có sẵn</div>
-      <div class="card p-16 mb-16">
-        <div class="form-group">
-          <label class="form-label" style="margin-bottom:6px">Nhập thủ công (1 dòng / 1 item)</label>
-          <textarea class="form-textarea" id="bulk-stock" rows="5" placeholder="account1@gmail.com:pass1&#10;account2@gmail.com:pass2"></textarea>
-          <button class="btn btn-primary mt-8" id="btn-add-bulk">+ Thêm</button>
-        </div>
-        <div style="border-top:1px solid var(--border);margin:16px 0"></div>
-        <div class="form-group" style="margin-bottom:0">
-          <label class="form-label" style="margin-bottom:6px">Tải file (.txt, .csv, .docx)</label>
-          <div class="d-flex align-center gap-8">
-            <label class="btn btn-ghost" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-              <i class="fa-solid fa-file-arrow-up"></i> Chọn file
-              <input type="file" id="stock-file-input" accept=".txt,.csv,.docx" style="display:none">
-            </label>
-            <span id="stock-file-name" class="text-sm text-muted">Chưa chọn file</span>
-          </div>
+    try {
+      const items = await apiFetch(`/stock/package/${pkgId}`);
+      allItems = items;
+      renderDetailView();
+    } catch (e) {
+      content.innerHTML = `<div class="empty-state"><h3>Lỗi tải dữ liệu</h3><p>${e.message}</p></div>`;
+    }
+  };
+
+  const renderDetailView = () => {
+    // Lọc theo search & status
+    let filtered = allItems;
+    if (searchQuery) {
+      filtered = filtered.filter(i => i.data.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+    if (currentStatus !== 'all') {
+      const isSold = currentStatus === 'sold';
+      filtered = filtered.filter(i => i.is_sold === isSold);
+    }
+
+    const totalStats = allItems.length;
+    const soldStats = allItems.filter(i => i.is_sold).length;
+    const availableStats = totalStats - soldStats;
+
+    // Phân trang
+    const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+    if (currentPage > totalPages) currentPage = totalPages;
+    const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    content.innerHTML = `
+      <div style="margin-bottom: 24px;">
+        <h2 style="margin:0 0 16px 0; font-size:22px; color:var(--text-heading); display:flex; align-items:center; gap:8px;">
+          <i class="fa-solid fa-server"></i> Quản lý kho hàng <span style="color:#ef4444;">${esc(pkgName)}</span>
+        </h2>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn" id="btn-add-bulk" style="background:#10b981; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-weight:600; font-size:14px;"><i class="fa-solid fa-arrow-right-to-bracket"></i> Nhập hàng loạt</button>
+          <label class="btn" style="background:#8b5cf6; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-weight:600; font-size:14px; cursor:pointer; margin:0;">
+            <i class="fa-solid fa-file-csv"></i> Nhập từ CSV
+            <input type="file" id="file-csv" accept=".csv" style="display:none;">
+          </label>
+          <label class="btn" style="background:#3b82f6; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-weight:600; font-size:14px; cursor:pointer; margin:0;">
+            <i class="fa-solid fa-file-lines"></i> Nhập từ TXT
+            <input type="file" id="file-txt" accept=".txt" style="display:none;">
+          </label>
+          <button class="btn" id="btn-export" style="background:#f59e0b; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-weight:600; font-size:14px;"><i class="fa-solid fa-file-export"></i> Xuất kho hàng</button>
+          <button class="btn" id="btn-delete-all" style="background:transparent; border:1px solid #ef4444; color:#ef4444; padding:8px 16px; border-radius:6px; font-weight:600; font-size:14px;"><i class="fa-solid fa-trash-can"></i> Xóa toàn bộ</button>
+          <button class="btn" id="btn-back" style="background:#06b6d4; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-weight:600; font-size:14px;"><i class="fa-solid fa-arrow-left"></i> Quay lại</button>
         </div>
       </div>
-      <div class="table-wrap"><table><thead><tr><th>Dữ liệu</th><th>Ngày thêm</th><th></th></tr></thead>
-      <tbody>${items.map(i => `<tr><td class="td-mono text-sm">${i.data}</td><td class="text-sm text-muted">${fmtDate(i.created_at)}</td><td><button class="tbl-btn tbl-delete" data-del-stock="${i.id}">Xóa</button></td></tr>`).join('')}</tbody></table></div>
+
+      <!-- Thống kê -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;">
+        <div class="card" style="padding:20px; display:flex; align-items:center; gap:16px;">
+          <div style="width:50px; height:50px; border-radius:50%; background:#d1fae5; color:#10b981; display:flex; align-items:center; justify-content:center; font-size:24px;"><i class="fa-solid fa-boxes-stacked"></i></div>
+          <div><div style="color:var(--text-muted); font-size:14px; font-weight:600;">Tổng số lượng</div><div style="font-size:28px; font-weight:800; color:var(--text-heading);">${totalStats}</div></div>
+        </div>
+        <div class="card" style="padding:20px; display:flex; align-items:center; gap:16px;">
+          <div style="width:50px; height:50px; border-radius:50%; background:#dbeafe; color:#3b82f6; display:flex; align-items:center; justify-content:center; font-size:24px;"><i class="fa-solid fa-check"></i></div>
+          <div><div style="color:var(--text-muted); font-size:14px; font-weight:600;">Còn hàng</div><div style="font-size:28px; font-weight:800; color:#3b82f6;">${availableStats}</div></div>
+        </div>
+        <div class="card" style="padding:20px; display:flex; align-items:center; gap:16px;">
+          <div style="width:50px; height:50px; border-radius:50%; background:#fee2e2; color:#ef4444; display:flex; align-items:center; justify-content:center; font-size:24px;"><i class="fa-solid fa-xmark"></i></div>
+          <div><div style="color:var(--text-muted); font-size:14px; font-weight:600;">Đã bán</div><div style="font-size:28px; font-weight:800; color:#ef4444;">${soldStats}</div></div>
+        </div>
+      </div>
+
+      <!-- Vùng Filter và Bảng -->
+      <div style="display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap;">
+        <!-- Cột trái: Filter -->
+        <div class="card" style="padding:24px; flex:1; min-width:280px; max-width:320px;">
+          <div style="margin-bottom:20px;">
+            <label style="display:block; font-weight:700; font-size:14px; color:var(--text-heading); margin-bottom:8px;">Tìm kiếm</label>
+            <input type="text" class="form-input" id="f-stock-search" placeholder="Nhập giá trị kho hàng..." value="${esc(searchQuery)}" style="border-radius:8px; padding:10px 14px;">
+          </div>
+          <div style="margin-bottom:20px;">
+            <label style="display:block; font-weight:700; font-size:14px; color:var(--text-heading); margin-bottom:8px;">Trạng thái</label>
+            <select class="form-select" id="f-stock-status" style="border-radius:8px; padding:10px 14px;">
+              <option value="all" ${currentStatus==='all'?'selected':''}>Tất cả</option>
+              <option value="available" ${currentStatus==='available'?'selected':''}>Còn hàng</option>
+              <option value="sold" ${currentStatus==='sold'?'selected':''}>Đã bán</option>
+            </select>
+          </div>
+          <div style="margin-bottom:24px;">
+            <label style="display:block; font-weight:700; font-size:14px; color:var(--text-heading); margin-bottom:8px;">Số lượng/trang</label>
+            <select class="form-select" id="f-stock-limit" style="border-radius:8px; padding:10px 14px;">
+              <option value="20" ${itemsPerPage===20?'selected':''}>20</option>
+              <option value="50" ${itemsPerPage===50?'selected':''}>50</option>
+              <option value="100" ${itemsPerPage===100?'selected':''}>100</option>
+            </select>
+          </div>
+          <div style="display:flex; gap:12px;">
+            <button class="btn" id="btn-stock-filter" style="background:#7c3aed; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:600; font-size:14px; flex:1;"><i class="fa-solid fa-filter"></i> Lọc</button>
+            <button class="btn" id="btn-stock-reset" style="background:#22d3ee; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:600; font-size:14px; flex:1;"><i class="fa-solid fa-xmark"></i> Bỏ lọc</button>
+          </div>
+        </div>
+
+        <!-- Cột phải: Bảng -->
+        <div class="card" style="flex:3; min-width:400px; padding:0; overflow:hidden;">
+          <div class="table-wrap">
+            <table style="margin:0;">
+              <thead style="background:#f8fafc;">
+                <tr>
+                  <th style="width:40px;"><input type="checkbox" id="cb-all-stock"></th>
+                  <th style="width:80px;">ID</th>
+                  <th>Giá trị kho hàng</th>
+                  <th style="width:120px;">Trạng thái</th>
+                  <th style="width:160px;">Ngày tạo</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${paginated.length ? paginated.map(i => `
+                  <tr>
+                    <td><input type="checkbox" class="cb-stock" value="${i.id}"></td>
+                    <td style="color:#ec4899; font-weight:600;">${i.id}</td>
+                    <td><div style="background:#f1f5f9; padding:8px 12px; border-radius:8px; font-family:monospace; font-size:14px; word-break:break-all; border:1px solid var(--border);">${esc(i.data)}</div></td>
+                    <td>${i.is_sold ? `<span class="badge badge-red" style="border-radius:20px; padding:4px 10px;"><i class="fa-solid fa-xmark"></i> Đã bán</span>` : `<span class="badge badge-green" style="border-radius:20px; padding:4px 10px;"><i class="fa-solid fa-check"></i> Còn hàng</span>`}</td>
+                    <td class="text-muted text-sm">${fmtDate(i.created_at)}</td>
+                  </tr>
+                `).join('') : '<tr><td colspan="5" class="text-center text-muted" style="padding:40px;">Không tìm thấy dữ liệu phù hợp.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- Phân trang -->
+          ${totalPages > 1 ? `
+            <div style="padding:16px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px;">
+              <button class="btn btn-sm btn-outline" id="btn-prev" ${currentPage === 1 ? 'disabled' : ''}>Trước</button>
+              <span style="display:flex; align-items:center; padding:0 12px; font-weight:600;">${currentPage} / ${totalPages}</span>
+              <button class="btn btn-sm btn-outline" id="btn-next" ${currentPage === totalPages ? 'disabled' : ''}>Sau</button>
+            </div>
+          ` : ''}
+        </div>
+      </div>
     `;
-    qs('#btn-add-bulk', detail).onclick = async () => { const txt = qs('#bulk-stock', detail).value.trim(); if (!txt) return; const res = await apiFetch('/stock/bulk', { method: 'POST', body: JSON.stringify({ package_id: pkgId, items: txt }) }); toast(`Đã thêm ${res.added} mục`, 'success'); refresh(); };
-    qs('#stock-file-input', detail).onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const fname = file.name.toLowerCase();
-      qs('#stock-file-name', detail).textContent = file.name;
-      if (fname.endsWith('.txt') || fname.endsWith('.csv')) {
-        // Client-side for .txt/.csv: populate textarea
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const txt = ev.target.result;
-          const ta = qs('#bulk-stock', detail);
-          ta.value = ta.value ? ta.value.trimEnd() + '\n' + txt : txt;
-          toast('Đã nạp nội dung file vào ô nhập', 'info');
-        };
-        reader.readAsText(file);
-      } else if (fname.endsWith('.docx')) {
-        // Server-side for .docx
-        const fd = new FormData();
-        fd.append('file', file);
+
+    // Events
+    qs('#btn-back', content).onclick = () => renderAdminStock();
+    
+    qs('#btn-stock-filter', content).onclick = () => {
+      searchQuery = qs('#f-stock-search', content).value.trim();
+      currentStatus = qs('#f-stock-status', content).value;
+      itemsPerPage = parseInt(qs('#f-stock-limit', content).value) || 20;
+      currentPage = 1;
+      renderDetailView();
+    };
+
+    qs('#btn-stock-reset', content).onclick = () => {
+      searchQuery = ''; currentStatus = 'all'; itemsPerPage = 20; currentPage = 1;
+      renderDetailView();
+    };
+
+    const btnPrev = qs('#btn-prev', content);
+    if (btnPrev) btnPrev.onclick = () => { if (currentPage > 1) { currentPage--; renderDetailView(); } };
+    
+    const btnNext = qs('#btn-next', content);
+    if (btnNext) btnNext.onclick = () => { if (currentPage < totalPages) { currentPage++; renderDetailView(); } };
+
+    // Checkbox logic
+    const cbAll = qs('#cb-all-stock', content);
+    const cbList = qsa('.cb-stock', content);
+    if (cbAll) {
+      cbAll.onchange = (e) => { cbList.forEach(cb => cb.checked = e.target.checked); };
+      cbList.forEach(cb => { cb.onchange = () => { if (!cb.checked) cbAll.checked = false; }});
+    }
+
+    // Modal Bulk Add
+    qs('#btn-add-bulk', content).onclick = () => {
+      openModal(`
+        <div class="form-group">
+          <label class="form-label" style="margin-bottom:6px">Nhập thủ công (1 dòng / 1 item)</label>
+          <textarea class="form-textarea" id="bulk-stock-input" rows="10" placeholder="account1@gmail.com:pass1
+account2@gmail.com:pass2"></textarea>
+        </div>
+        <div class="flex gap-8">
+          <button class="btn btn-primary flex-1" id="btn-submit-bulk">+ Lưu vào kho</button>
+          <button class="btn btn-ghost" onclick="closeModal()">Hủy</button>
+        </div>
+      `, 'Nhập hàng loạt');
+      
+      qs('#btn-submit-bulk').onclick = async () => {
+        const txt = qs('#bulk-stock-input').value.trim();
+        if (!txt) return;
         try {
-          const token = authToken;
-          const res = await fetch('/api/stock/upload/' + pkgId, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: fd });
-          if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || 'Lỗi tải file'); }
-          const data = await res.json();
-          toast(`Đã thêm ${data.added} mục từ file .docx`, 'success');
+          const res = await apiFetch('/stock/bulk', { method: 'POST', body: JSON.stringify({ package_id: pkgId, items: txt }) });
+          toast(`Đã thêm ${res.added} mục`, 'success');
+          closeModal();
           refresh();
         } catch (err) { toast(err.message, 'error'); }
-      }
+      };
+    };
+
+    // File Upload Handlers (CSV/TXT)
+    const handleFileUpload = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        const txt = ev.target.result.trim();
+        if (!txt) return toast('File rỗng', 'error');
+        try {
+          const res = await apiFetch('/stock/bulk', { method: 'POST', body: JSON.stringify({ package_id: pkgId, items: txt }) });
+          toast(`Đã nạp ${res.added} mục từ file`, 'success');
+          refresh();
+        } catch (err) { toast(err.message, 'error'); }
+      };
+      reader.readAsText(file);
       e.target.value = '';
     };
-    qsa('[data-del-stock]', detail).forEach(btn => { btn.onclick = async () => { await apiFetch(`/stock/${btn.dataset.delStock}`, { method: 'DELETE' }); toast('Đã xóa', 'success'); refresh(); }; });
+
+    qs('#file-csv', content).onchange = handleFileUpload;
+    qs('#file-txt', content).onchange = handleFileUpload;
+
+    // Xuất kho hàng
+    qs('#btn-export', content).onclick = () => {
+      if (!allItems.length) return toast('Kho trống', 'warning');
+      const lines = allItems.map(i => i.data).join('\\n');
+      const blob = new Blob([lines], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `export-stock-${pkgId}.txt`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    };
+
+    // Xoá toàn bộ / Xóa mục đã chọn
+    qs('#btn-delete-all', content).onclick = async () => {
+      const selected = [...qsa('.cb-stock:checked', content)].map(cb => cb.value);
+      if (selected.length > 0) {
+        if (!confirm(`Xóa ${selected.length} mục đã chọn?`)) return;
+        for (const id of selected) {
+          await apiFetch(`/stock/${id}`, { method: 'DELETE' }).catch(()=>{});
+        }
+        toast(`Đã xóa ${selected.length} mục`, 'success');
+        refresh();
+      } else {
+        if (!confirm('Bạn có chắc chắn muốn xóa TOÀN BỘ kho hàng của gói này?')) return;
+        // In a real app, backend should provide a DELETE /bulk endpoint. We loop for now:
+        const avail = allItems.filter(i => !i.is_sold);
+        if(!avail.length) return toast('Không có hàng chưa bán để xóa', 'info');
+        for (const i of avail) {
+          await apiFetch(`/stock/${i.id}`, { method: 'DELETE' }).catch(()=>{});
+        }
+        toast('Đã dọn dẹp kho (chưa bán)', 'success');
+        refresh();
+      }
+    };
   };
+
   await refresh();
 }
 

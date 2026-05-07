@@ -4,7 +4,7 @@ import string
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 from db import get_db
 from db.models import Order, ProductPackage, StockItem
@@ -73,7 +73,7 @@ def my_orders(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    q = db.query(Order).filter(Order.user_id == current_user["user_id"])
+    q = db.query(Order).options(joinedload(Order.package).joinedload(ProductPackage.product)).filter(Order.user_id == current_user["user_id"])
     total = q.count()
     orders = q.order_by(Order.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
     return {
@@ -171,7 +171,7 @@ def admin_list_orders(
     limit: int = 50,
     db: Session = Depends(get_db)
 ):
-    q = db.query(Order)
+    q = db.query(Order).options(joinedload(Order.package).joinedload(ProductPackage.product))
     if status:
         q = q.filter(Order.status == status)
     total = q.count()

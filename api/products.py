@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, field_validator
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import Optional, List
 from db import get_db
 from db.models import Product, ProductPackage, PackageField, StockItem, FlashSale, Review
@@ -222,7 +222,7 @@ def list_products(
     limit: int = 20,
     db: Session = Depends(get_db)
 ):
-    q = db.query(Product).filter(Product.is_active == True)
+    q = db.query(Product).options(joinedload(Product.category), joinedload(Product.packages)).filter(Product.is_active == True)
     if category_id:
         q = q.filter(Product.category_id == category_id)
     if category_slug:
@@ -280,7 +280,7 @@ def list_products(
 
 @router.get("/featured")
 def list_featured(limit: int = 12, db: Session = Depends(get_db)):
-    products = db.query(Product).filter(
+    products = db.query(Product).options(joinedload(Product.category), joinedload(Product.packages)).filter(
         Product.is_active == True,
         Product.is_featured == True
     ).order_by(Product.sort_order).limit(limit).all()
@@ -348,7 +348,7 @@ def get_product(slug: str, db: Session = Depends(get_db)):
 
 @router.get("/admin/all", dependencies=[Depends(get_current_admin)])
 def admin_list_products(db: Session = Depends(get_db)):
-    products = db.query(Product).order_by(Product.sort_order, Product.id).all()
+    products = db.query(Product).options(joinedload(Product.category), joinedload(Product.packages)).order_by(Product.sort_order, Product.id).all()
     return [product_to_dict(p) for p in products]
 
 
