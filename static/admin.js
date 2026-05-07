@@ -2,156 +2,16 @@
 //  ADMIN
 // ═══════════════════════════════════════════════════════════════
 
+// Admin shell has been removed, admin view uses the exact same layout as the main storefront.
+// The sidebar has already been reconfigured for admin mode in app.js.
 function renderAdminShell(wrap) {
-  const hash = location.hash;
-  const activeSection = hash.replace('#/admin', '') || '';
-
-  // If shell already rendered, just update active nav
-  if (wrap.querySelector('.admin-layout')) {
-    qsa('.admin-nav-item', wrap).forEach(btn => {
-      const href = btn.dataset.href;
-      if (!href) return;
-      const isActive = href === hash;
-      btn.classList.toggle('active', isActive);
-      // Auto-open the <details> containing the active item
-      if (isActive) {
-        const details = btn.closest('details.admin-nav-details');
-        if (details) details.open = true;
-      }
-    });
-    return;
-  }
-
-  wrap.innerHTML = `
-    <div class="admin-layout">
-      <aside class="admin-sidebar" id="admin-sidebar">
-        <div class="sidebar-logo">
-          <a href="#/admin">
-            <div class="sidebar-logo-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div>
-            <div class="sidebar-logo-text">Admin <span>Panel</span></div>
-          </a>
-        </div>
-        <nav class="admin-nav">
-          <details class="admin-nav-details" ${(!activeSection || activeSection === '/orders' || activeSection === '/payments' || activeSection === '/balance') ? 'open' : ''}>
-            <summary class="admin-nav-summary"><i class="fa-solid fa-store"></i> Cửa hàng</summary>
-            <div class="admin-nav-children">
-              <button class="admin-nav-item ${hash === '#/admin' ? 'active' : ''}" data-href="#/admin">
-                <i class="fa-solid fa-chart-pie"></i><span>Dashboard</span>
-              </button>
-              <button class="admin-nav-item ${activeSection === '/orders' ? 'active' : ''}" data-href="#/admin/orders">
-                <i class="fa-solid fa-receipt"></i><span>Đơn hàng</span>
-              </button>
-              <button class="admin-nav-item ${activeSection === '/payments' ? 'active' : ''}" data-href="#/admin/payments">
-                <i class="fa-solid fa-credit-card"></i><span>Thanh toán</span>
-              </button>
-              <button class="admin-nav-item ${activeSection === '/balance' ? 'active' : ''}" data-href="#/admin/balance">
-                <i class="fa-solid fa-wallet"></i><span>Số dư</span>
-              </button>
-            </div>
-          </details>
-          <details class="admin-nav-details" ${(['/categories','/products','/stock'].includes(activeSection)) ? 'open' : ''}>
-            <summary class="admin-nav-summary"><i class="fa-solid fa-box-open"></i> Sản phẩm</summary>
-            <div class="admin-nav-children">
-              <button class="admin-nav-item ${activeSection === '/categories' ? 'active' : ''}" data-href="#/admin/categories">
-                <i class="fa-solid fa-folder-tree"></i><span>Danh mục</span>
-              </button>
-              <button class="admin-nav-item ${activeSection === '/products' ? 'active' : ''}" data-href="#/admin/products">
-                <i class="fa-solid fa-bag-shopping"></i><span>Sản phẩm</span>
-              </button>
-              <button class="admin-nav-item ${activeSection === '/stock' ? 'active' : ''}" data-href="#/admin/stock">
-                <i class="fa-solid fa-warehouse"></i><span>Kho hàng</span>
-              </button>
-            </div>
-          </details>
-          <details class="admin-nav-details" ${(['/banners','/flash-sales','/gift-codes','/affiliates'].includes(activeSection)) ? 'open' : ''}>
-            <summary class="admin-nav-summary"><i class="fa-solid fa-bullhorn"></i> Marketing</summary>
-            <div class="admin-nav-children">
-              <button class="admin-nav-item ${activeSection === '/banners' ? 'active' : ''}" data-href="#/admin/banners">
-                <i class="fa-solid fa-image"></i><span>Banners</span>
-              </button>
-              <button class="admin-nav-item ${activeSection === '/flash-sales' ? 'active' : ''}" data-href="#/admin/flash-sales">
-                <i class="fa-solid fa-bolt"></i><span>Flash Sales</span>
-              </button>
-              <button class="admin-nav-item ${activeSection === '/gift-codes' ? 'active' : ''}" data-href="#/admin/gift-codes">
-                <i class="fa-solid fa-gift"></i><span>Gift Codes</span>
-              </button>
-              <button class="admin-nav-item ${activeSection === '/affiliates' ? 'active' : ''}" data-href="#/admin/affiliates">
-                <i class="fa-solid fa-user-group"></i><span>Affiliates</span>
-              </button>
-            </div>
-          </details>
-          <details class="admin-nav-details" ${(['/blog','/support-pages','/announcements'].includes(activeSection)) ? 'open' : ''}>
-            <summary class="admin-nav-summary"><i class="fa-solid fa-newspaper"></i> Nội dung</summary>
-            <div class="admin-nav-children">
-              <button class="admin-nav-item ${activeSection === '/blog' ? 'active' : ''}" data-href="#/admin/blog">
-                <i class="fa-solid fa-pen-nib"></i><span>Blog</span>
-              </button>
-              <button class="admin-nav-item ${activeSection === '/support-pages' ? 'active' : ''}" data-href="#/admin/support-pages">
-                <i class="fa-solid fa-file-lines"></i><span>Support Pages</span>
-              </button>
-              <button class="admin-nav-item ${activeSection === '/announcements' ? 'active' : ''}" data-href="#/admin/announcements">
-                <i class="fa-solid fa-bullhorn"></i><span>Thông báo</span>
-              </button>
-            </div>
-          </details>
-          <details class="admin-nav-details" ${(['/settings','/tickets','/bot-config','/oauth-settings'].includes(activeSection)) ? 'open' : ''}>
-            <summary class="admin-nav-summary"><i class="fa-solid fa-gear"></i> Cấu hình</summary>
-            <div class="admin-nav-children">
-              <button class="admin-nav-item ${activeSection === '/settings' ? 'active' : ''}" data-href="#/admin/settings">
-                <i class="fa-solid fa-sliders"></i><span>Cài đặt</span>
-              </button>
-              <button class="admin-nav-item ${activeSection === '/tickets' ? 'active' : ''}" data-href="#/admin/tickets">
-                <i class="fa-solid fa-headset"></i><span>Hỗ trợ (Tickets)</span>
-              </button>
-              <button class="admin-nav-item ${activeSection === '/bot-config' ? 'active' : ''}" data-href="#/admin/bot-config">
-                <i class="fa-solid fa-robot"></i><span>Cấu hình Bot & Mail</span>
-              </button>
-              <button class="admin-nav-item ${activeSection === '/oauth-settings' ? 'active' : ''}" data-href="#/admin/oauth-settings">
-                <i class="fa-solid fa-key"></i><span>OAuth Settings</span>
-              </button>
-            </div>
-          </details>
-          <div class="divider"></div>
-          <button class="admin-nav-item" data-href="#/">
-            <i class="fa-solid fa-arrow-right-from-bracket"></i><span>Storefront</span>
-          </button>
-        </nav>
-      </aside>
-      <div class="admin-sidebar-overlay" id="admin-sidebar-overlay"></div>
-      <main class="admin-main">
-        <div class="admin-topbar">
-          <button class="admin-mobile-hamburger" id="admin-hamburger" aria-label="Menu">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          </button>
-          <div class="admin-topbar-title">Admin Panel</div>
-        </div>
-        <div id="admin-content">
-          <div class="page-loading"><div class="spinner"></div></div>
-        </div>
-      </main>
-    </div>
-  `;
-
-  qsa('[data-href]', wrap).forEach(btn => { btn.onclick = () => {
-    location.hash = btn.dataset.href;
-    // Close sidebar on mobile after nav
-    qs('#admin-sidebar', wrap)?.classList.remove('open');
-    qs('#admin-sidebar-overlay', wrap)?.classList.remove('open');
-  }; });
-  // Admin hamburger (mobile)
-  qs('#admin-hamburger', wrap)?.addEventListener('click', () => {
-    qs('#admin-sidebar', wrap)?.classList.toggle('open');
-    qs('#admin-sidebar-overlay', wrap)?.classList.toggle('open');
-  });
-  qs('#admin-sidebar-overlay', wrap)?.addEventListener('click', () => {
-    qs('#admin-sidebar', wrap)?.classList.remove('open');
-    qs('#admin-sidebar-overlay', wrap)?.classList.remove('open');
-  });
+  // no-op - layout is now handled globally
 }
 
 // ADMIN DASHBOARD
 async function renderAdmin(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return;
+  const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
     const data = await apiFetch('/admin/dashboard');
@@ -177,14 +37,37 @@ async function renderAdmin(view) {
 
 // ADMIN CATEGORIES
 async function renderAdminCategories(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return; const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  
+  let catMap = {};
+  
+  // Event delegation — bound once
+  content.onclick = async (e) => {
+    const delBtn = e.target.closest('[data-del]');
+    if (delBtn) {
+      e.preventDefault();
+      const row = delBtn.closest('tr');
+      const catName = row?.querySelector('.td-bold')?.textContent?.trim() || 'danh mục này';
+      if (!confirm(`Xóa ${catName}? Các sản phẩm đang thuộc danh mục này sẽ bị gỡ khỏi danh mục.`)) return;
+      try {
+        await apiFetch(`/categories/${delBtn.dataset.del}`, { method: 'DELETE' });
+        toast('Đã xóa danh mục', 'success');
+        await refresh();
+      }
+      catch (err) { toast(err.message, 'error'); }
+      return;
+    }
+    const editBtn = e.target.closest('[data-edit]');
+    if (editBtn) { showCatModal(catMap[parseInt(editBtn.dataset.edit)], refresh, Object.values(catMap)); return; }
+    const addBtn = e.target.closest('#btn-add-cat');
+    if (addBtn) { showCatModal(null, refresh, Object.values(catMap)); return; }
+  };
+
   const refresh = async () => {
     const [cats, tree] = await Promise.all([apiFetch('/categories/all'), apiFetch('/categories/')]);
-    // Build a flat lookup for edit/delete handlers
-    const catMap = {};
+    catMap = {};
     cats.forEach(c => { catMap[c.id] = c; });
-    // Render rows: parents first, then their children indented
     const renderRows = (items, depth = 0) => items.map(c => {
       const indent = depth > 0 ? `padding-left:${depth * 24}px;` : '';
       const prefix = depth > 0 ? '<span style="color:var(--text-muted);margin-right:6px;">↳</span>' : '';
@@ -194,93 +77,117 @@ async function renderAdminCategories(view) {
       return row;
     }).join('');
     content.innerHTML = `
-      <div class="page-header"><div class="page-title">Danh mục</div><button class="btn btn-primary" id="btn-add-cat">+ Thêm</button></div>
+      <div class="page-header"><h1 class="page-title"><i class="fa-solid fa-folder-tree"></i> Danh mục</h1><button class="btn btn-primary" id="btn-add-cat"><i class="fa-solid fa-plus"></i> Thêm danh mục</button></div>
       <div class="table-wrap"><table>
         <thead><tr><th>ID</th><th>Tên</th><th>Slug</th><th>Trạng thái</th><th>Thứ tự</th><th></th></tr></thead>
         <tbody>${renderRows(tree)}</tbody>
       </table></div>
     `;
-    qs('#btn-add-cat', content).onclick = () => showCatModal(null, refresh);
-    qsa('[data-edit]', content).forEach(btn => { btn.onclick = () => showCatModal(catMap[parseInt(btn.dataset.edit)], refresh); });
-    qsa('[data-del]', content).forEach(btn => { btn.onclick = async () => { if (!confirm('Xóa?')) return; await apiFetch(`/categories/${btn.dataset.del}`, { method: 'DELETE' }); toast('Đã xóa', 'success'); refresh(); }; });
   };
   await refresh();
 }
 
-function showCatModal(cat, refresh) {
-  // Fetch categories for parent select
-  apiFetch('/categories/all').then(allCats => {
-    const excludeId = cat?.id;
-    // Only show top-level categories as parent options (no sub-categories as parents of sub-categories to keep it simple)
-    const topLevelCats = allCats.filter(c => !c.parent_id && c.id !== excludeId);
-    const parentOptions = topLevelCats
-      .map(c => `<option value="${c.id}" ${cat?.parent_id === c.id ? 'selected' : ''}>${c.name}</option>`)
-      .join('');
+function showCatModal(cat, refresh, allCats = []) {
+  const excludeId = cat?.id;
+  const topLevelCats = allCats.filter(c => !c.parent_id && c.id !== excludeId);
+  const parentOptions = topLevelCats
+    .map(c => `<option value="${c.id}" ${cat?.parent_id === c.id ? 'selected' : ''}>${c.name}</option>`)
+    .join('');
 
-    openModal(`
-      <form id="cat-form">
-        <div class="form-group"><label class="form-label">Tên<span class="req">*</span></label><input class="form-input" id="cf-name" value="${cat?.name || ''}" required /></div>
-        <div class="form-group"><label class="form-label">Slug</label><input class="form-input" id="cf-slug" value="${cat?.slug || ''}" placeholder="tự động" /></div>
-        <div class="form-group"><label class="form-label">Danh mục cha</label><select class="form-select" id="cf-parent"><option value="">Không có (danh mục gốc)</option>${parentOptions}</select></div>
-        <div class="form-group">
-          <label class="form-label">URL icon</label>
-          <div class="flex gap-8 items-center">
-            <input class="form-input flex-1" id="cf-icon" value="${cat?.icon_url || ''}" placeholder="https://..." />
-            <label class="btn btn-ghost btn-sm" style="white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-upload"></i> Upload<input type="file" accept="image/*" id="cf-icon-upload" style="display:none" /></label>
-          </div>
+  openModal(`
+    <form id="cat-form">
+      <div class="form-group"><label class="form-label">Tên<span class="req">*</span></label><input class="form-input" id="cf-name" value="${cat?.name || ''}" required /></div>
+      <div class="form-group"><label class="form-label">Slug</label><input class="form-input" id="cf-slug" value="${cat?.slug || ''}" placeholder="tự động" /></div>
+      <div class="form-group"><label class="form-label">Danh mục cha</label><select class="form-select" id="cf-parent"><option value="">Không có (danh mục gốc)</option>${parentOptions}</select></div>
+      <div class="form-group">
+        <label class="form-label">URL icon</label>
+        <div class="flex gap-8 items-center">
+          <input class="form-input flex-1" id="cf-icon" value="${cat?.icon_url || ''}" placeholder="https://..." />
+          <label class="btn btn-ghost btn-sm" style="white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-upload"></i> Upload<input type="file" accept="image/*" id="cf-icon-upload" style="display:none" /></label>
         </div>
-        <div class="form-group">
-          <label class="form-label">Hình ảnh (URL)</label>
-          <div class="flex gap-8 items-center">
-            <input class="form-input flex-1" id="cf-image" value="${cat?.image_url || ''}" placeholder="https://..." />
-            <label class="btn btn-ghost btn-sm" style="white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-upload"></i> Upload<input type="file" accept="image/*" id="cf-image-upload" style="display:none" /></label>
-          </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Hình ảnh (URL)</label>
+        <div class="flex gap-8 items-center">
+          <input class="form-input flex-1" id="cf-image" value="${cat?.image_url || ''}" placeholder="https://..." />
+          <label class="btn btn-ghost btn-sm" style="white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-upload"></i> Upload<input type="file" accept="image/*" id="cf-image-upload" style="display:none" /></label>
         </div>
-        <div class="form-row form-row-2">
-          <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="cf-order" value="${cat?.sort_order ?? 0}" /></div>
-          <div class="form-group"><label class="form-label">Hiển thị</label><select class="form-select" id="cf-active"><option value="true" ${cat?.is_active !== false ? 'selected' : ''}>Hiện</option><option value="false" ${cat?.is_active === false ? 'selected' : ''}>Ẩn</option></select></div>
-        </div>
-        <div id="cat-form-err" class="form-error mb-12" style="display:none"></div>
-        <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">${cat ? 'Cập nhật' : 'Tạo mới'}</button><button type="button" class="btn btn-ghost" id="cat-cancel">Hủy</button></div>
-      </form>
-    `, cat ? `Sửa: ${cat.name}` : 'Thêm danh mục');
-    qs('#cat-cancel').onclick = closeModal;
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="cf-order" value="${cat?.sort_order ?? 0}" /></div>
+        <div class="form-group"><label class="form-label">Hiển thị</label><select class="form-select" id="cf-active"><option value="true" ${cat?.is_active !== false ? 'selected' : ''}>Hiện</option><option value="false" ${cat?.is_active === false ? 'selected' : ''}>Ẩn</option></select></div>
+      </div>
+      <div id="cat-form-err" class="form-error mb-12" style="display:none"></div>
+      <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">${cat ? 'Cập nhật' : 'Tạo mới'}</button><button type="button" class="btn btn-ghost" id="cat-cancel">Hủy</button></div>
+    </form>
+  `, cat ? `Sửa: ${cat.name}` : 'Thêm danh mục');
+  qs('#cat-cancel').onclick = closeModal;
 
-    // Image upload handlers
-    const uploadCatImage = async (file, inputEl) => {
-      const fd = new FormData();
-      fd.append('file', file);
-      try {
-        const res = await fetch('/api/banners/admin/upload-image', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${authToken}` },
-          body: fd,
-        });
-        if (!res.ok) throw new Error('Upload failed');
-        const data = await res.json();
-        inputEl.value = data.url;
-        toast('Upload thành công', 'success');
-      } catch (err) { toast('Upload thất bại: ' + err.message, 'error'); }
-    };
-    qs('#cf-icon-upload').onchange = (e) => { if (e.target.files[0]) uploadCatImage(e.target.files[0], qs('#cf-icon')); };
-    qs('#cf-image-upload').onchange = (e) => { if (e.target.files[0]) uploadCatImage(e.target.files[0], qs('#cf-image')); };
+  const uploadCatImage = async (file, inputEl) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res = await fetch('/api/banners/admin/upload-image', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${authToken}` },
+        body: fd,
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const data = await res.json();
+      inputEl.value = data.url;
+      toast('Upload thành công', 'success');
+    } catch (err) { toast('Upload thất bại: ' + err.message, 'error'); }
+  };
+  qs('#cf-icon-upload').onchange = (e) => { if (e.target.files[0]) uploadCatImage(e.target.files[0], qs('#cf-icon')); };
+  qs('#cf-image-upload').onchange = (e) => { if (e.target.files[0]) uploadCatImage(e.target.files[0], qs('#cf-image')); };
 
-    qs('#cat-form').onsubmit = async (e) => {
-      e.preventDefault();
-      const parentId = qs('#cf-parent').value;
-      const body = { name: qs('#cf-name').value, slug: qs('#cf-slug').value || undefined, icon_url: qs('#cf-icon').value || undefined, image_url: qs('#cf-image').value || undefined, parent_id: parentId ? parseInt(parentId) : null, sort_order: parseInt(qs('#cf-order').value) || 0, is_active: qs('#cf-active').value === 'true' };
-      try { if (cat) await apiFetch(`/categories/${cat.id}`, { method: 'PUT', body: JSON.stringify(body) }); else await apiFetch('/categories/', { method: 'POST', body: JSON.stringify(body) }); closeModal(); toast(cat ? 'Cập nhật!' : 'Tạo mới!', 'success'); refresh(); }
-      catch (err) { const e = qs('#cat-form-err'); e.textContent = err.message; e.style.display = 'block'; }
-    };
-  });
+  qs('#cat-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const parentId = qs('#cf-parent').value;
+    const body = { name: qs('#cf-name').value, slug: qs('#cf-slug').value || undefined, icon_url: qs('#cf-icon').value || undefined, image_url: qs('#cf-image').value || undefined, parent_id: parentId ? parseInt(parentId) : null, sort_order: parseInt(qs('#cf-order').value) || 0, is_active: qs('#cf-active').value === 'true' };
+    try { if (cat) await apiFetch(`/categories/${cat.id}`, { method: 'PUT', body: JSON.stringify(body) }); else await apiFetch('/categories/', { method: 'POST', body: JSON.stringify(body) }); closeModal(); toast(cat ? 'Cập nhật!' : 'Tạo mới!', 'success'); refresh(); }
+    catch (err) { const e = qs('#cat-form-err'); e.textContent = err.message; e.style.display = 'block'; }
+  };
 }
 
 // ADMIN PRODUCTS
 async function renderAdminProducts(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return; const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  
+  let currentProducts = [], currentCats = [];
+  
+  // Event delegation — bound once, survives innerHTML refreshes
+  content.onclick = async (e) => {
+    const delBtn = e.target.closest('[data-del]');
+    if (delBtn) {
+      e.preventDefault();
+      const row = delBtn.closest('tr');
+      const productName = row?.querySelector('.td-bold')?.textContent?.trim() || 'sản phẩm này';
+      if (!confirm(`Xóa ${productName}? Nếu sản phẩm đã có đơn, hệ thống sẽ tự ẩn thay vì xóa hẳn dữ liệu.`)) return;
+      try {
+        await apiFetch(`/products/${delBtn.dataset.del}`, { method: 'DELETE' });
+        toast('Đã xử lý xóa sản phẩm', 'success');
+        await refresh();
+      }
+      catch (err) { toast(err.message, 'error'); }
+      return;
+    }
+    const editBtn = e.target.closest('[data-edit]');
+    if (editBtn) { showProductModal(currentProducts.find(p => p.id === parseInt(editBtn.dataset.edit)), currentCats, refresh); return; }
+    const pkgBtn = e.target.closest('[data-pkg]');
+    if (pkgBtn) {
+      const product = currentProducts.find(p => p.id === parseInt(pkgBtn.dataset.pkg));
+      showPackagesModal(parseInt(pkgBtn.dataset.pkg), decodeURIComponent(pkgBtn.dataset.pname), product);
+      return;
+    }
+    const addBtn = e.target.closest('#btn-add-prod');
+    if (addBtn) { showProductModal(null, currentCats, refresh); return; }
+  };
+
   const refresh = async () => {
     const [products, cats] = await Promise.all([apiFetch('/products/admin/all'), apiFetch('/categories/all')]);
+    currentProducts = products; currentCats = cats;
     content.innerHTML = `
       <div class="page-header"><div class="page-title">Sản phẩm</div><button class="btn btn-primary" id="btn-add-prod">+ Thêm</button></div>
       <div class="table-wrap"><table>
@@ -288,10 +195,6 @@ async function renderAdminProducts(view) {
         <tbody>${products.map(p => `<tr><td class="td-bold">${p.name}</td><td class="text-muted">${p.category_name || '—'}</td><td>${(p.packages||[]).length}</td><td class="text-primary">${p.min_price ? fmt(p.min_price) : '—'}</td><td>${p.is_featured ? ico.starFill : '—'}</td><td>${p.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit="${p.id}">Sửa</button><button class="tbl-btn tbl-view" data-pkg="${p.id}" data-pname="${encodeURIComponent(p.name)}">Gói</button><button class="tbl-btn tbl-delete" data-del="${p.id}">Xóa</button></div></td></tr>`).join('')}</tbody>
       </table></div>
     `;
-    qs('#btn-add-prod', content).onclick = () => showProductModal(null, cats, refresh);
-    qsa('[data-edit]', content).forEach(btn => { btn.onclick = () => showProductModal(products.find(p => p.id === parseInt(btn.dataset.edit)), cats, refresh); });
-    qsa('[data-pkg]', content).forEach(btn => { btn.onclick = () => showPackagesModal(parseInt(btn.dataset.pkg), decodeURIComponent(btn.dataset.pname)); });
-    qsa('[data-del]', content).forEach(btn => { btn.onclick = async () => { if (!confirm('Xóa?')) return; await apiFetch(`/products/${btn.dataset.del}`, { method: 'DELETE' }); toast('Đã xóa', 'success'); refresh(); }; });
   };
   await refresh();
 }
@@ -364,8 +267,8 @@ function showProductModal(prod, cats, refresh) {
   };
 }
 
-async function showPackagesModal(productId, productName) {
-  const prod = await apiFetch('/products/admin/all').then(ps => ps.find(p => p.id === productId));
+async function showPackagesModal(productId, productName, prefetchedProduct = null) {
+  const prod = prefetchedProduct || await apiFetch('/products/admin/all').then(ps => ps.find(p => p.id === productId));
   const packages = prod?.packages || [];
 
   const renderFieldRows = (fields) => fields.map(f => `
@@ -489,7 +392,17 @@ async function showPackagesModal(productId, productName) {
   // Delete package
   modal.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-delpkg]');
-    if (btn) { if (!confirm('Xóa?')) return; await apiFetch(`/products/packages/${btn.dataset.delpkg}`, { method: 'DELETE' }); toast('Đã xóa', 'success'); const idx = packages.findIndex(p => p.id === parseInt(btn.dataset.delpkg)); if (idx >= 0) packages.splice(idx, 1); qs('#pkg-list', modal).innerHTML = renderPkgList(); }
+    if (!btn) return;
+    if (!confirm('Xóa?')) return;
+    try {
+      await apiFetch(`/products/packages/${btn.dataset.delpkg}`, { method: 'DELETE' });
+      toast('Đã xóa', 'success');
+      const idx = packages.findIndex(p => p.id === parseInt(btn.dataset.delpkg));
+      if (idx >= 0) packages.splice(idx, 1);
+      qs('#pkg-list', modal).innerHTML = renderPkgList();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
   });
 
   // Edit package info (opens sub-modal)
@@ -709,30 +622,48 @@ function showPackageFieldModal(pkg, refresh) {
 
   qs('#ef-save', emodal).onclick = async () => {
     try {
-      // Delete existing fields first
-      for (const f of pkg.fields || []) {
-        await apiFetch(`/products/fields/${f.id}`, { method: 'DELETE' });
-      }
-      // Re-create all fields from current state
+      const existingFieldIds = (pkg.fields || []).map(f => f.id);
       const rows = qsa('[data-fidx]', emodal);
-      for (const row of rows) {
+      const nextFields = rows.map((row, idx) => {
         const fname = row.querySelector('[data-efname]').value.trim();
-        if (!fname) continue;
         const ftype = row.querySelector('[data-eftype]').value;
         const freq = row.querySelector('[data-efreq]').checked;
-        const fieldData = { field_name: fname, field_type: ftype, is_required: freq };
-        // For select type, get options from the adjacent input
+        const field = fields[idx] || {};
+        const fieldData = {
+          id: field.id,
+          field_name: fname,
+          field_type: ftype,
+          is_required: freq,
+        };
         if (ftype === 'select') {
-          const optsInput = row.parentElement.querySelector('[data-efopts]');
-          if (optsInput?.value.trim()) {
-            fieldData.options = optsInput.value.trim();
-          }
+          const optsInput = row.nextElementSibling?.querySelector('[data-efopts]');
+          if (optsInput?.value.trim()) fieldData.options = optsInput.value.trim();
         }
-        await apiFetch(`/products/packages/${pkg.id}/fields`, {
-          method: 'POST',
-          body: JSON.stringify(fieldData)
-        });
+        return fieldData;
+      }).filter(field => field.field_name);
+
+      const nextFieldIds = nextFields.filter(f => f.id).map(f => f.id);
+      const removedIds = existingFieldIds.filter(id => !nextFieldIds.includes(id));
+
+      for (const id of removedIds) {
+        await apiFetch(`/products/fields/${id}`, { method: 'DELETE' });
       }
+
+      for (const field of nextFields) {
+        const payload = {
+          field_name: field.field_name,
+          field_type: field.field_type,
+          is_required: field.is_required,
+        };
+        if (field.options) payload.options = field.options;
+
+        if (field.id) {
+          await apiFetch(`/products/fields/${field.id}`, { method: 'PUT', body: JSON.stringify(payload) });
+        } else {
+          await apiFetch(`/products/packages/${pkg.id}/fields`, { method: 'POST', body: JSON.stringify(payload) });
+        }
+      }
+
       toast('Đã lưu trường tùy chỉnh', 'success');
       closeModal();
       if (refresh) refresh();
@@ -744,28 +675,81 @@ function showPackageFieldModal(pkg, refresh) {
 
 // ADMIN ORDERS
 async function renderAdminOrders(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return; const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   const refresh = async (status = '') => {
     try {
     const data = await apiFetch(`/orders/admin/all?limit=50${status ? '&status=' + status : ''}`);
+    const actionButtons = (o) => {
+      const buttons = [];
+      if (o.status === 'paid') {
+        buttons.push(`<button class="tbl-btn tbl-edit" data-mark-processing="${o.id}">Xử lý</button>`);
+        buttons.push(`<button class="tbl-btn tbl-success" data-deliver="${o.id}">Giao</button>`);
+        buttons.push(`<button class="tbl-btn tbl-delete" data-cancel-order="${o.id}">Hủy</button>`);
+      } else if (o.status === 'processing') {
+        buttons.push(`<button class="tbl-btn tbl-success" data-deliver="${o.id}">Giao</button>`);
+        buttons.push(`<button class="tbl-btn tbl-delete" data-cancel-order="${o.id}">Hủy</button>`);
+      } else if (o.status === 'pending') {
+        buttons.push(`<button class="tbl-btn tbl-delete" data-cancel-order="${o.id}">Hủy</button>`);
+      }
+      buttons.push(`<button class="tbl-btn tbl-view" data-view-order="${o.id}" data-od="${encodeURIComponent(JSON.stringify(o))}">Xem</button>`);
+      return `<div class="tbl-actions">${buttons.join('')}</div>`;
+    };
     content.innerHTML = `
-      <div class="page-header"><div class="page-title">Đơn hàng</div></div>
       <div class="flex gap-6 mb-16 flex-wrap">${['', 'pending', 'paid', 'processing', 'completed', 'cancelled'].map(s => `<button class="btn btn-sm ${status === s ? 'btn-primary' : 'btn-ghost'}" data-filter="${s}">${s || 'Tất cả'}</button>`).join('')}</div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Mã đơn</th><th>Khách</th><th>SP</th><th>Tiền</th><th>TT</th><th>Ngày</th><th></th></tr></thead>
-        <tbody>${data.items.map(o => `<tr><td class="td-mono">${o.order_code}</td><td class="text-sm">${esc(o.user_email) || '—'}</td><td class="text-sm">${esc(o.product_name) || '—'}</td><td class="text-primary">${fmt(o.total_amount)}</td><td>${statusBadge(o.status)}</td><td class="text-sm text-muted">${fmtDate(o.created_at)}</td><td><div class="tbl-actions">${o.status !== 'completed' ? `<button class="tbl-btn tbl-success" data-deliver="${o.id}">Giao</button>` : ''}<button class="tbl-btn tbl-view" data-view-order="${o.id}" data-od="${encodeURIComponent(JSON.stringify(o))}">Xem</button></div></td></tr>`).join('')}</tbody>
+        <thead><tr><th>Mã đơn</th><th>Khách</th><th>SP</th><th>Tiền</th><th>PTTT</th><th>TT</th><th>Ngày</th><th></th></tr></thead>
+        <tbody>${data.items.map(o => `<tr><td class="td-mono">${o.order_code}</td><td class="text-sm">${esc(o.user_email) || '—'}</td><td class="text-sm">${esc(o.product_name) || '—'}</td><td class="text-primary">${fmt(o.total_amount)}</td><td class="text-sm">${o.payment_method || 'payos'}</td><td>${statusBadge(o.status)}</td><td class="text-sm text-muted">${fmtDate(o.created_at)}</td><td>${actionButtons(o)}</td></tr>`).join('')}</tbody>
       </table></div>
     `;
-    qsa('[data-filter]', content).forEach(btn => { btn.onclick = () => refresh(btn.dataset.filter); });
-    qsa('[data-deliver]', content).forEach(btn => { btn.onclick = () => showDeliverModal(parseInt(btn.dataset.deliver), refresh.bind(null, status)); });
-    qsa('[data-view-order]', content).forEach(btn => {
-      const o = JSON.parse(decodeURIComponent(btn.dataset.od));
-      btn.onclick = () => openModal(`
-        <div class="order-meta">${Object.entries({ 'Mã đơn': o.order_code, 'Khách': esc(o.user_email), 'SP': esc(o.product_name), 'Gói': esc(o.package_name), 'Tiền': fmt(o.total_amount), 'TT': o.status, 'Ngày': fmtDate(o.created_at) }).map(([k, v]) => `<div class="order-meta-item"><div class="order-meta-label">${k}</div><div class="order-meta-value">${v || '—'}</div></div>`).join('')}</div>
-        ${o.delivery_data ? `<div class="delivery-box mt-12"><div class="delivery-box-title">Dữ liệu giao</div><div class="delivery-data">${esc(o.delivery_data)}</div></div>` : ''}
-      `, `Đơn: ${o.order_code}`);
-    });
+
+    content.onclick = async (e) => {
+      const filterBtn = e.target.closest('[data-filter]');
+      if (filterBtn) {
+        refresh(filterBtn.dataset.filter);
+        return;
+      }
+
+      const deliverBtn = e.target.closest('[data-deliver]');
+      if (deliverBtn) {
+        showDeliverModal(parseInt(deliverBtn.dataset.deliver), refresh.bind(null, status));
+        return;
+      }
+
+      const processingBtn = e.target.closest('[data-mark-processing]');
+      if (processingBtn) {
+        try {
+          await apiFetch(`/orders/admin/${processingBtn.dataset.markProcessing}/status`, { method: 'PUT', body: JSON.stringify({ status: 'processing' }) });
+          toast('Đã chuyển sang đang xử lý', 'success');
+          await refresh(status);
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+        return;
+      }
+
+      const cancelBtn = e.target.closest('[data-cancel-order]');
+      if (cancelBtn) {
+        if (!confirm('Hủy đơn này và hoàn tiền về số dư nội bộ nếu đã thanh toán?')) return;
+        try {
+          await apiFetch(`/orders/admin/${cancelBtn.dataset.cancelOrder}/cancel`, { method: 'POST', body: JSON.stringify({}) });
+          toast('Đã hủy đơn', 'success');
+          await refresh(status);
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+        return;
+      }
+
+      const viewBtn = e.target.closest('[data-view-order]');
+      if (viewBtn) {
+        const o = JSON.parse(decodeURIComponent(viewBtn.dataset.od));
+        openModal(`
+          <div class="order-meta">${Object.entries({ 'Mã đơn': o.order_code, 'Khách': esc(o.user_email), 'SP': esc(o.product_name), 'Gói': esc(o.package_name), 'Tiền': fmt(o.total_amount), 'PTTT': o.payment_method || 'payos', 'TT': o.status, 'Ngày': fmtDate(o.created_at) }).map(([k, v]) => `<div class="order-meta-item"><div class="order-meta-label">${k}</div><div class="order-meta-value">${v || '—'}</div></div>`).join('')}</div>
+          ${o.delivery_data ? `<div class="delivery-box mt-12"><div class="delivery-box-title">Dữ liệu giao</div><div class="delivery-data">${esc(o.delivery_data)}</div></div>` : ''}
+        `, `Đơn: ${o.order_code}`);
+      }
+    };
     } catch (err) { content.innerHTML = `<div class="empty-state"><h3>Lỗi tải đơn hàng</h3><p class="text-muted">${err.message}</p></div>`; }
   };
   await refresh();
@@ -790,85 +774,96 @@ function showDeliverModal(orderId, refresh) {
 
 // ADMIN STOCK
 async function renderAdminStock(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return;
+  const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
-  const products = await apiFetch('/products/admin/all');
-  const autoProducts = products.filter(p => p.packages?.some(pkg => pkg.delivery_type === 'auto'));
-  const managedProducts = products.filter(p => p.packages?.some(pkg => pkg.is_stock_managed));
-  
-  let html = `
-    <div class="page-header"><div class="page-title">Kho hàng</div></div>
-    
-    <div class="card mb-16 p-16">
-      <h3 style="margin-top:0; margin-bottom:16px; font-size:16px;">Gói tự động (Giao tự động / Random)</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>ID</th><th>Sản phẩm</th><th>Tên gói</th><th>Trong kho</th><th>Thao tác</th></tr></thead>
-          <tbody>
-  `;
-  
-  if (autoProducts.length) {
-    autoProducts.forEach(p => {
-      p.packages.filter(pk => pk.delivery_type === 'auto').forEach(pk => {
-        html += `
-          <tr>
-            <td class="text-muted">#${pk.id}</td>
-            <td class="fw-600">${esc(p.name)}</td>
-            <td><span class="badge badge-blue">${esc(pk.name)}</span></td>
-            <td><span class="badge ${pk.stock_count > 0 ? 'badge-green' : 'badge-red'}">${pk.stock_count}</span></td>
-            <td><button class="btn btn-sm btn-primary" data-viewstock="${pk.id}" data-pkgname="${encodeURIComponent(p.name + ' - ' + pk.name)}">Xem kho hàng</button></td>
-          </tr>
-        `;
-      });
-    });
-  } else {
-    html += `<tr><td colspan="5" class="text-center text-muted">Chưa có gói tự động.</td></tr>`;
-  }
-  html += `</tbody></table></div></div>`;
-  
-  html += `
-    <div class="card p-16">
-      <h3 style="margin-top:0; margin-bottom:16px; font-size:16px;">Gói quản lý tồn kho thủ công</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>ID</th><th>Sản phẩm</th><th>Tên gói</th><th>Số lượng tồn</th><th>Thao tác</th></tr></thead>
-          <tbody>
-  `;
-  
-  if (managedProducts.length) {
-    managedProducts.forEach(p => {
-      p.packages.filter(pk => pk.is_stock_managed).forEach(pk => {
-        const qty = pk.stock_quantity || 0;
-        const bCls = qty <= 0 ? 'badge-red' : qty <= 5 ? 'badge-yellow' : 'badge-green';
-        html += `
-          <tr>
-            <td class="text-muted">#${pk.id}</td>
-            <td class="fw-600">${esc(p.name)}</td>
-            <td><span class="badge badge-gray">${esc(pk.name)}</span></td>
-            <td><span class="badge ${bCls}">${qty}</span></td>
-            <td><button class="btn btn-sm btn-outline" data-editstockpkg="${pk.id}" data-pkgname="${encodeURIComponent(p.name + ' - ' + pk.name)}" data-qty="${qty}">Sửa số lượng</button></td>
-          </tr>
-        `;
-      });
-    });
-  } else {
-    html += `<tr><td colspan="5" class="text-center text-muted">Chưa có gói quản lý kho.</td></tr>`;
-  }
-  html += `</tbody></table></div></div>`;
-  
-  content.innerHTML = html;
 
-  qsa('[data-viewstock]', content).forEach(btn => { 
-    btn.onclick = () => showStockDetail(parseInt(btn.dataset.viewstock), decodeURIComponent(btn.dataset.pkgname), view); 
-  });
-  
-  qsa('[data-editstockpkg]', content).forEach(btn => { 
-    btn.onclick = () => showManagedStockDetail(parseInt(btn.dataset.editstockpkg), decodeURIComponent(btn.dataset.pkgname), parseInt(btn.dataset.qty)); 
-  });
+  try {
+    const products = await apiFetch('/products/admin/all');
+    const autoProducts = products.filter(p => p.packages?.some(pkg => pkg.delivery_type === 'auto'));
+    const managedProducts = products.filter(p => p.packages?.some(pkg => pkg.is_stock_managed));
+    
+    let html = `
+      <div class="page-header"><div class="page-title">Kho hàng</div></div>
+      
+      <div class="card mb-16 p-16">
+        <h3 style="margin-top:0; margin-bottom:16px; font-size:16px;">Gói tự động (Giao tự động / Random)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Sản phẩm</th><th>Tên gói</th><th>Trong kho</th><th>Thao tác</th></tr></thead>
+            <tbody>
+    `;
+    
+    if (autoProducts.length) {
+      autoProducts.forEach(p => {
+        p.packages.filter(pk => pk.delivery_type === 'auto').forEach(pk => {
+          html += `
+            <tr>
+              <td class="text-muted">#${pk.id}</td>
+              <td class="fw-600">${esc(p.name)}</td>
+              <td><span class="badge badge-blue">${esc(pk.name)}</span></td>
+              <td><span class="badge ${pk.stock_count > 0 ? 'badge-green' : 'badge-red'}">${pk.stock_count}</span></td>
+              <td><button class="btn btn-sm btn-primary" data-viewstock="${pk.id}" data-pkgname="${encodeURIComponent(p.name + ' - ' + pk.name)}">Xem kho hàng</button></td>
+            </tr>
+          `;
+        });
+      });
+    } else {
+      html += `<tr><td colspan="5" class="text-center text-muted">Chưa có gói tự động.</td></tr>`;
+    }
+    html += `</tbody></table></div></div>`;
+    
+    html += `
+      <div class="card p-16">
+        <h3 style="margin-top:0; margin-bottom:16px; font-size:16px;">Gói quản lý tồn kho thủ công</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Sản phẩm</th><th>Tên gói</th><th>Số lượng tồn</th><th>Thao tác</th></tr></thead>
+            <tbody>
+    `;
+    
+    if (managedProducts.length) {
+      managedProducts.forEach(p => {
+        p.packages.filter(pk => pk.is_stock_managed).forEach(pk => {
+          const qty = pk.stock_quantity || 0;
+          const bCls = qty <= 0 ? 'badge-red' : qty <= 5 ? 'badge-yellow' : 'badge-green';
+          html += `
+            <tr>
+              <td class="text-muted">#${pk.id}</td>
+              <td class="fw-600">${esc(p.name)}</td>
+              <td><span class="badge badge-gray">${esc(pk.name)}</span></td>
+              <td><span class="badge ${bCls}">${qty}</span></td>
+              <td><button class="btn btn-sm btn-outline" data-editstockpkg="${pk.id}" data-pkgname="${encodeURIComponent(p.name + ' - ' + pk.name)}" data-qty="${qty}">Sửa số lượng</button></td>
+            </tr>
+          `;
+        });
+      });
+    } else {
+      html += `<tr><td colspan="5" class="text-center text-muted">Chưa có gói quản lý kho.</td></tr>`;
+    }
+    html += `</tbody></table></div></div>`;
+    
+    content.innerHTML = html;
+
+    content.onclick = (e) => {
+      const viewBtn = e.target.closest('[data-viewstock]');
+      if (viewBtn) {
+        showStockDetail(parseInt(viewBtn.dataset.viewstock), decodeURIComponent(viewBtn.dataset.pkgname), view);
+        return;
+      }
+
+      const editBtn = e.target.closest('[data-editstockpkg]');
+      if (editBtn) {
+        showManagedStockDetail(parseInt(editBtn.dataset.editstockpkg), decodeURIComponent(editBtn.dataset.pkgname), parseInt(editBtn.dataset.qty));
+      }
+    };
+  } catch (err) {
+    content.innerHTML = `<div class="empty-state"><h3>Lỗi tải kho hàng</h3><p class="text-muted">${err.message}</p></div>`;
+  }
 }
 
-async function showStockDetail(pkgId, pkgName) {
-  const content = qs('#admin-content');
+async function showStockDetail(pkgId, pkgName, view) {
+  const content = view || qs('#app-view');
   if (!content) return;
   
   let currentStatus = 'all';
@@ -890,21 +885,13 @@ async function showStockDetail(pkgId, pkgName) {
   };
 
   const renderDetailView = () => {
-    // Lọc theo search & status
     let filtered = allItems;
-    if (searchQuery) {
-      filtered = filtered.filter(i => i.data.toLowerCase().includes(searchQuery.toLowerCase()));
-    }
-    if (currentStatus !== 'all') {
-      const isSold = currentStatus === 'sold';
-      filtered = filtered.filter(i => i.is_sold === isSold);
-    }
+    if (searchQuery) filtered = filtered.filter(i => i.data.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (currentStatus !== 'all') filtered = filtered.filter(i => i.is_sold === (currentStatus === 'sold'));
 
     const totalStats = allItems.length;
     const soldStats = allItems.filter(i => i.is_sold).length;
     const availableStats = totalStats - soldStats;
-
-    // Phân trang
     const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
     if (currentPage > totalPages) currentPage = totalPages;
     const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -929,136 +916,41 @@ async function showStockDetail(pkgId, pkgName) {
           <button class="btn" id="btn-back" style="background:#06b6d4; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-weight:600; font-size:14px;"><i class="fa-solid fa-arrow-left"></i> Quay lại</button>
         </div>
       </div>
-
-      <!-- Thống kê -->
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;">
-        <div class="card" style="padding:20px; display:flex; align-items:center; gap:16px;">
-          <div style="width:50px; height:50px; border-radius:50%; background:#d1fae5; color:#10b981; display:flex; align-items:center; justify-content:center; font-size:24px;"><i class="fa-solid fa-boxes-stacked"></i></div>
-          <div><div style="color:var(--text-muted); font-size:14px; font-weight:600;">Tổng số lượng</div><div style="font-size:28px; font-weight:800; color:var(--text-heading);">${totalStats}</div></div>
-        </div>
-        <div class="card" style="padding:20px; display:flex; align-items:center; gap:16px;">
-          <div style="width:50px; height:50px; border-radius:50%; background:#dbeafe; color:#3b82f6; display:flex; align-items:center; justify-content:center; font-size:24px;"><i class="fa-solid fa-check"></i></div>
-          <div><div style="color:var(--text-muted); font-size:14px; font-weight:600;">Còn hàng</div><div style="font-size:28px; font-weight:800; color:#3b82f6;">${availableStats}</div></div>
-        </div>
-        <div class="card" style="padding:20px; display:flex; align-items:center; gap:16px;">
-          <div style="width:50px; height:50px; border-radius:50%; background:#fee2e2; color:#ef4444; display:flex; align-items:center; justify-content:center; font-size:24px;"><i class="fa-solid fa-xmark"></i></div>
-          <div><div style="color:var(--text-muted); font-size:14px; font-weight:600;">Đã bán</div><div style="font-size:28px; font-weight:800; color:#ef4444;">${soldStats}</div></div>
-        </div>
+        <div class="card" style="padding:20px; display:flex; align-items:center; gap:16px;"><div style="width:50px; height:50px; border-radius:50%; background:#d1fae5; color:#10b981; display:flex; align-items:center; justify-content:center; font-size:24px;"><i class="fa-solid fa-boxes-stacked"></i></div><div><div style="color:var(--text-muted); font-size:14px; font-weight:600;">Tổng số lượng</div><div style="font-size:28px; font-weight:800; color:var(--text-heading);">${totalStats}</div></div></div>
+        <div class="card" style="padding:20px; display:flex; align-items:center; gap:16px;"><div style="width:50px; height:50px; border-radius:50%; background:#dbeafe; color:#3b82f6; display:flex; align-items:center; justify-content:center; font-size:24px;"><i class="fa-solid fa-check"></i></div><div><div style="color:var(--text-muted); font-size:14px; font-weight:600;">Còn hàng</div><div style="font-size:28px; font-weight:800; color:#3b82f6;">${availableStats}</div></div></div>
+        <div class="card" style="padding:20px; display:flex; align-items:center; gap:16px;"><div style="width:50px; height:50px; border-radius:50%; background:#fee2e2; color:#ef4444; display:flex; align-items:center; justify-content:center; font-size:24px;"><i class="fa-solid fa-xmark"></i></div><div><div style="color:var(--text-muted); font-size:14px; font-weight:600;">Đã bán</div><div style="font-size:28px; font-weight:800; color:#ef4444;">${soldStats}</div></div></div>
       </div>
-
-      <!-- Vùng Filter và Bảng -->
       <div style="display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap;">
-        <!-- Cột trái: Filter -->
         <div class="card" style="padding:24px; flex:1; min-width:280px; max-width:320px;">
-          <div style="margin-bottom:20px;">
-            <label style="display:block; font-weight:700; font-size:14px; color:var(--text-heading); margin-bottom:8px;">Tìm kiếm</label>
-            <input type="text" class="form-input" id="f-stock-search" placeholder="Nhập giá trị kho hàng..." value="${esc(searchQuery)}" style="border-radius:8px; padding:10px 14px;">
-          </div>
-          <div style="margin-bottom:20px;">
-            <label style="display:block; font-weight:700; font-size:14px; color:var(--text-heading); margin-bottom:8px;">Trạng thái</label>
-            <select class="form-select" id="f-stock-status" style="border-radius:8px; padding:10px 14px;">
-              <option value="all" ${currentStatus==='all'?'selected':''}>Tất cả</option>
-              <option value="available" ${currentStatus==='available'?'selected':''}>Còn hàng</option>
-              <option value="sold" ${currentStatus==='sold'?'selected':''}>Đã bán</option>
-            </select>
-          </div>
-          <div style="margin-bottom:24px;">
-            <label style="display:block; font-weight:700; font-size:14px; color:var(--text-heading); margin-bottom:8px;">Số lượng/trang</label>
-            <select class="form-select" id="f-stock-limit" style="border-radius:8px; padding:10px 14px;">
-              <option value="20" ${itemsPerPage===20?'selected':''}>20</option>
-              <option value="50" ${itemsPerPage===50?'selected':''}>50</option>
-              <option value="100" ${itemsPerPage===100?'selected':''}>100</option>
-            </select>
-          </div>
-          <div style="display:flex; gap:12px;">
-            <button class="btn" id="btn-stock-filter" style="background:#7c3aed; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:600; font-size:14px; flex:1;"><i class="fa-solid fa-filter"></i> Lọc</button>
-            <button class="btn" id="btn-stock-reset" style="background:#22d3ee; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:600; font-size:14px; flex:1;"><i class="fa-solid fa-xmark"></i> Bỏ lọc</button>
-          </div>
+          <div style="margin-bottom:20px;"><label style="display:block; font-weight:700; font-size:14px; color:var(--text-heading); margin-bottom:8px;">Tìm kiếm</label><input type="text" class="form-input" id="f-stock-search" placeholder="Nhập giá trị kho hàng..." value="${esc(searchQuery)}" style="border-radius:8px; padding:10px 14px;"></div>
+          <div style="margin-bottom:20px;"><label style="display:block; font-weight:700; font-size:14px; color:var(--text-heading); margin-bottom:8px;">Trạng thái</label><select class="form-select" id="f-stock-status" style="border-radius:8px; padding:10px 14px;"><option value="all" ${currentStatus==='all'?'selected':''}>Tất cả</option><option value="available" ${currentStatus==='available'?'selected':''}>Còn hàng</option><option value="sold" ${currentStatus==='sold'?'selected':''}>Đã bán</option></select></div>
+          <div style="margin-bottom:24px;"><label style="display:block; font-weight:700; font-size:14px; color:var(--text-heading); margin-bottom:8px;">Số lượng/trang</label><select class="form-select" id="f-stock-limit" style="border-radius:8px; padding:10px 14px;"><option value="20" ${itemsPerPage===20?'selected':''}>20</option><option value="50" ${itemsPerPage===50?'selected':''}>50</option><option value="100" ${itemsPerPage===100?'selected':''}>100</option></select></div>
+          <div style="display:flex; gap:12px;"><button class="btn" id="btn-stock-filter" style="background:#7c3aed; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:600; font-size:14px; flex:1;"><i class="fa-solid fa-filter"></i> Lọc</button><button class="btn" id="btn-stock-reset" style="background:#22d3ee; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:600; font-size:14px; flex:1;"><i class="fa-solid fa-xmark"></i> Bỏ lọc</button></div>
         </div>
-
-        <!-- Cột phải: Bảng -->
         <div class="card" style="flex:3; min-width:400px; padding:0; overflow:hidden;">
-          <div class="table-wrap">
-            <table style="margin:0;">
-              <thead style="background:#f8fafc;">
-                <tr>
-                  <th style="width:40px;"><input type="checkbox" id="cb-all-stock"></th>
-                  <th style="width:80px;">ID</th>
-                  <th>Giá trị kho hàng</th>
-                  <th style="width:120px;">Trạng thái</th>
-                  <th style="width:160px;">Ngày tạo</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${paginated.length ? paginated.map(i => `
-                  <tr>
-                    <td><input type="checkbox" class="cb-stock" value="${i.id}"></td>
-                    <td style="color:#ec4899; font-weight:600;">${i.id}</td>
-                    <td><div style="background:#f1f5f9; padding:8px 12px; border-radius:8px; font-family:monospace; font-size:14px; word-break:break-all; border:1px solid var(--border);">${esc(i.data)}</div></td>
-                    <td>${i.is_sold ? `<span class="badge badge-red" style="border-radius:20px; padding:4px 10px;"><i class="fa-solid fa-xmark"></i> Đã bán</span>` : `<span class="badge badge-green" style="border-radius:20px; padding:4px 10px;"><i class="fa-solid fa-check"></i> Còn hàng</span>`}</td>
-                    <td class="text-muted text-sm">${fmtDate(i.created_at)}</td>
-                  </tr>
-                `).join('') : '<tr><td colspan="5" class="text-center text-muted" style="padding:40px;">Không tìm thấy dữ liệu phù hợp.</td></tr>'}
-              </tbody>
-            </table>
-          </div>
-          
-          <!-- Phân trang -->
-          ${totalPages > 1 ? `
-            <div style="padding:16px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px;">
-              <button class="btn btn-sm btn-outline" id="btn-prev" ${currentPage === 1 ? 'disabled' : ''}>Trước</button>
-              <span style="display:flex; align-items:center; padding:0 12px; font-weight:600;">${currentPage} / ${totalPages}</span>
-              <button class="btn btn-sm btn-outline" id="btn-next" ${currentPage === totalPages ? 'disabled' : ''}>Sau</button>
-            </div>
-          ` : ''}
+          <div class="table-wrap"><table style="margin:0;"><thead style="background:#f8fafc;"><tr><th style="width:40px;"><input type="checkbox" id="cb-all-stock"></th><th style="width:80px;">ID</th><th>Giá trị kho hàng</th><th style="width:120px;">Trạng thái</th><th style="width:160px;">Ngày tạo</th></tr></thead><tbody>${paginated.length ? paginated.map(i => `<tr><td><input type="checkbox" class="cb-stock" value="${i.id}"></td><td style="color:#ec4899; font-weight:600;">${i.id}</td><td><div style="background:#f1f5f9; padding:8px 12px; border-radius:8px; font-family:monospace; font-size:14px; word-break:break-all; border:1px solid var(--border);">${esc(i.data)}</div></td><td>${i.is_sold ? `<span class="badge badge-red" style="border-radius:20px; padding:4px 10px;"><i class="fa-solid fa-xmark"></i> Đã bán</span>` : `<span class="badge badge-green" style="border-radius:20px; padding:4px 10px;"><i class="fa-solid fa-check"></i> Còn hàng</span>`}</td><td class="text-muted text-sm">${fmtDate(i.created_at)}</td></tr>`).join('') : '<tr><td colspan="5" class="text-center text-muted" style="padding:40px;">Không tìm thấy dữ liệu phù hợp.</td></tr>'}</tbody></table></div>
+          ${totalPages > 1 ? `<div style="padding:16px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px;"><button class="btn btn-sm btn-outline" id="btn-prev" ${currentPage === 1 ? 'disabled' : ''}>Trước</button><span style="display:flex; align-items:center; padding:0 12px; font-weight:600;">${currentPage} / ${totalPages}</span><button class="btn btn-sm btn-outline" id="btn-next" ${currentPage === totalPages ? 'disabled' : ''}>Sau</button></div>` : ''}
         </div>
       </div>
     `;
 
-    // Events
-    qs('#btn-back', content).onclick = () => renderAdminStock();
-    
-    qs('#btn-stock-filter', content).onclick = () => {
-      searchQuery = qs('#f-stock-search', content).value.trim();
-      currentStatus = qs('#f-stock-status', content).value;
-      itemsPerPage = parseInt(qs('#f-stock-limit', content).value) || 20;
-      currentPage = 1;
-      renderDetailView();
-    };
+    qs('#btn-back', content).onclick = () => renderAdminStock(content);
+    qs('#btn-stock-filter', content).onclick = () => { searchQuery = qs('#f-stock-search', content).value.trim(); currentStatus = qs('#f-stock-status', content).value; itemsPerPage = parseInt(qs('#f-stock-limit', content).value) || 20; currentPage = 1; renderDetailView(); };
+    qs('#btn-stock-reset', content).onclick = () => { searchQuery = ''; currentStatus = 'all'; itemsPerPage = 20; currentPage = 1; renderDetailView(); };
+    const btnPrev = qs('#btn-prev', content); if (btnPrev) btnPrev.onclick = () => { if (currentPage > 1) { currentPage--; renderDetailView(); } };
+    const btnNext = qs('#btn-next', content); if (btnNext) btnNext.onclick = () => { if (currentPage < totalPages) { currentPage++; renderDetailView(); } };
 
-    qs('#btn-stock-reset', content).onclick = () => {
-      searchQuery = ''; currentStatus = 'all'; itemsPerPage = 20; currentPage = 1;
-      renderDetailView();
-    };
-
-    const btnPrev = qs('#btn-prev', content);
-    if (btnPrev) btnPrev.onclick = () => { if (currentPage > 1) { currentPage--; renderDetailView(); } };
-    
-    const btnNext = qs('#btn-next', content);
-    if (btnNext) btnNext.onclick = () => { if (currentPage < totalPages) { currentPage++; renderDetailView(); } };
-
-    // Checkbox logic
     const cbAll = qs('#cb-all-stock', content);
     const cbList = qsa('.cb-stock', content);
     if (cbAll) {
       cbAll.onchange = (e) => { cbList.forEach(cb => cb.checked = e.target.checked); };
-      cbList.forEach(cb => { cb.onchange = () => { if (!cb.checked) cbAll.checked = false; }});
+      cbList.forEach(cb => { cb.onchange = () => { if (!cb.checked) cbAll.checked = false; }; });
     }
 
-    // Modal Bulk Add
     qs('#btn-add-bulk', content).onclick = () => {
-      openModal(`
-        <div class="form-group">
-          <label class="form-label" style="margin-bottom:6px">Nhập thủ công (1 dòng / 1 item)</label>
-          <textarea class="form-textarea" id="bulk-stock-input" rows="10" placeholder="account1@gmail.com:pass1
-account2@gmail.com:pass2"></textarea>
-        </div>
-        <div class="flex gap-8">
-          <button class="btn btn-primary flex-1" id="btn-submit-bulk">+ Lưu vào kho</button>
-          <button class="btn btn-ghost" onclick="closeModal()">Hủy</button>
-        </div>
-      `, 'Nhập hàng loạt');
-      
+      openModal(`<div class="form-group"><label class="form-label" style="margin-bottom:6px">Nhập thủ công (1 dòng / 1 item)</label><textarea class="form-textarea" id="bulk-stock-input" rows="10" placeholder="account1@gmail.com:pass1
+account2@gmail.com:pass2"></textarea></div><div class="flex gap-8"><button class="btn btn-primary flex-1" id="btn-submit-bulk">+ Lưu vào kho</button><button class="btn btn-ghost" onclick="closeModal()">Hủy</button></div>`, 'Nhập hàng loạt');
       qs('#btn-submit-bulk').onclick = async () => {
         const txt = qs('#bulk-stock-input').value.trim();
         if (!txt) return;
@@ -1071,7 +963,6 @@ account2@gmail.com:pass2"></textarea>
       };
     };
 
-    // File Upload Handlers (CSV/TXT)
     const handleFileUpload = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -1092,7 +983,6 @@ account2@gmail.com:pass2"></textarea>
     qs('#file-csv', content).onchange = handleFileUpload;
     qs('#file-txt', content).onchange = handleFileUpload;
 
-    // Xuất kho hàng
     qs('#btn-export', content).onclick = () => {
       if (!allItems.length) return toast('Kho trống', 'warning');
       const lines = allItems.map(i => i.data).join('\\n');
@@ -1100,29 +990,24 @@ account2@gmail.com:pass2"></textarea>
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = `export-stock-${pkgId}.txt`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     };
 
-    // Xoá toàn bộ / Xóa mục đã chọn
     qs('#btn-delete-all', content).onclick = async () => {
-      const selected = [...qsa('.cb-stock:checked', content)].map(cb => cb.value);
-      if (selected.length > 0) {
-        if (!confirm(`Xóa ${selected.length} mục đã chọn?`)) return;
-        for (const id of selected) {
-          await apiFetch(`/stock/${id}`, { method: 'DELETE' }).catch(()=>{});
-        }
+      const selected = [...qsa('.cb-stock:checked', content)].map(cb => parseInt(cb.value)).filter(Boolean);
+      if (!selected.length) {
+        toast('Chọn ít nhất một mục để xóa', 'warning');
+        return;
+      }
+      if (!confirm(`Xóa ${selected.length} mục đã chọn?`)) return;
+      try {
+        await Promise.all(selected.map(id => apiFetch(`/stock/${id}`, { method: 'DELETE' })));
         toast(`Đã xóa ${selected.length} mục`, 'success');
         refresh();
-      } else {
-        if (!confirm('Bạn có chắc chắn muốn xóa TOÀN BỘ kho hàng của gói này?')) return;
-        // In a real app, backend should provide a DELETE /bulk endpoint. We loop for now:
-        const avail = allItems.filter(i => !i.is_sold);
-        if(!avail.length) return toast('Không có hàng chưa bán để xóa', 'info');
-        for (const i of avail) {
-          await apiFetch(`/stock/${i.id}`, { method: 'DELETE' }).catch(()=>{});
-        }
-        toast('Đã dọn dẹp kho (chưa bán)', 'success');
-        refresh();
+      } catch (err) {
+        toast(err.message, 'error');
       }
     };
   };
@@ -1132,14 +1017,16 @@ account2@gmail.com:pass2"></textarea>
 
 async function showManagedStockDetail(pkgId, pkgName, currentQty) {
   const detail = qs('#stock-detail');
+  if (!detail) return;
+
   const refresh = async () => {
-    // Re-fetch the package to get latest stock_quantity
     const products = await apiFetch('/products/admin/all');
     let pkg = null;
     for (const p of products) {
       pkg = p.packages?.find(pk => pk.id === pkgId);
       if (pkg) break;
     }
+
     const qty = pkg?.stock_quantity ?? currentQty;
     const badge = qty <= 0 ? '🔴 Hết hàng' : qty <= 5 ? '🟠 Sắp hết' : '🟢 Còn hàng';
     detail.innerHTML = `
@@ -1158,38 +1045,42 @@ async function showManagedStockDetail(pkgId, pkgName, currentQty) {
         </div>
       </div>
     `;
+
     qs('#btn-update-managed-stock', detail).onclick = async () => {
       const newQty = parseInt(qs('#managed-stock-qty', detail).value) || 0;
       try {
         await apiFetch(`/products/packages/${pkgId}`, { method: 'PUT', body: JSON.stringify({ stock_quantity: newQty }) });
         toast('Đã cập nhật số lượng', 'success');
-        refresh();
-        // Also refresh the sidebar
-        renderAdminStock(qs('#admin-content'));
-      } catch (err) { toast(err.message, 'error'); }
+        await refresh();
+        await renderAdminStock(qs('#app-view'));
+      } catch (err) {
+        toast(err.message, 'error');
+      }
     };
   };
+
   await refresh();
 }
 
 // ADMIN SETTINGS
 async function renderAdminSettings(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return;
+  const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
 
-  // Fetch both legacy (SiteSetting) and unified (SiteConfig) settings
-  const [legacy, unified] = await Promise.all([
-    apiFetch('/admin/settings'),
-    apiFetch('/admin/settings/unified').catch(() => ({}))
-  ]);
+  try {
+    const [legacy, unified] = await Promise.all([
+      apiFetch('/admin/settings'),
+      apiFetch('/admin/settings/unified').catch(() => ({}))
+    ]);
 
-  const g = unified.settings_general || {};
-  const ap = unified.settings_appearance || {};
-  const sc = unified.settings_scripts || {};
-  const im = unified.settings_images || {};
-  const se = unified.settings_security || {};
-  const ca = unified.settings_captcha || {};
-  const fe = unified.settings_features || {};
+    const g = unified.settings_general || {};
+    const ap = unified.settings_appearance || {};
+    const sc = unified.settings_scripts || {};
+    const im = unified.settings_images || {};
+    const se = unified.settings_security || {};
+    const ca = unified.settings_captcha || {};
+    const fe = unified.settings_features || {};
 
   // Helper: escape HTML
   const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -1538,55 +1429,79 @@ async function renderAdminSettings(view) {
       toast(err.message, 'error');
     }
   };
+  } catch (err) {
+    content.innerHTML = `<div class="empty-state"><h3>Lỗi tải cài đặt</h3><p class="text-muted">${err.message}</p></div>`;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  ADMIN BANNERS
 // ═══════════════════════════════════════════════════════════════
 async function renderAdminBanners(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return; const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
 
-  const refresh = async () => {
-    const banners = await apiFetch('/banners/admin/list');
-    content.innerHTML = `
-      <div class="page-header">
-        <div class="page-title">Quản lý Banners</div>
-        <button class="btn btn-primary" id="btn-add-banner">+ Thêm banner</button>
-      </div>
-      <div class="card">
-        <div class="table-wrap"><table>
-          <thead><tr><th>Ảnh</th><th>Tiêu đề</th><th>Loại</th><th>Link</th><th>Thứ tự</th><th>Trạng thái</th><th></th></tr></thead>
-          <tbody>${banners.length ? banners.map(b => `<tr>
-            <td><img src="${b.image_url}" style="height:48px;border-radius:6px;object-fit:cover" /></td>
-            <td class="fw-600">${b.title}</td>
-            <td><span class="badge ${b.banner_type === 'hero' ? 'badge-primary' : 'badge-info'}">${b.banner_type}</span></td>
-            <td class="text-sm text-muted">${b.link || '—'}</td>
-            <td>${b.sort_order}</td>
-            <td><span class="badge ${b.is_active ? 'badge-success' : 'badge-muted'}">${b.is_active ? 'Hiện' : 'Ẩn'}</span></td>
-            <td>
-              <button class="tbl-btn tbl-edit" data-edit-banner="${b.id}">Sửa</button>
-              <button class="tbl-btn tbl-delete" data-del-banner="${b.id}">Xóa</button>
-            </td>
-          </tr>`).join('') : '<tr><td colspan="7" class="text-center text-muted">Chưa có banner nào</td></tr>'}</tbody>
-        </table></div>
-      </div>
-    `;
+  let currentBanners = [];
 
-    qs('#btn-add-banner', content).onclick = () => showBannerModal(null, refresh);
-    qsa('[data-edit-banner]', content).forEach(btn => {
-      btn.onclick = () => {
-        const b = banners.find(x => x.id === +btn.dataset.editBanner);
-        if (b) showBannerModal(b, refresh);
-      };
-    });
-    qsa('[data-del-banner]', content).forEach(btn => {
-      btn.onclick = async () => {
-        if (!confirm('Xóa banner này?')) return;
-        await apiFetch(`/banners/admin/${btn.dataset.delBanner}`, { method: 'DELETE' });
-        toast('Đã xóa', 'success'); refresh();
-      };
-    });
+  content.onclick = async (e) => {
+    const addBtn = e.target.closest('#btn-add-banner');
+    if (addBtn) {
+      showBannerModal(null, refresh);
+      return;
+    }
+
+    const editBtn = e.target.closest('[data-edit-banner]');
+    if (editBtn) {
+      const banner = currentBanners.find(x => x.id === +editBtn.dataset.editBanner);
+      if (banner) showBannerModal(banner, refresh);
+      return;
+    }
+
+    const delBtn = e.target.closest('[data-del-banner]');
+    if (delBtn) {
+      e.preventDefault();
+      if (!confirm('Xóa banner này?')) return;
+      try {
+        await apiFetch(`/banners/admin/${delBtn.dataset.delBanner}`, { method: 'DELETE' });
+        toast('Đã xóa', 'success');
+        await refresh();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+      return;
+    }
+  };
+
+  const refresh = async () => {
+    try {
+      const banners = await apiFetch('/banners/admin/list');
+      currentBanners = banners;
+      content.innerHTML = `
+        <div class="page-header">
+          <div class="page-title">Quản lý Banners</div>
+          <button class="btn btn-primary" id="btn-add-banner">+ Thêm banner</button>
+        </div>
+        <div class="card">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Ảnh</th><th>Tiêu đề</th><th>Loại</th><th>Link</th><th>Thứ tự</th><th>Trạng thái</th><th></th></tr></thead>
+            <tbody>${banners.length ? banners.map(b => `<tr>
+              <td><img src="${b.image_url}" style="height:48px;border-radius:6px;object-fit:cover" /></td>
+              <td class="fw-600">${b.title}</td>
+              <td><span class="badge ${b.banner_type === 'hero' ? 'badge-primary' : 'badge-info'}">${b.banner_type}</span></td>
+              <td class="text-sm text-muted">${b.link || '—'}</td>
+              <td>${b.sort_order}</td>
+              <td><span class="badge ${b.is_active ? 'badge-success' : 'badge-muted'}">${b.is_active ? 'Hiện' : 'Ẩn'}</span></td>
+              <td>
+                <button class="tbl-btn tbl-edit" data-edit-banner="${b.id}">Sửa</button>
+                <button class="tbl-btn tbl-delete" data-del-banner="${b.id}">Xóa</button>
+              </td>
+            </tr>`).join('') : '<tr><td colspan="7" class="text-center text-muted">Chưa có banner nào</td></tr>'}</tbody>
+          </table></div>
+        </div>
+      `;
+    } catch (err) {
+      content.innerHTML = `<div class="empty-state"><h3>Lỗi tải banners</h3><p class="text-muted">${err.message}</p></div>`;
+    }
   };
   await refresh();
 }
@@ -1699,35 +1614,64 @@ async function uploadBannerFile(file, area, urlInput) {
 
 // ── ADMIN FLASH SALES ──────────────────────────────────────────
 async function renderAdminFlashSales(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return; const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  let currentSales = [];
+
+  content.onclick = async (e) => {
+    const addBtn = e.target.closest('#btn-add-fs');
+    if (addBtn) {
+      showFlashSaleModal(null, refresh);
+      return;
+    }
+
+    const editBtn = e.target.closest('[data-edit-fs]');
+    if (editBtn) {
+      const sale = currentSales.find(x => x.id === +editBtn.dataset.editFs);
+      if (sale) showFlashSaleModal(sale, refresh);
+      return;
+    }
+
+    const delBtn = e.target.closest('[data-del-fs]');
+    if (delBtn) {
+      e.preventDefault();
+      if (!confirm('Xóa flash sale này?')) return;
+      try {
+        await apiFetch(`/flash-sales/admin/${delBtn.dataset.delFs}`, { method: 'DELETE' });
+        toast('Đã xóa', 'success');
+        await refresh();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+      return;
+    }
+  };
+
   const refresh = async () => {
-    const sales = await apiFetch('/flash-sales/admin/list');
-    content.innerHTML = `
-      <div class="page-header"><div class="page-title">Flash Sales</div><button class="btn btn-primary" id="btn-add-fs">+ Thêm Flash Sale</button></div>
-      <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Sản phẩm</th><th>Gói</th><th>Giá gốc</th><th>Giá sale</th><th>Giới hạn</th><th>Đã bán</th><th>Bắt đầu</th><th>Kết thúc</th><th>Trạng thái</th><th></th></tr></thead>
-        <tbody>${sales.length ? sales.map(s => `<tr>
-          <td class="td-bold">${s.product_name || '—'}</td>
-          <td class="text-muted">${s.package_name || '#' + s.package_id}</td>
-          <td>${fmt(s.original_price)}</td>
-          <td class="text-primary fw-600">${fmt(s.sale_price)}</td>
-          <td>${s.quantity_limit || '∞'}</td>
-          <td>${s.sold_count || 0}</td>
-          <td class="text-sm">${fmtDate(s.starts_at)}</td>
-          <td class="text-sm">${fmtDate(s.ends_at)}</td>
-          <td>${s.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-gray">Off</span>'}</td>
-          <td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit-fs="${s.id}">Sửa</button><button class="tbl-btn tbl-delete" data-del-fs="${s.id}">Xóa</button></div></td>
-        </tr>`).join('') : '<tr><td colspan="10" class="text-center text-muted">Chưa có flash sale nào</td></tr>'}</tbody>
-      </table></div></div>
-    `;
-    qs('#btn-add-fs', content).onclick = () => showFlashSaleModal(null, refresh);
-    qsa('[data-edit-fs]', content).forEach(btn => {
-      btn.onclick = () => { const s = sales.find(x => x.id === +btn.dataset.editFs); if (s) showFlashSaleModal(s, refresh); };
-    });
-    qsa('[data-del-fs]', content).forEach(btn => {
-      btn.onclick = async () => { if (!confirm('Xóa flash sale này?')) return; await apiFetch(`/flash-sales/admin/${btn.dataset.delFs}`, { method: 'DELETE' }); toast('Đã xóa', 'success'); refresh(); };
-    });
+    try {
+      const sales = await apiFetch('/flash-sales/admin/list');
+      currentSales = sales;
+      content.innerHTML = `
+        <div class="page-header"><div class="page-title">Flash Sales</div><button class="btn btn-primary" id="btn-add-fs">+ Thêm Flash Sale</button></div>
+        <div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Sản phẩm</th><th>Gói</th><th>Giá gốc</th><th>Giá sale</th><th>Giới hạn</th><th>Đã bán</th><th>Bắt đầu</th><th>Kết thúc</th><th>Trạng thái</th><th></th></tr></thead>
+          <tbody>${sales.length ? sales.map(s => `<tr>
+            <td class="td-bold">${s.product_name || '—'}</td>
+            <td class="text-muted">${s.package_name || '#' + s.package_id}</td>
+            <td>${fmt(s.original_price)}</td>
+            <td class="text-primary fw-600">${fmt(s.sale_price)}</td>
+            <td>${s.quantity_limit || '∞'}</td>
+            <td>${s.sold_count || 0}</td>
+            <td class="text-sm">${fmtDate(s.starts_at)}</td>
+            <td class="text-sm">${fmtDate(s.ends_at)}</td>
+            <td>${s.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-gray">Off</span>'}</td>
+            <td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit-fs="${s.id}">Sửa</button><button class="tbl-btn tbl-delete" data-del-fs="${s.id}">Xóa</button></div></td>
+          </tr>`).join('') : '<tr><td colspan="10" class="text-center text-muted">Chưa có flash sale nào</td></tr>'}</tbody>
+        </table></div></div>
+      `;
+    } catch (err) {
+      content.innerHTML = `<div class="empty-state"><h3>Lỗi tải flash sale</h3><p class="text-muted">${err.message}</p></div>`;
+    }
   };
   await refresh();
 }
@@ -1770,35 +1714,64 @@ function showFlashSaleModal(fs, onDone) {
 
 // ── ADMIN GIFT CODES ───────────────────────────────────────────
 async function renderAdminGiftCodes(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return; const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  let currentCodes = [];
+
+  content.onclick = async (e) => {
+    const addBtn = e.target.closest('#btn-add-gc');
+    if (addBtn) {
+      showGiftCodeModal(null, refresh);
+      return;
+    }
+
+    const editBtn = e.target.closest('[data-edit-gc]');
+    if (editBtn) {
+      const code = currentCodes.find(x => x.id === +editBtn.dataset.editGc);
+      if (code) showGiftCodeModal(code, refresh);
+      return;
+    }
+
+    const delBtn = e.target.closest('[data-del-gc]');
+    if (delBtn) {
+      e.preventDefault();
+      if (!confirm('Xóa gift code này?')) return;
+      try {
+        await apiFetch(`/gift-codes/admin/${delBtn.dataset.delGc}`, { method: 'DELETE' });
+        toast('Đã xóa', 'success');
+        await refresh();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+      return;
+    }
+  };
+
   const refresh = async () => {
-    const codes = await apiFetch('/gift-codes/admin/list');
-    content.innerHTML = `
-      <div class="page-header"><div class="page-title">Gift Codes</div><button class="btn btn-primary" id="btn-add-gc">+ Thêm mã</button></div>
-      <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Mã</th><th>Loại</th><th>Giá trị</th><th>Đơn tối thiểu</th><th>Giảm tối đa</th><th>Đã dùng/Giới hạn</th><th>Hết hạn</th><th>Trạng thái</th><th>Ưu đãi</th><th></th></tr></thead>
-        <tbody>${codes.length ? codes.map(c => `<tr>
-          <td class="td-bold td-mono">${c.code}</td>
-          <td><span class="badge ${c.discount_type === 'percent' ? 'badge-blue' : 'badge-purple'}">${c.discount_type === 'percent' ? '%' : 'Fixed'}</span></td>
-          <td>${c.discount_type === 'percent' ? c.discount_value + '%' : fmt(c.discount_value)}</td>
-          <td>${c.min_order ? fmt(c.min_order) : '—'}</td>
-          <td>${c.max_discount ? fmt(c.max_discount) : '—'}</td>
-          <td>${c.used_count || 0}/${c.usage_limit || '∞'}</td>
-          <td class="text-sm">${fmtDate(c.expires_at)}</td>
-          <td>${c.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-gray">Off</span>'}</td>
-          <td>${c.is_public ? '<span class="badge badge-blue">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td>
-          <td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit-gc="${c.id}">Sửa</button><button class="tbl-btn tbl-delete" data-del-gc="${c.id}">Xóa</button></div></td>
-        </tr>`).join('') : '<tr><td colspan="10" class="text-center text-muted">Chưa có gift code nào</td></tr>'}</tbody>
-      </table></div></div>
-    `;
-    qs('#btn-add-gc', content).onclick = () => showGiftCodeModal(null, refresh);
-    qsa('[data-edit-gc]', content).forEach(btn => {
-      btn.onclick = () => { const c = codes.find(x => x.id === +btn.dataset.editGc); if (c) showGiftCodeModal(c, refresh); };
-    });
-    qsa('[data-del-gc]', content).forEach(btn => {
-      btn.onclick = async () => { if (!confirm('Xóa gift code này?')) return; await apiFetch(`/gift-codes/admin/${btn.dataset.delGc}`, { method: 'DELETE' }); toast('Đã xóa', 'success'); refresh(); };
-    });
+    try {
+      const codes = await apiFetch('/gift-codes/admin/list');
+      currentCodes = codes;
+      content.innerHTML = `
+        <div class="page-header"><div class="page-title">Gift Codes</div><button class="btn btn-primary" id="btn-add-gc">+ Thêm mã</button></div>
+        <div class="card"><div class="table-wrap"><table>
+          <thead><tr><th>Mã</th><th>Loại</th><th>Giá trị</th><th>Đơn tối thiểu</th><th>Giảm tối đa</th><th>Đã dùng/Giới hạn</th><th>Hết hạn</th><th>Trạng thái</th><th>Ưu đãi</th><th></th></tr></thead>
+          <tbody>${codes.length ? codes.map(c => `<tr>
+            <td class="td-bold td-mono">${c.code}</td>
+            <td><span class="badge ${c.discount_type === 'percent' ? 'badge-blue' : 'badge-purple'}">${c.discount_type === 'percent' ? '%' : 'Fixed'}</span></td>
+            <td>${c.discount_type === 'percent' ? c.discount_value + '%' : fmt(c.discount_value)}</td>
+            <td>${c.min_order ? fmt(c.min_order) : '—'}</td>
+            <td>${c.max_discount ? fmt(c.max_discount) : '—'}</td>
+            <td>${c.used_count || 0}/${c.usage_limit || '∞'}</td>
+            <td class="text-sm">${fmtDate(c.expires_at)}</td>
+            <td>${c.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-gray">Off</span>'}</td>
+            <td>${c.is_public ? '<span class="badge badge-blue">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td>
+            <td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit-gc="${c.id}">Sửa</button><button class="tbl-btn tbl-delete" data-del-gc="${c.id}">Xóa</button></div></td>
+          </tr>`).join('') : '<tr><td colspan="10" class="text-center text-muted">Chưa có gift code nào</td></tr>'}</tbody>
+        </table></div></div>
+      `;
+    } catch (err) {
+      content.innerHTML = `<div class="empty-state"><h3>Lỗi tải gift code</h3><p class="text-muted">${err.message}</p></div>`;
+    }
   };
   await refresh();
 }
@@ -1855,7 +1828,7 @@ function showGiftCodeModal(gc, onDone) {
 
 // ── ADMIN AFFILIATES ───────────────────────────────────────────
 async function renderAdminAffiliates(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return; const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   const refresh = async () => {
     const affiliates = await apiFetch('/affiliate/admin/list');
@@ -1874,29 +1847,30 @@ async function renderAdminAffiliates(view) {
         </tr>`).join('') : '<tr><td colspan="7" class="text-center text-muted">Chưa có affiliate nào</td></tr>'}</tbody>
       </table></div></div>
     `;
-    qsa('[data-edit-aff]', content).forEach(btn => {
-      btn.onclick = () => { const a = affiliates.find(x => x.id === +btn.dataset.editAff); if (a) showAffiliateModal(a, refresh); };
-    });
-    qsa('[data-view-aff]', content).forEach(btn => {
-      btn.onclick = async () => {
+    content.onclick = async (e) => {
+      const editBtn = e.target.closest('[data-edit-aff]');
+      if (editBtn) {
+        const a = affiliates.find(x => x.id === +editBtn.dataset.editAff);
+        if (a) showAffiliateModal(a, refresh);
+        return;
+      }
+
+      const viewBtn = e.target.closest('[data-view-aff]');
+      if (viewBtn) {
         try {
-          const refs = await apiFetch(`/affiliate/admin/${btn.dataset.viewAff}/referrals`);
+          const refs = await apiFetch(`/affiliate/admin/${viewBtn.dataset.viewAff}/referrals`);
           let html = '<h3 class="modal-title mb-16">Referrals</h3>';
           if (!refs.length) {
             html += '<div class="text-center text-muted py-16">Chưa có referral nào</div>';
           } else {
-            html += '<div class="table-wrap"><table><thead><tr><th>Email</th><th>Ngày</th><th>Trạng thái</th></tr></thead><tbody>';
-            refs.forEach(r => {
-              html += `<tr><td>${r.email || '—'}</td><td class="text-sm">${fmtDate(r.created_at)}</td><td>${r.status || '—'}</td></tr>`;
-            });
-            html += '</tbody></table></div>';
+            html += `<div class="table-wrap"><table><thead><tr><th>Email</th><th>Ngày đăng ký</th><th>Tổng chi tiêu</th><th>Hoa hồng tạo ra</th></tr></thead><tbody>${refs.map(r => `<tr><td>${r.email || '—'}</td><td>${fmtDate(r.created_at)}</td><td>${fmt(r.total_spent || 0)}</td><td>${fmt(r.commission_generated || 0)}</td></tr>`).join('')}</tbody></table></div>`;
           }
           html += '<div class="mt-16 text-right"><button class="btn btn-ghost" id="aff-close">Đóng</button></div>';
           openModal(html);
           qs('#aff-close').onclick = closeModal;
         } catch (err) { toast(err.message, 'error'); }
-      };
-    });
+      }
+    };
   };
   await refresh();
 }
@@ -1930,54 +1904,75 @@ function showAffiliateModal(aff, onDone) {
 // ── ADMIN SUPPORT PAGES ────────────────────────────────────────
 
 async function renderAdminSupportPages(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return; const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  let currentPages = [];
+
+  content.onclick = async (e) => {
+    const addBtn = e.target.closest('#btn-add-page');
+    if (addBtn) {
+      showSupportPageModal(null, refresh);
+      return;
+    }
+
+    const editBtn = e.target.closest('[data-edit-page]');
+    if (editBtn) {
+      const page = currentPages.find(p => p.id === parseInt(editBtn.dataset.editPage));
+      if (page) showSupportPageModal(page, refresh);
+      return;
+    }
+
+    const delBtn = e.target.closest('[data-del-page]');
+    if (delBtn) {
+      e.preventDefault();
+      if (!confirm('Xóa trang này?')) return;
+      try {
+        await apiFetch(`/support/pages/${delBtn.dataset.delPage}`, { method: 'DELETE' });
+        toast('Đã xóa', 'success');
+        await refresh();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+      return;
+    }
+  };
   
   const refresh = async () => {
-    const pages = await apiFetch('/support/pages');
-    const html = `
-      <div class="page-header">
-        <div class="page-title">Quản lý trang hỗ trợ</div>
-        <button class="btn btn-primary" id="btn-add-page">+ Thêm trang</button>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Tiêu đề</th><th>Slug</th><th>Loại</th><th>Trạng thái</th><th>Hành động</th></tr>
-          </thead>
-          <tbody>
-            ${pages.length ? pages.map(p => `
-              <tr>
-                <td>${p.title}</td>
-                <td><code>${p.slug}</code></td>
-                <td><span class="badge">${p.page_type}</span></td>
-                <td>${p.is_published ? '<span class="text-success">Xuất bản</span>' : '<span class="text-muted">Nháp</span>'}</td>
-                <td>
-                  <button class="btn btn-sm btn-ghost" data-edit-page="${p.id}">Sửa</button>
-                  <button class="btn btn-sm btn-ghost text-danger" data-del-page="${p.id}">Xóa</button>
-                </td>
-              </tr>
-            `).join('') : '<tr><td colspan="5" class="text-center text-muted">Chưa có trang nào</td></tr>'}
-          </tbody>
-        </table>
-      </div>
-    `;
-    
-    content.innerHTML = html;
-    
-    qs('#btn-add-page', content).onclick = () => showSupportPageModal(null, refresh);
-    qsa('[data-edit-page]', content).forEach(btn => {
-      const page = pages.find(p => p.id === parseInt(btn.dataset.editPage));
-      if (page) btn.onclick = () => showSupportPageModal(page, refresh);
-    });
-    qsa('[data-del-page]', content).forEach(btn => {
-      btn.onclick = async () => {
-        if (!confirm('Xóa trang này?')) return;
-        await apiFetch(`/support/pages/${btn.dataset.delPage}`, { method: 'DELETE' });
-        toast('Đã xóa', 'success');
-        refresh();
-      };
-    });
+    try {
+      const pages = await apiFetch('/support/pages');
+      currentPages = pages;
+      const html = `
+        <div class="page-header">
+          <div class="page-title">Quản lý trang hỗ trợ</div>
+          <button class="btn btn-primary" id="btn-add-page">+ Thêm trang</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Tiêu đề</th><th>Slug</th><th>Loại</th><th>Trạng thái</th><th>Hành động</th></tr>
+            </thead>
+            <tbody>
+              ${pages.length ? pages.map(p => `
+                <tr>
+                  <td>${p.title}</td>
+                  <td><code>${p.slug}</code></td>
+                  <td><span class="badge">${p.page_type}</span></td>
+                  <td>${p.is_published ? '<span class="text-success">Xuất bản</span>' : '<span class="text-muted">Nháp</span>'}</td>
+                  <td>
+                    <button class="btn btn-sm btn-ghost" data-edit-page="${p.id}">Sửa</button>
+                    <button class="btn btn-sm btn-ghost text-danger" data-del-page="${p.id}">Xóa</button>
+                  </td>
+                </tr>
+              `).join('') : '<tr><td colspan="5" class="text-center text-muted">Chưa có trang nào</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      `;
+      
+      content.innerHTML = html;
+    } catch (err) {
+      content.innerHTML = `<div class="empty-state"><h3>Lỗi tải trang hỗ trợ</h3><p class="text-muted">${err.message}</p></div>`;
+    }
   };
   await refresh();
 }
@@ -2054,7 +2049,7 @@ function showSupportPageModal(page, onDone) {
 // ── ADMIN SUPPORT TICKETS ──────────────────────────────────────
 
 async function renderAdminTickets(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return; const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   
   // Check if we have a ticketId in the hash
@@ -2098,11 +2093,11 @@ async function renderAdminTickets(view) {
         </div>
       `;
       content.innerHTML = html;
-      qsa('[data-open-ticket]', content).forEach(btn => {
-        btn.onclick = () => {
-          location.hash = `#/admin/tickets?id=${btn.dataset.openTicket}`;
-        };
-      });
+      content.onclick = (e) => {
+        const openBtn = e.target.closest('[data-open-ticket]');
+        if (!openBtn) return;
+        location.hash = `#/admin/tickets?id=${openBtn.dataset.openTicket}`;
+      };
     } catch (err) {
       content.innerHTML = `<div class="empty-state"><h3>Lỗi tải tickets</h3><p class="text-muted">${err.message}</p></div>`;
     }
@@ -2254,7 +2249,7 @@ function showAdminTicketModal(ticket, onDone) {
 
 // ─── ADMIN BOT CONFIG ─────────────────────────────────────
 async function renderAdminBotConfig(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return; const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
     const config = await apiFetch('/admin/bot-config/settings');
@@ -2348,7 +2343,7 @@ async function renderAdminBotConfig(view) {
 // ═══════════════════════════════════════════════════════════════
 
 async function renderAdminPayments(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return; const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
 
   const [config, historyData] = await Promise.all([
@@ -2511,11 +2506,41 @@ function _renderPaymentTable(items) {
 // ── ADMIN ANNOUNCEMENTS ──────────────────────────────────────
 
 async function renderAdminAnnouncements(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return; const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  let currentItems = [];
+
+  content.onclick = async (e) => {
+    const addBtn = e.target.closest('#btn-add-ann');
+    if (addBtn) {
+      showAnnouncementModal(null, refresh);
+      return;
+    }
+
+    const editBtn = e.target.closest('[data-edit-ann]');
+    if (editBtn) {
+      const ann = currentItems.find(a => a.id === parseInt(editBtn.dataset.editAnn));
+      if (ann) showAnnouncementModal(ann, refresh);
+      return;
+    }
+
+    const delBtn = e.target.closest('[data-del-ann]');
+    if (delBtn) {
+      e.preventDefault();
+      if (!confirm('Xóa thông báo này?')) return;
+      try {
+        await apiFetch(`/announcements/admin/${delBtn.dataset.delAnn}`, { method: 'DELETE' });
+        toast('Đã xóa', 'success');
+        await refresh();
+      }
+      catch (e) { toast(e.message, 'error'); }
+      return;
+    }
+  };
 
   const refresh = async () => {
     const items = await apiFetch('/announcements/admin/all');
+    currentItems = items;
     const typeLabels = { info: 'Thông tin', warning: 'Cảnh báo', promo: 'Khuyến mãi', update: 'Cập nhật' };
     const typeBadge = (t) => {
       const colors = { info: 'badge-blue', warning: 'badge-yellow', promo: 'badge-green', update: 'badge-blue' };
@@ -2542,18 +2567,6 @@ async function renderAdminAnnouncements(view) {
         </tr>`).join('') : '<tr><td colspan="7" class="text-center text-muted">Chưa có thông báo nào</td></tr>'}</tbody>
       </table></div>
     `;
-    qs('#btn-add-ann', content).onclick = () => showAnnouncementModal(null, refresh);
-    qsa('[data-edit-ann]', content).forEach(btn => {
-      const ann = items.find(a => a.id === parseInt(btn.dataset.editAnn));
-      if (ann) btn.onclick = () => showAnnouncementModal(ann, refresh);
-    });
-    qsa('[data-del-ann]', content).forEach(btn => {
-      btn.onclick = async () => {
-        if (!confirm('Xóa thông báo này?')) return;
-        try { await apiFetch(`/announcements/admin/${btn.dataset.delAnn}`, { method: 'DELETE' }); toast('Đã xóa', 'success'); refresh(); }
-        catch (e) { toast(e.message, 'error'); }
-      };
-    });
   };
   await refresh();
 }
@@ -2669,7 +2682,7 @@ function showAnnouncementModal(ann, onDone) {
 // ═══════════════════════════════════════════════════════════════
 
 async function renderAdminBalance(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return; const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
 
   try {

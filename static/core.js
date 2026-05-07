@@ -6,6 +6,8 @@
 
 // ── Config ─────────────────────────────────────────────────────
 const API = '/api';
+const ADMIN_DEBUG = true;
+window.ADMIN_DEBUG = ADMIN_DEBUG;
 
 // ── State ──────────────────────────────────────────────────────
 let currentUser = null;
@@ -80,31 +82,37 @@ function toast(msg, type = 'info', duration = 3000) {
 }
 
 // ── API Client ─────────────────────────────────────────────────
-const apiCache = new Map();
-
 async function apiFetch(path, options = {}) {
   const isGET = (!options.method || options.method === 'GET');
-  const cacheKey = path;
-
-  // Simple 60-second RAM cache for unauthenticated GET requests (categories, public products, configs)
-  if (isGET && !authToken && apiCache.has(cacheKey)) {
-    const cached = apiCache.get(cacheKey);
-    if (Date.now() - cached.time < 60000) return cached.data;
-  }
 
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+  // Proxy blocks DELETE/PUT — convert DELETE to POST {path}/delete
+  let actualPath = path;
+  let actualOptions = { ...options, headers };
+  if ((options.method || '').toUpperCase() === 'DELETE') {
+    actualPath = path + '/delete';
+    actualOptions.method = 'POST';
+  }
+
+  if (ADMIN_DEBUG && location.hash.startsWith('#/admin') && !isGET) {
+    adminDebugLog('apiFetch request', { path, actualPath, method: actualOptions.method || 'GET' });
+  }
   
-  const res = await fetch(`${API}${path}`, { ...options, headers });
+  const res = await fetch(`${API}${actualPath}`, actualOptions);
   if (!res.ok) {
     let err = `HTTP ${res.status}`;
     try { const j = await res.json(); err = j.detail || err; } catch (_) {}
+    if (ADMIN_DEBUG && location.hash.startsWith('#/admin')) {
+      adminDebugLog('apiFetch error', { path, actualPath, method: actualOptions.method || 'GET', error: err });
+    }
     throw new Error(err);
   }
   
   const data = await res.json();
-  if (isGET && !authToken && !path.startsWith('/admin')) {
-    apiCache.set(cacheKey, { time: Date.now(), data });
+  if (ADMIN_DEBUG && location.hash.startsWith('#/admin') && !isGET) {
+    adminDebugLog('apiFetch success', { path, actualPath, method: actualOptions.method || 'GET' });
   }
   return data;
 }
@@ -197,7 +205,34 @@ function openModal(html, title = '') {
   content.innerHTML = html;
   overlay.style.display = 'flex';
 }
-function closeModal() { qs('#modal-overlay').style.display = 'none'; }
+function closeModal() {
+  const overlay = qs('#modal-overlay');
+  if (!overlay) return;
+  overlay.style.display = 'none';
+  const content = qs('#modal-content');
+  if (content) content.innerHTML = '';
+}
+
+function adminDebugLog(label, payload = null) {
+  if (!ADMIN_DEBUG) return;
+  const prefix = `[admin-debug] ${label}`;
+  if (payload === null || payload === undefined) {
+    console.log(prefix);
+    return;
+  }
+  console.log(prefix, payload);
+  try {
+    window.__adminDebugEvents = window.__adminDebugEvents || [];
+    window.__adminDebugEvents.push({
+      ts: new Date().toISOString(),
+      label,
+      payload,
+    });
+    if (window.__adminDebugEvents.length > 200) {
+      window.__adminDebugEvents.shift();
+    }
+  } catch (_) {}
+}
 
 // ── Sidebar Toggle (mobile) ───────────────────────────────────
 function closeSidebar() {

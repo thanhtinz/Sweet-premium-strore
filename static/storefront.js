@@ -3,14 +3,16 @@
 // ═══════════════════════════════════════════════════════════════
 
 async function renderHome(view) {
-  view.innerHTML = '';
-
+  if (!view) return;
+  
   // ── Parallel API calls ───────────────────────────────────
   const [banners, flashSales, featuredData, announcementsData] = await Promise.all([
     apiFetch('/banners/').catch(() => []),
     apiFetch('/flash-sales/active').catch(() => []),
     apiFetch('/products/featured?limit=12').catch(() => []),
-    apiFetch('/announcements/').catch(() => ({ items: [] }))
+    appSettings.features?.announcements !== false
+      ? apiFetch('/announcements/').catch(() => ({ items: [] }))
+      : Promise.resolve({ items: [] })
   ]);
 
   // Also fetch home category products in parallel
@@ -26,6 +28,8 @@ async function renderHome(view) {
     catResults.forEach(r => { if (r.data) homeCatProducts[r.slug] = r.data; });
   }
 
+  // Once data is ready, clear the loading state and rebuild UI
+  view.innerHTML = '';
   const heroBanners = banners.filter(b => b.banner_type === 'hero');
   const catBanners = banners.filter(b => b.banner_type === 'category');
 
@@ -179,14 +183,20 @@ async function renderHome(view) {
     const renderSubcats = (parentSlug) => {
       subGrid.innerHTML = '';
       let children = [];
+      let parent = null;
       if (!parentSlug) {
         // "Tất cả" — show all children from all parents
         categories.forEach(c => { if (c.children?.length) children.push(...c.children); });
       } else {
-        const parent = categories.find(c => c.slug === parentSlug);
+        parent = categories.find(c => c.slug === parentSlug);
         if (parent?.children?.length) children = parent.children;
       }
       if (children.length) {
+        if (parentSlug && parent) {
+          const header = el('div', 'subcat-header');
+          header.innerHTML = `<div class="section-title">${ico.grid} Danh mục con của ${esc(parent.name)}</div><div class="text-muted text-sm">Chọn danh mục con để mở trang tất cả sản phẩm</div>`;
+          subGrid.appendChild(header);
+        }
         const grid = el('div', 'subcat-grid');
         children.forEach(sub => {
           const card = el('div', 'subcat-card');
@@ -201,6 +211,10 @@ async function renderHome(view) {
           grid.appendChild(card);
         });
         subGrid.appendChild(grid);
+      } else if (parentSlug && parent) {
+        const empty = el('div', 'empty-state');
+        empty.innerHTML = `<div class="empty-state-icon">${ico.inbox}</div><h3>${esc(parent.name)} chưa có danh mục con</h3><p class="text-muted">Mở trang tất cả sản phẩm của danh mục này.</p><a class="btn btn-primary mt-12" href="#/all?cat=${parent.slug}">Xem tất cả sản phẩm</a>`;
+        subGrid.appendChild(empty);
       }
     };
 
@@ -208,7 +222,9 @@ async function renderHome(view) {
     pills.addEventListener('click', (e) => {
       const pill = e.target.closest('.cat-pill');
       if (!pill) return;
-      location.hash = `/all?cat=${pill.dataset.slug}`;
+      qsa('.cat-pill', pills).forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      renderSubcats(pill.dataset.slug || '');
     });
 
     // Initial render — show all

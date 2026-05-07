@@ -61,64 +61,94 @@ function parseRoute(hash) {
   return null;
 }
 
-async function navigate() {
-  const hash = location.hash || '#/';
-  let view = qs('#app-view');
-  
-  // Safety: if #app-view was destroyed (e.g. by a bad render), recreate it
-  if (!view) {
-    const main = qs('.main-content');
-    if (main) {
-      main.innerHTML = '<div id="app-view"></div>';
-      view = qs('#app-view');
-    } else return;
-  }
-  
-  // Clone to detach any pending async appends from previous route
-  const newView = view.cloneNode(false);
-  view.parentNode.replaceChild(newView, view);
-  view = newView;
+let currentNavMode = null;
 
-  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
-  closeSidebar();
+const adminHeaderMeta = {
+  '/admin': { title: 'Dashboard', subtitle: 'Tổng quan vận hành cửa hàng' },
+  '/admin/orders': { title: 'Đơn hàng', subtitle: 'Theo dõi và xử lý đơn mua hàng' },
+  '/admin/payments': { title: 'Thanh toán', subtitle: 'Kiểm tra giao dịch và cấu hình thanh toán' },
+  '/admin/balance': { title: 'Số dư', subtitle: 'Quản lý biến động số dư người dùng' },
+  '/admin/categories': { title: 'Danh mục', subtitle: 'Tổ chức nhóm sản phẩm và điều hướng' },
+  '/admin/products': { title: 'Sản phẩm', subtitle: 'Quản lý sản phẩm, gói bán và nội dung hiển thị' },
+  '/admin/stock': { title: 'Kho hàng', subtitle: 'Theo dõi tồn kho và dữ liệu giao tự động' },
+  '/admin/banners': { title: 'Banners', subtitle: 'Điều phối banner và điểm nhấn marketing' },
+  '/admin/flash-sales': { title: 'Flash Sales', subtitle: 'Thiết lập chiến dịch giảm giá nhanh' },
+  '/admin/gift-codes': { title: 'Mã quà tặng', subtitle: 'Quản lý gift code và phân phối ưu đãi' },
+  '/admin/affiliates': { title: 'Affiliates', subtitle: 'Theo dõi cộng tác viên và hoa hồng' },
+  '/admin/blog': { title: 'Blog', subtitle: 'Biên tập bài viết và danh mục nội dung' },
+  '/admin/tickets': { title: 'Hỗ trợ', subtitle: 'Xử lý ticket và phản hồi khách hàng' },
+  '/admin/support-pages': { title: 'Trang thông tin', subtitle: 'Quản lý FAQ, chính sách và nội dung hỗ trợ' },
+  '/admin/announcements': { title: 'Thông báo', subtitle: 'Đăng và quản lý thông báo hệ thống' },
+  '/admin/oauth-settings': { title: 'Đăng nhập MXH', subtitle: 'Cấu hình OAuth và nhà cung cấp đăng nhập' },
+  '/admin/settings': { title: 'Cài đặt chung', subtitle: 'Thiết lập hệ thống, giao diện và tính năng' },
+  '/admin/bot-config': { title: 'Bot Telegram', subtitle: 'Cấu hình bot và tự động hóa hỗ trợ' },
+};
 
-  // Update sidebar active
-  qsa('#sidebar-nav .nav-item').forEach(n => n.classList.remove('active'));
-  const route = parseRoute(hash);
+function updateHeaderMode(hash, isAdmin) {
+  const header = qs('#header');
+  const store = qs('#header-store');
+  const storeActions = qs('#header-store-actions');
+  const admin = qs('#header-admin');
+  const adminActions = qs('#header-admin-actions');
+  const title = qs('#admin-header-title');
+  const subtitle = qs('#admin-header-subtitle');
+  if (!header) return;
 
-  // Admin layout switch
-  const isAdmin = hash.startsWith('#/admin');
-  const appShell = qs('#app-shell');
-  const sidebar = qs('#sidebar');
-  const footer = qs('#site-footer');
-  
-  if (footer) footer.style.display = isAdmin ? 'none' : 'block';
-  const sidebarOverlay = qs('#sidebar-overlay');
-  const adminWrap = qs('#admin-wrap');
+  header.classList.toggle('admin-mode', isAdmin);
+  if (store) store.style.display = isAdmin ? 'none' : '';
+  if (storeActions) storeActions.style.display = isAdmin ? 'none' : 'flex';
+  if (admin) admin.style.display = isAdmin ? 'flex' : 'none';
+  if (adminActions) adminActions.style.display = isAdmin ? 'flex' : 'none';
 
   if (isAdmin) {
-    if (appShell) appShell.style.display = 'none';
-    if (sidebar) sidebar.style.display = 'none';
-    if (sidebarOverlay) sidebarOverlay.style.display = 'none';
-    if (adminWrap) adminWrap.style.display = 'flex';
-    if (!currentUser || !currentUser.is_admin) {
-      adminWrap.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-3)">Bạn không có quyền truy cập Admin Panel.<br><a href="#/" style="color:var(--primary)">Quay về trang chủ</a></div>';
-      return;
-    }
-    renderAdminShell(adminWrap);
-  } else {
-    if (appShell) appShell.style.display = '';
-    if (sidebar) sidebar.style.display = '';
-    if (sidebarOverlay) sidebarOverlay.style.display = '';
-    if (adminWrap) adminWrap.style.display = 'none';
+    const path = hash.replace(/^#/, '').split('?')[0] || '/admin';
+    const meta = adminHeaderMeta[path] || adminHeaderMeta['/admin'];
+    if (title) title.textContent = meta.title;
+    if (subtitle) subtitle.textContent = meta.subtitle;
   }
+}
+
+function setActiveSidebarItem(hash) {
+  qsa('#sidebar-nav .nav-item').forEach((n) => {
+    const href = n.getAttribute('href');
+    const isActive = href === hash || (href !== '#/' && hash.startsWith(`${href}/`));
+    n.classList.toggle('active', !!isActive);
+  });
+}
+
+async function navigate() {
+  const hash = location.hash || '#/';
+  const route = parseRoute(hash);
+  let view = qs('#app-view');
+  if (!view) return;
+
+  const isAdmin = hash.startsWith('#/admin');
+  updateHeaderMode(hash, isAdmin);
+
+  const footer = qs('#site-footer');
+  if (footer) footer.style.display = isAdmin ? 'none' : 'block';
+
+  view.style.minHeight = '60vh';
 
   if (!route) {
     view.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div><h3>Không tìm thấy trang</h3><a href="#/" class="btn btn-primary mt-12">Về trang chủ</a></div>';
     return;
   }
 
-  // Feature gate: check if route's feature is disabled
+  if (isAdmin && (!currentUser || !currentUser.is_admin)) {
+    view.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-3)">Bạn không có quyền truy cập Admin Panel.<br><a href="#/" style="color:var(--primary)">Quay về trang chủ</a></div>';
+    return;
+  }
+
+  const newNavMode = isAdmin ? 'admin' : 'store';
+  if (currentNavMode !== newNavMode) {
+    currentNavMode = newNavMode;
+    await loadSidebar();
+  }
+
+  setActiveSidebarItem(hash);
+  closeSidebar();
+
   const featureRouteMap = {
     '/blog': 'blog', '/blog/': 'blog',
     '/offers': 'offers',
@@ -133,15 +163,67 @@ async function navigate() {
     return;
   }
 
-  try { await route.handler(view, route.params); }
-  catch (e) { view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>Lỗi tải trang</h3><p class="text-muted">${e.message}</p></div>`; }
+  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+
+  try {
+    await Promise.resolve(route.handler(view, route.params));
+  } catch (e) {
+    console.error('Router execution error:', e);
+    view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>Lỗi tải trang</h3><p class="text-muted">${e.message}</p></div>`;
+  }
 }
 
 // ── Sidebar ─────────────────────────────────────────────────────
 async function loadSidebar() {
   const nav = qs('#sidebar-nav');
   if (!nav) return;
+  nav.innerHTML = '';
   try {
+    if (currentNavMode === 'admin') {
+      const links = [
+        { href: '#/admin', icon: '<i class="fa-solid fa-chart-pie"></i>', text: 'Dashboard' },
+        { href: '#/admin/orders', icon: '<i class="fa-solid fa-receipt"></i>', text: 'Đơn hàng' },
+        { href: '#/admin/payments', icon: '<i class="fa-solid fa-credit-card"></i>', text: 'Thanh toán' },
+        { href: '#/admin/balance', icon: '<i class="fa-solid fa-wallet"></i>', text: 'Số dư' },
+        { divider: 'Sản phẩm' },
+        { href: '#/admin/categories', icon: '<i class="fa-solid fa-folder-tree"></i>', text: 'Danh mục' },
+        { href: '#/admin/products', icon: '<i class="fa-solid fa-bag-shopping"></i>', text: 'Sản phẩm' },
+        { href: '#/admin/stock', icon: '<i class="fa-solid fa-boxes-stacked"></i>', text: 'Kho tài khoản' },
+        { divider: 'Tính năng' },
+        { href: '#/admin/banners', icon: '<i class="fa-solid fa-image"></i>', text: 'Banners' },
+        { href: '#/admin/flash-sales', icon: '<i class="fa-solid fa-bolt"></i>', text: 'Flash Sales' },
+        { href: '#/admin/gift-codes', icon: '<i class="fa-solid fa-gift"></i>', text: 'Mã quà tặng' },
+        { href: '#/admin/affiliates', icon: '<i class="fa-solid fa-user-group"></i>', text: 'Affiliates' },
+        { href: '#/admin/blog', icon: '<i class="fa-solid fa-newspaper"></i>', text: 'Blog' },
+        { divider: 'Hỗ trợ & Cài đặt' },
+        { href: '#/admin/tickets', icon: '<i class="fa-solid fa-headset"></i>', text: 'Hỗ trợ' },
+        { href: '#/admin/bot-config', icon: '<i class="fa-solid fa-robot"></i>', text: 'Bot Telegram' },
+        { href: '#/admin/support-pages', icon: '<i class="fa-solid fa-file-lines"></i>', text: 'Trang thông tin' },
+        { href: '#/admin/announcements', icon: '<i class="fa-solid fa-bullhorn"></i>', text: 'Thông báo' },
+        { href: '#/admin/oauth-settings', icon: '<i class="fa-brands fa-github"></i>', text: 'Đăng nhập MXH' },
+        { href: '#/admin/settings', icon: '<i class="fa-solid fa-gear"></i>', text: 'Cài đặt chung' },
+        { divider: '' },
+        { href: '#/', icon: '<i class="fa-solid fa-arrow-left"></i>', text: 'Về trang chủ' }
+      ];
+
+      links.forEach(l => {
+        if (l.divider !== undefined) {
+          if (l.divider !== '') {
+            nav.appendChild(el('div', 'sidebar-divider'));
+            nav.appendChild(el('div', 'sidebar-section-title', l.divider));
+          } else {
+            nav.appendChild(el('div', 'sidebar-divider'));
+          }
+        } else {
+          const item = el('a', 'nav-item' + (location.hash === l.href ? ' active' : ''));
+          item.href = l.href;
+          item.innerHTML = `<div class="nav-icon">${l.icon}</div><span>${l.text}</span>`;
+          nav.appendChild(item);
+        }
+      });
+      return;
+    }
+
     categories = await apiFetch('/categories/');
 
     // ── Trang chủ ──
@@ -204,25 +286,24 @@ async function loadSidebar() {
 //  INIT
 // ═══════════════════════════════════════════════════════════════
 async function init() {
+  try {
   loadToken();
 
-  // Capture affiliate ref code from URL (?ref=CODE)
   try {
     const urlParams = new URLSearchParams(location.search);
     const refCode = urlParams.get('ref');
     if (refCode) {
       localStorage.setItem('aff_ref_code', refCode);
-      // Clean URL without reloading
       const cleanUrl = new URL(location);
       cleanUrl.searchParams.delete('ref');
       history.replaceState(null, '', cleanUrl);
     }
   } catch (_) {}
+
   await fetchMe();
   updateAuthUI();
   updateCartCount();
 
-  // Load wishlist IDs for logged-in user
   if (currentUser) {
     try {
       const ids = await apiFetch('/wishlist/ids');
@@ -231,20 +312,19 @@ async function init() {
   } else {
     window._wishlistIds = new Set();
   }
-  
-  // Set current year in footer
+
   const yearEl = document.getElementById('f-current-year');
   if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   try {
     appSettings = await apiFetch('/admin/settings/public').catch(() => ({}));
-    
-    // Update site name / logo in header and footer
+    window.appSettings = appSettings;
+
     const logoUrl = appSettings.logo_url || appSettings.site_logo;
     if (appSettings.site_name) {
       document.title = appSettings.site_name;
     }
-    // Header logo-link: show logo image or site name text
+
     const logoLink = qs('#logo-link');
     if (logoLink) {
       if (logoUrl) {
@@ -254,7 +334,7 @@ async function init() {
         if (logoText) logoText.textContent = appSettings.site_name;
       }
     }
-    // Footer site name: show logo image or text
+
     const fSiteName = qs('#f-site-name');
     if (fSiteName) {
       if (logoUrl) {
@@ -263,20 +343,12 @@ async function init() {
         fSiteName.textContent = appSettings.site_name || 'ShopKey';
       }
     }
-    
-    // Update footer description
+
     const fSiteDesc = qs('#f-site-desc');
     if (fSiteDesc && appSettings.site_description) {
       fSiteDesc.textContent = appSettings.site_description;
     }
-    
-    // Update footer copyright
-    const fCopyright = qs('#f-copyright');
-    if (fCopyright && appSettings.copyright_text) {
-      fCopyright.innerHTML = appSettings.copyright_text;
-    }
-    
-    // Update footer socials
+
     const fSocials = qs('#f-socials');
     if (fSocials) {
       let socialHtml = '';
@@ -285,24 +357,20 @@ async function init() {
       if (appSettings.social_discord) socialHtml += `<a href="${appSettings.social_discord}" target="_blank" title="Discord"><i class="fa-brands fa-discord"></i></a>`;
       fSocials.innerHTML = socialHtml;
     }
-    // Footer copyright text
+
     const fSiteCopy = qs('#f-site-copy');
     if (fSiteCopy) {
       fSiteCopy.innerHTML = appSettings.copyright_text || `Copyright © ${new Date().getFullYear()} ${appSettings.site_name || 'ShopKey'}. All rights reserved.`;
     }
-    // Footer description
-    if (appSettings.site_description) {
-      const desc = qs('#f-site-desc');
-      if (desc) desc.textContent = appSettings.site_description;
-    }
-  } catch (e) {}
+  } catch (_) {
+    appSettings = {};
+    window.appSettings = appSettings;
+  }
 
   await loadSidebar();
-
   window.addEventListener('hashchange', navigate);
   await navigate();
 
-  // User dropdown
   const userMenuBtn = qs('#user-menu-btn');
   const dropdown = qs('#user-dropdown');
   if (userMenuBtn && dropdown) {
@@ -310,24 +378,58 @@ async function init() {
     document.addEventListener('click', () => dropdown.classList.remove('open'));
   }
 
-  // Logout
   qs('#btn-logout')?.addEventListener('click', () => {
     saveToken(null); currentUser = null; updateAuthUI();
     toast('Đã đăng xuất', 'info'); location.hash = '/';
   });
 
-  // Search
   const doSearch = () => { const q = (qs('#search-input')?.value || '').trim(); if (q) location.hash = `/all?q=${encodeURIComponent(q)}`; };
   qs('#search-btn')?.addEventListener('click', doSearch);
   qs('#search-input')?.addEventListener('keypress', e => { if (e.key === 'Enter') doSearch(); });
 
-  // Hamburger (storefront)
   qs('#hamburger')?.addEventListener('click', toggleSidebar);
   qs('#sidebar-overlay')?.addEventListener('click', closeSidebar);
 
-  // Modal
   qs('#modal-close')?.addEventListener('click', closeModal);
   qs('#modal-overlay')?.addEventListener('click', (e) => { if (e.target === qs('#modal-overlay')) closeModal(); });
+
+  if (typeof ADMIN_DEBUG !== 'undefined' && ADMIN_DEBUG) {
+    document.addEventListener('click', (e) => {
+      if (!location.hash.startsWith('#/admin')) return;
+      const target = e.target.closest('button, a, [data-del], [data-del-banner], [data-del-fs], [data-del-gc], [data-del-page], [data-del-ann], [data-del-post], [data-del-cat], [data-cancel-order], [data-delpkg]');
+      if (!target) return;
+      adminDebugLog('click captured', {
+        text: target.textContent?.trim() || '',
+        id: target.id || null,
+        className: target.className || null,
+        dataset: { ...target.dataset },
+      });
+    }, true);
+
+    document.addEventListener('click', (e) => {
+      if (!location.hash.startsWith('#/admin')) return;
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      adminDebugLog('click top element', {
+        tag: el?.tagName || null,
+        id: el?.id || null,
+        className: el?.className || null,
+      });
+    }, true);
+
+    window.addEventListener('error', (e) => {
+      if (!location.hash.startsWith('#/admin')) return;
+      adminDebugLog('window error', { message: e.message, source: e.filename, line: e.lineno, column: e.colno });
+    });
+
+    window.addEventListener('unhandledrejection', (e) => {
+      if (!location.hash.startsWith('#/admin')) return;
+      adminDebugLog('unhandled rejection', String(e.reason));
+    });
+  }
+  } catch (err) {
+    console.error('App init failed:', err);
+    window.__appInitError = String(err?.stack || err?.message || err);
+  }
 }
 
 init();

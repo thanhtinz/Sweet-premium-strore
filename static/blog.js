@@ -115,7 +115,7 @@ async function renderBlogPost(view, { slug }) {
 // ═══════════════════════════════════════════════════════════════
 
 async function renderAdminBlog(view) {
-  const content = qs('#admin-content'); if (!content) return;
+  if (!view) return; const content = view; 
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
 
   let activeTab = 'posts'; // 'posts' or 'categories'
@@ -169,17 +169,32 @@ async function renderAdminBlog(view) {
           </tr>`).join('') : '<tr><td colspan="6" class="text-center text-muted">Chưa có bài viết nào</td></tr>'}</tbody>
         </table></div></div>
       `;
-      qs('#blog-add-post', wrap).onclick = () => { editingPost = 'new'; render(); };
-      qsa('[data-edit-post]', wrap).forEach(btn => {
-        btn.onclick = () => { editingPost = +btn.dataset.editPost; render(); };
-      });
-      qsa('[data-del-post]', wrap).forEach(btn => {
-        btn.onclick = async () => {
+      wrap.onclick = async (e) => {
+        const addBtn = e.target.closest('#blog-add-post');
+        if (addBtn) {
+          editingPost = 'new';
+          render();
+          return;
+        }
+
+        const editBtn = e.target.closest('[data-edit-post]');
+        if (editBtn) {
+          editingPost = +editBtn.dataset.editPost;
+          render();
+          return;
+        }
+
+        const delBtn = e.target.closest('[data-del-post]');
+        if (delBtn) {
           if (!confirm('Xóa bài viết này?')) return;
-          try { await apiFetch(`/blog/admin/posts/${btn.dataset.delPost}`, { method: 'DELETE' }); toast('Đã xóa', 'success'); render(); }
+          try {
+            await apiFetch(`/blog/admin/posts/${delBtn.dataset.delPost}`, { method: 'DELETE' });
+            toast('Đã xóa', 'success');
+            await renderPostsTab();
+          }
           catch (e) { toast(e.message, 'error'); }
-        };
-      });
+        }
+      };
     } catch (e) { wrap.innerHTML = `<p class="text-muted">${e.message}</p>`; }
   };
 
@@ -209,17 +224,31 @@ async function renderAdminBlog(view) {
           </tr>`).join('') : '<tr><td colspan="6" class="text-center text-muted">Chưa có danh mục nào</td></tr>'}</tbody>
         </table></div></div>
       `;
-      qs('#blog-add-cat', wrap).onclick = () => showBlogCatModal(null, renderCategoriesTab);
-      qsa('[data-edit-cat]', wrap).forEach(btn => {
-        btn.onclick = () => { const c = cats.find(x => x.id === +btn.dataset.editCat); if (c) showBlogCatModal(c, renderCategoriesTab); };
-      });
-      qsa('[data-del-cat]', wrap).forEach(btn => {
-        btn.onclick = async () => {
+      wrap.onclick = async (e) => {
+        const addBtn = e.target.closest('#blog-add-cat');
+        if (addBtn) {
+          showBlogCatModal(null, renderCategoriesTab);
+          return;
+        }
+
+        const editBtn = e.target.closest('[data-edit-cat]');
+        if (editBtn) {
+          const c = cats.find(x => x.id === +editBtn.dataset.editCat);
+          if (c) showBlogCatModal(c, renderCategoriesTab);
+          return;
+        }
+
+        const delBtn = e.target.closest('[data-del-cat]');
+        if (delBtn) {
           if (!confirm('Xóa danh mục này?')) return;
-          try { await apiFetch(`/blog/admin/categories/${btn.dataset.delCat}`, { method: 'DELETE' }); toast('Đã xóa', 'success'); renderCategoriesTab(); }
+          try {
+            await apiFetch(`/blog/admin/categories/${delBtn.dataset.delCat}`, { method: 'DELETE' });
+            toast('Đã xóa', 'success');
+            await renderCategoriesTab();
+          }
           catch (e) { toast(e.message, 'error'); }
-        };
-      });
+        }
+      };
     } catch (e) { wrap.innerHTML = `<p class="text-muted">${e.message}</p>`; }
   };
 
