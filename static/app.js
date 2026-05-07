@@ -143,17 +143,15 @@ async function loadSidebar() {
   if (!nav) return;
   try {
     categories = await apiFetch('/categories/');
-    nav.innerHTML = '<div class="sidebar-section-title">Danh mục</div>';
-    const allItem = el('a', 'nav-item' + (location.hash === '#/' || !location.hash ? ' active' : ''));
-    allItem.href = '#/';
-    allItem.innerHTML = '<div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span>Tất cả</span>';
-    nav.appendChild(allItem);
-    if (currentUser && appSettings.features?.wishlist !== false) {
-      const wlItem = el('a', 'nav-item' + (location.hash === '#/wishlist' ? ' active' : ''));
-      wlItem.href = '#/wishlist';
-      wlItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-heart" style="color:#ef4444;font-size:16px;"></i></div><span>Yêu thích</span>';
-      nav.appendChild(wlItem);
-    }
+
+    // ── Trang chủ ──
+    const homeItem = el('a', 'nav-item' + (location.hash === '#/' || !location.hash ? ' active' : ''));
+    homeItem.href = '#/';
+    homeItem.innerHTML = '<div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span>Trang chủ</span>';
+    nav.appendChild(homeItem);
+
+    // ── Danh mục ──
+    nav.innerHTML += '<div class="sidebar-section-title">Danh mục</div>';
     categories.forEach(cat => {
       const item = el('a', 'nav-item');
       item.href = `#/all?cat=${cat.slug}`;
@@ -172,6 +170,13 @@ async function loadSidebar() {
     offersItem.href = '#/offers';
     offersItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-gift"></i></div><span>Ưu đãi</span>';
     if (appSettings.features?.offers !== false) nav.appendChild(offersItem);
+
+    if (currentUser && appSettings.features?.wishlist !== false) {
+      const wlItem = el('a', 'nav-item' + (location.hash === '#/wishlist' ? ' active' : ''));
+      wlItem.href = '#/wishlist';
+      wlItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-heart" style="color:#ef4444;font-size:16px;"></i></div><span>Yêu thích</span>';
+      nav.appendChild(wlItem);
+    }
 
     const supportItem = el('a', 'nav-item' + (location.hash.startsWith('#/support') ? ' active' : ''));
     supportItem.href = '#/support';
