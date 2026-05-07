@@ -86,7 +86,7 @@ async function renderProfile(view) {
     balanceCard.innerHTML = `
       <div class="info-card-head" style="display:flex;justify-content:space-between;align-items:center;">
         <div class="info-card-title"><i class="fa-solid fa-wallet"></i> Số dư tài khoản</div>
-        <div style="font-size:24px;font-weight:800;color:#10b981;">${fmt(myBalance)}</div>
+        <div style="font-size:24px;font-weight:800;color:#f472b6;">${fmt(myBalance)}</div>
       </div>
       <div class="info-card-body">
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -104,7 +104,7 @@ async function renderProfile(view) {
         <div class="form-group">
           <label class="form-label">Số tiền nạp</label>
           <input type="number" class="form-input" id="topup-amount" min="10000" max="10000000" step="1000" placeholder="Nhập số tiền..." style="font-size:18px;font-weight:700;" />
-          <div class="form-hint">Tối thiểu 10,000đ — Tối đa 10,000,000đ</div>
+          <div class="form-hint">Tối thiểu 10,000 candy — Tối đa 10,000,000 candy</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
           ${[50000,100000,200000,500000,1000000].map(v => `<button class="btn btn-ghost btn-sm topup-preset" data-amount="${v}">${fmt(v)}</button>`).join('')}

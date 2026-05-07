@@ -1,32 +1,22 @@
 [
   {
-    "content": "[profile] Remove tx history from balance card, add tx history card below orders card",
+    "content": "Xoá references Workshop AI trong comments",
     "id": "1",
     "status": "completed"
   },
   {
-    "content": "[sidebar] Center logo+name in sidebar header",
+    "content": "Fix CORS wildcard credentials",
     "id": "2",
     "status": "completed"
   },
   {
-    "content": "[product] Stock badges with colored box icons (green/orange/red) + reviews 3 per page",
+    "content": "Xoá admin_tmp.js (file rác)",
     "id": "3",
     "status": "completed"
   },
   {
-    "content": "[product] Related products section already exists",
+    "content": "Fix XSS - escape user input trong innerHTML",
     "id": "4",
-    "status": "completed"
-  },
-  {
-    "content": "[product] Add notes per package (DB + admin + frontend), expandable description card",
-    "id": "5",
-    "status": "completed"
-  },
-  {
-    "content": "[final] Bug check, security review, push to GitHub",
-    "id": "6",
     "status": "completed"
   }
 ]

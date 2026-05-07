@@ -2,7 +2,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# Support both Workshop connector prefix and standard DATABASE_URL
+# Support both connector prefix and standard DATABASE_URL
 DATABASE_URL = (
     os.environ.get("DB556FD74B_DATABASE_URL")
     or os.environ.get("DATABASE_URL")

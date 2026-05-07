@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-# Port conflict guard — active in Workshop sandbox, skipped elsewhere
+# Port conflict guard
 if (-not $env:APP_PORT) { $env:APP_PORT = "3001" }
 
 # Startup timing

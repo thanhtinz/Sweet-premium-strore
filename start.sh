@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Port conflict guard — active in Workshop sandbox, skipped elsewhere
+# Port conflict guard
 APP_PORT=${APP_PORT:-3071}
 if [ -f /usr/local/lib/workshop-devguard.sh ]; then
     source /usr/local/lib/workshop-devguard.sh

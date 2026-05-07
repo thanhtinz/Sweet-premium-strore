@@ -41,12 +41,16 @@ def get_file_hash(filepath: str) -> str:
 def create_app(static_dir: str) -> FastAPI:
     app = FastAPI(title="Digital Product Shop", version="1.0.0")
 
+    # CORS — restrict in production via ALLOWED_ORIGINS env var
+    allowed_origins = os.environ.get("ALLOWED_ORIGINS", "").strip()
+    origins = [o.strip() for o in allowed_origins.split(",") if o.strip()] if allowed_origins else []
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=origins if origins else ["*"],
+        allow_credentials=bool(origins),
+        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+        allow_headers=["Authorization", "Content-Type"],
     )
 
     # Init DB on startup

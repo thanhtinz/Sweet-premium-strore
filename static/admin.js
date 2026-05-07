@@ -189,7 +189,7 @@ async function renderAdminCategories(view) {
       const indent = depth > 0 ? `padding-left:${depth * 24}px;` : '';
       const prefix = depth > 0 ? '<span style="color:var(--text-muted);margin-right:6px;">↳</span>' : '';
       const iconImg = c.icon_url ? `<img src="${c.icon_url}" style="width:18px;height:18px;border-radius:4px;vertical-align:middle;margin-right:6px;object-fit:cover;" alt="" />` : '';
-      let row = `<tr><td class="text-muted">#${c.id}</td><td class="td-bold" style="${indent}">${prefix}${iconImg}${c.name}</td><td class="td-mono">${c.slug}</td><td>${c.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td><td>${c.sort_order}</td><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit="${c.id}">Sửa</button><button class="tbl-btn tbl-delete" data-del="${c.id}">Xóa</button></div></td></tr>`;
+      let row = `<tr><td class="text-muted">#${c.id}</td><td class="td-bold" style="${indent}">${prefix}${iconImg}${esc(c.name)}</td><td class="td-mono">${esc(c.slug)}</td><td>${c.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td><td>${c.sort_order}</td><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit="${c.id}">Sửa</button><button class="tbl-btn tbl-delete" data-del="${c.id}">Xóa</button></div></td></tr>`;
       if (c.children?.length) row += renderRows(c.children, depth + 1);
       return row;
     }).join('');
@@ -1021,6 +1021,21 @@ async function renderAdminSettings(view) {
           ${toggleRow('ap-show-banner', 'Hiển thị Banner', 'Bật/tắt banner quảng cáo', ap.show_banner !== false)}
           ${toggleRow('ap-show-viewed', 'Hiển thị Sản phẩm đã xem', 'Hiển thị section sản phẩm đã xem gần đây', ap.show_viewed !== false)}
         </div>
+        <div class="settings-card mt-16">
+          <div class="settings-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Danh mục hiển thị trên Trang chủ
+          </div>
+          <p class="text-muted text-sm mb-16">Chọn các danh mục sẽ hiển thị sản phẩm trên trang chủ. Kéo để sắp xếp thứ tự.</p>
+          <div class="home-cat-picker" id="home-cat-picker">
+            ${categories.map(c => {
+              const checked = (ap.home_categories || '').split(',').map(s => s.trim()).includes(c.slug);
+              const iconUrl = c.image_url || c.icon_url;
+              const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width:20px;height:20px;object-fit:contain;border-radius:4px;" />` : '<i class="fa-solid fa-folder" style="font-size:16px;color:var(--text-muted)"></i>';
+              return `<label class="home-cat-item${checked ? ' selected' : ''}"><input type="checkbox" value="${c.slug}" ${checked ? 'checked' : ''} />${iconHtml}<span>${esc(c.name)}</span></label>`;
+            }).join('')}
+          </div>
+        </div>
       </div>
 
       <!-- ═══ Scripts ═══ -->
@@ -1156,6 +1171,15 @@ async function renderAdminSettings(view) {
     };
   });
 
+  // ── Home category picker toggle ──
+  const picker = qs('#home-cat-picker', content);
+  if (picker) {
+    picker.addEventListener('change', (e) => {
+      const label = e.target.closest('.home-cat-item');
+      if (label) label.classList.toggle('selected', e.target.checked);
+    });
+  }
+
   // ── Reset button ──
   qs('#btn-reset-settings', content).onclick = () => {
     renderAdminSettings(view);
@@ -1182,6 +1206,7 @@ async function renderAdminSettings(view) {
         show_slider: chk('ap-show-slider'),
         show_banner: chk('ap-show-banner'),
         show_viewed: chk('ap-show-viewed'),
+        home_categories: [...qsa('#home-cat-picker input:checked', content)].map(i => i.value).join(','),
       },
       settings_scripts: {
         header_script: val('sc-header'),

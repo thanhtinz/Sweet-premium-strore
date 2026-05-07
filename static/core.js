@@ -16,7 +16,7 @@ let cart = JSON.parse(localStorage.getItem('cart') || '[]');
 let appSettings = {};
 
 // ── Utilities ──────────────────────────────────────────────────
-const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
+const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n) + ' <img src="/static/candy-icon.png" class="currency-icon" alt="candy" />';
 const fmtDate = (s) => s ? new Date(s).toLocaleString('vi-VN') : '—';
 const esc = (s) => { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
 const qs = (s, el = document) => el.querySelector(s);
@@ -109,7 +109,7 @@ function updateAuthUI() {
     if (dropdownEmail) dropdownEmail.textContent = email;
     if (dropdownBalance) {
       const bal = currentUser.balance || 0;
-      dropdownBalance.textContent = `Số dư: ${bal.toLocaleString('vi-VN')}đ`;
+      dropdownBalance.innerHTML = `Số dư: ${bal.toLocaleString('vi-VN')} <img src="/static/candy-icon.png" class="currency-icon" alt="candy" />`;
     }
     if (userAvatar) {
       if (currentUser.avatar_url) {

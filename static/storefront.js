@@ -286,16 +286,20 @@ async function renderHome(view) {
   }
 
   // ── Wishlist / Favorites on Home ──────────────────────────
-  if (currentUser && window._wishlistIds?.size > 0 && appSettings.features?.wishlist !== false) {
+  if (currentUser && appSettings.features?.wishlist !== false) {
     try {
       const wlData = await apiFetch('/wishlist/?limit=6');
+      const wlHead = el('div', 'section-head mt-32');
+      wlHead.innerHTML = `<div class="section-title mb-0"><i class="fa-solid fa-heart" style="color:#ef4444"></i> Sản phẩm yêu thích</div><a href="#/wishlist" class="btn btn-primary btn-sm" style="font-weight: 600;">Xem tất cả <i class="fa-solid fa-arrow-right"></i></a>`;
+      frag.appendChild(wlHead);
       if (wlData.items?.length) {
-        const wlHead = el('div', 'section-head mt-32');
-        wlHead.innerHTML = `<div class="section-title mb-0"><i class="fa-solid fa-heart" style="color:#ef4444"></i> Sản phẩm yêu thích</div><a href="#/wishlist" class="btn btn-primary btn-sm" style="font-weight: 600;">Xem tất cả <i class="fa-solid fa-arrow-right"></i></a>`;
-        frag.appendChild(wlHead);
         const wlGrid = el('div', 'product-grid');
         wlData.items.forEach(p => wlGrid.appendChild(productCard(p)));
         frag.appendChild(wlGrid);
+      } else {
+        const emptyWl = el('div', 'wishlist-empty-hint');
+        emptyWl.innerHTML = `<i class="fa-regular fa-heart"></i><p>Nhấn <i class="fa-solid fa-heart" style="color:#ef4444"></i> trên sản phẩm để thêm vào danh sách yêu thích</p>`;
+        frag.appendChild(emptyWl);
       }
     } catch (_) {}
   }
@@ -313,9 +317,9 @@ async function renderHome(view) {
       
       const catData = homeCatProducts[slug];
       if (catData && catData.items && catData.items.length) {
-        const grid = el('div', 'product-grid');
-        catData.items.forEach(p => grid.appendChild(productCard(p)));
-        frag.appendChild(grid);
+        const list = el('div', 'product-list-grid');
+        catData.items.forEach(p => list.appendChild(productListCard(p)));
+        frag.appendChild(list);
       } else {
         frag.appendChild(el('p', 'text-muted mb-32', 'Đang cập nhật sản phẩm...'));
       }
@@ -367,6 +371,22 @@ async function renderAllProducts(view) {
     <p class="products-hero-desc" id="ph-desc">Khám phá bộ sưu tập sản phẩm chất lượng cao được chọn lọc dành riêng cho bạn</p>
   `;
   view.appendChild(heroHead);
+
+  // Category navigation bar
+  if (categories.length) {
+    const catNav = el('div', 'products-cat-nav');
+    const allBtn = el('a', `products-cat-btn${!initCat ? ' active' : ''}`, `<i class="fa-solid fa-border-all"></i> <span>Tất cả</span>`);
+    allBtn.href = '#/all';
+    catNav.appendChild(allBtn);
+    categories.forEach(c => {
+      const iconUrl = c.image_url || c.icon_url;
+      const iconHtml = iconUrl ? `<img src="${iconUrl}" alt="" loading="lazy" decoding="async" />` : `<i class="fa-solid fa-folder"></i>`;
+      const btn = el('a', `products-cat-btn${c.slug === initCat ? ' active' : ''}`, `${iconHtml} <span>${c.name}</span>`);
+      btn.href = `#/all?cat=${c.slug}`;
+      catNav.appendChild(btn);
+    });
+    view.appendChild(catNav);
+  }
 
   // Filter card
   const filterCard = el('div', 'filter-card');
@@ -544,17 +564,88 @@ async function renderAllProducts(view) {
   await doFilter(1);
 }
 
+function productListCard(p) {
+  const card = el('div', 'product-list-card');
+  const imgHtml = p.image_url
+    ? `<img class="product-list-img" src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" decoding="async" />`
+    : `<div class="product-list-img-placeholder"><i class="fa-solid fa-box-open"></i></div>`;
+  const priceHtml = p.min_price
+    ? (p.max_price && p.max_price > p.min_price
+      ? `${fmt(p.min_price)} ~ ${fmt(p.max_price)}`
+      : fmt(p.min_price))
+    : '<span class="price-contact">Liên hệ</span>';
+
+  // Delivery tag from first package
+  let tagHtml = '';
+  if (p.packages?.length) {
+    const pkg = p.packages[0];
+    if (pkg.delivery_type === 'auto') {
+      tagHtml = `<span class="plist-tag plist-tag-auto"><i class="fa-solid fa-bolt"></i> Tự động</span>`;
+    } else {
+      tagHtml = `<span class="plist-tag plist-tag-manual"><i class="fa-solid fa-hand-holding-heart"></i> Thủ công</span>`;
+    }
+  }
+
+  // Real rating
+  const rating = p.avg_rating || 0;
+  const reviewCount = p.review_count || 0;
+  const stars = [1,2,3,4,5].map(i =>
+    `<i class="fa-star ${i <= Math.round(rating) ? 'fa-solid filled' : 'fa-regular'}"></i>`
+  ).join('');
+  const ratingText = reviewCount > 0 ? `<span class="plist-rating-count">(${reviewCount})</span>` : '';
+
+  const soldCount = p.sold_count || 0;
+  const soldHtml = soldCount > 0 ? `<span class="plist-sold"><i class="fa-solid fa-bag-shopping"></i> Đã bán ${soldCount}</span>` : '';
+
+  card.innerHTML = `
+    ${imgHtml}
+    <div class="product-list-info">
+      <div class="product-list-name">${esc(p.name)}</div>
+      <div class="product-list-price">${priceHtml}</div>
+      <div class="product-list-tags">${tagHtml}${soldHtml}</div>
+      <div class="product-list-stars">${stars} ${ratingText}</div>
+    </div>
+  `;
+  card.onclick = () => { location.hash = `/product/${p.slug}`; };
+  return card;
+}
+
 function productCard(p) {
   const card = el('div', 'product-card');
   const imgHtml = p.image_url
-    ? `<img class="product-card-img" src="${p.image_url}" alt="${p.name}" loading="lazy" decoding="async" />`
+    ? `<img class="product-card-img" src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" decoding="async" />`
     : `<div class="product-card-img-placeholder"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>`;
+
+  // Delivery tag
+  let tagHtml = '';
+  if (p.packages?.length) {
+    const pkg = p.packages[0];
+    tagHtml = pkg.delivery_type === 'auto'
+      ? `<span class="pcard-tag pcard-tag-auto"><i class="fa-solid fa-bolt"></i> Tự động</span>`
+      : `<span class="pcard-tag pcard-tag-manual"><i class="fa-solid fa-hand-holding-heart"></i> Thủ công</span>`;
+  }
+
+  // Rating & sold
+  const rating = p.avg_rating || 0;
+  const reviewCount = p.review_count || 0;
+  const soldCount = p.sold_count || 0;
+  const stars = [1,2,3,4,5].map(i =>
+    `<i class="fa-star ${i <= Math.round(rating) ? 'fa-solid filled' : 'fa-regular'}"></i>`
+  ).join('');
+
+  let metaItems = [];
+  if (reviewCount > 0) metaItems.push(`<span class="pcard-meta-item"><i class="fa-solid fa-star filled"></i> ${rating}</span>`);
+  if (soldCount > 0) metaItems.push(`<span class="pcard-meta-item"><i class="fa-solid fa-bag-shopping"></i> Đã bán ${soldCount}</span>`);
+
   card.innerHTML = `
-    ${imgHtml}
+    <div class="pcard-img-wrap">
+      ${imgHtml}
+      ${tagHtml}
+    </div>
     <div class="product-card-body">
-      ${p.category_name ? `<div class="product-card-cat">${p.category_name}</div>` : ''}
-      <div class="product-card-name">${p.name}</div>
-      <div class="product-card-price">${p.min_price ? 'Từ ' + fmt(p.min_price) : '<span class="price-contact">Liên hệ</span>'}</div>
+      <div class="product-card-name">${esc(p.name)}</div>
+      <div class="product-card-price">${p.min_price ? (p.max_price && p.max_price > p.min_price ? fmt(p.min_price) + ' ~ ' + fmt(p.max_price) : fmt(p.min_price)) : '<span class="price-contact">Liên hệ</span>'}</div>
+      ${metaItems.length ? `<div class="pcard-meta">${metaItems.join('<span class="pcard-meta-sep">·</span>')}</div>` : ''}
     </div>
   `;
   card.onclick = () => { location.hash = `/product/${p.slug}`; };
@@ -627,9 +718,11 @@ async function renderProduct(view, { slug }) {
 
       // Breadcrumb
       let bcCatHref = '';
+      let bcParentHtml = '';
       if (p.category_slug) {
         const pCat = categories.find(c => c.children?.some(s => s.slug === p.category_slug || s.id === p.category_id));
         if (pCat) {
+          bcParentHtml = `<a href="#/all?cat=${pCat.slug}">${esc(pCat.name)}</a> <span>›</span> `;
           bcCatHref = `#/all?cat=${pCat.slug}&sub=${p.category_slug || p.category_id}`;
         } else {
           bcCatHref = `#/all?cat=${p.category_slug || p.category_id}`;
@@ -639,7 +732,7 @@ async function renderProduct(view, { slug }) {
       const topSection = el('div', 'pd-top-section');
 
       // Breadcrumb inside top section
-      topSection.appendChild(el('div', 'breadcrumb', `<a href="#/">Trang chủ</a> <span>›</span> ${p.category_name ? `<a href="${bcCatHref}">${p.category_name}</a> <span>›</span> ` : ''}${p.name}`));
+      topSection.appendChild(el('div', 'breadcrumb', `<a href="#/">Trang chủ</a> <span>›</span> ${bcParentHtml}${p.category_name ? `<a href="${bcCatHref}">${esc(p.category_name)}</a> <span>›</span> ` : ''}${esc(p.name)}`));
 
       // Image with overlay badges
       const imgWrap = el('div', 'pd-hero-img');

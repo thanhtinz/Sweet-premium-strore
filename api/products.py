@@ -163,6 +163,23 @@ def pkg_to_dict(pkg: ProductPackage, db: Session = None) -> dict:
 
 
 def product_to_dict(p: Product, include_packages=True, db=None) -> dict:
+    # Compute review stats
+    visible_reviews = [r for r in p.reviews if r.is_visible] if p.reviews else []
+    review_count = len(visible_reviews)
+    avg_rating = round(sum(r.rating for r in visible_reviews) / review_count, 1) if review_count else 0
+
+    # Compute sold count
+    sold_count = 0
+    if db:
+        from db.models import Order
+        sold = db.query(func.sum(Order.quantity)).join(
+            ProductPackage, Order.package_id == ProductPackage.id
+        ).filter(
+            ProductPackage.product_id == p.id,
+            Order.status.in_(["paid", "completed"]),
+        ).scalar()
+        sold_count = sold or 0
+
     d = {
         "id": p.id,
         "name": p.name,
@@ -178,11 +195,15 @@ def product_to_dict(p: Product, include_packages=True, db=None) -> dict:
         "is_active": p.is_active,
         "sort_order": p.sort_order,
         "created_at": p.created_at.isoformat() if p.created_at else None,
+        "avg_rating": avg_rating,
+        "review_count": review_count,
+        "sold_count": sold_count,
     }
     if include_packages:
         active_pkgs = [pkg for pkg in p.packages if pkg.is_active]
         d["packages"] = [pkg_to_dict(pkg, db=db) for pkg in sorted(active_pkgs, key=lambda x: x.sort_order)]
         d["min_price"] = min((float(pkg.price) for pkg in active_pkgs), default=None)
+        d["max_price"] = max((float(pkg.price) for pkg in active_pkgs), default=None)
     return d
 
 
@@ -253,7 +274,7 @@ def list_products(
         "total": total,
         "page": page,
         "limit": limit,
-        "items": [product_to_dict(p) for p in products]
+        "items": [product_to_dict(p, db=db) for p in products]
     }
 
 
@@ -263,7 +284,7 @@ def list_featured(limit: int = 12, db: Session = Depends(get_db)):
         Product.is_active == True,
         Product.is_featured == True
     ).order_by(Product.sort_order).limit(limit).all()
-    return [product_to_dict(p) for p in products]
+    return [product_to_dict(p, db=db) for p in products]
 
 
 @router.get("/{slug}")
@@ -291,13 +312,25 @@ def get_product(slug: str, db: Session = Depends(get_db)):
     ).scalar()
     d["sold_count"] = sold or 0
 
-    # Related products (same category, up to 6)
+    # Related products (same parent category, up to 6)
     related = []
     if p.category_id:
+        from db.models import Category
+        cat = db.query(Category).filter(Category.id == p.category_id).first()
+        # Find sibling category IDs (same parent)
+        if cat and cat.parent_id:
+            sibling_ids = [c.id for c in db.query(Category).filter(Category.parent_id == cat.parent_id).all()]
+        elif cat:
+            # This IS a parent category — include its children
+            sibling_ids = [c.id for c in db.query(Category).filter(Category.parent_id == cat.id).all()]
+            sibling_ids.append(cat.id)
+        else:
+            sibling_ids = [p.category_id]
+
         rels = (
             db.query(Product)
             .filter(
-                Product.category_id == p.category_id,
+                Product.category_id.in_(sibling_ids),
                 Product.id != p.id,
                 Product.is_active == True,
             )
@@ -305,11 +338,7 @@ def get_product(slug: str, db: Session = Depends(get_db)):
             .limit(6)
             .all()
         )
-        related = [product_to_dict(r, include_packages=False, db=db) for r in rels]
-        # Add min price from packages for each related product
-        for rp, r_model in zip(related, rels):
-            active_pkgs = [pkg for pkg in r_model.packages if pkg.is_active]
-            rp["min_price"] = min((float(pkg.price) for pkg in active_pkgs), default=None)
+        related = [product_to_dict(r, include_packages=True, db=db) for r in rels]
     d["related"] = related
 
     return d

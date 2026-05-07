@@ -97,5 +97,5 @@ def _product_summary(p: Product):
         "image_url": p.image_url,
         "min_price": min_price,
         "category_name": p.category.name if p.category else None,
-        "sold_count": p.sold_count or 0,
+        "sold_count": getattr(p, 'sold_count', 0) or 0,
     }

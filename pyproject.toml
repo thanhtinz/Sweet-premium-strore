@@ -27,5 +27,3 @@ dependencies = [
 
 [tool.uv]
 exclude-newer = "14 days"
-# workshop-connect is published by us; exempt from the rolling window.
-exclude-newer-package = { workshop-connect = "2027-01-01" }
