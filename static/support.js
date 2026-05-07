@@ -304,18 +304,26 @@ async function renderTicketDetail(ticketId) {
         <div class="info-card-title"><i class="fa-solid fa-comments"></i> Tin nhắn (${messages.length})</div>
       </div>
       <div class="info-card-body" style="padding:0;">
-        ${messages.map(msg => `
-          <div style="padding:16px 20px;border-bottom:1px solid var(--border);${msg.sender_type === 'admin' ? 'background:#f8f9ff;' : ''}">
-            <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-              <strong style="font-size:13px;color:${msg.sender_type === 'admin' ? 'var(--primary)' : 'var(--text-heading)'};">
-                ${msg.sender_name}
-                ${msg.sender_type === 'admin' ? '<span style="font-size:11px;background:var(--primary);color:#fff;padding:1px 6px;border-radius:4px;margin-left:6px;">Admin</span>' : ''}
-              </strong>
-              <span style="font-size:12px;color:var(--text-muted);">${new Date(msg.created_at).toLocaleString('vi-VN')}</span>
+        ${messages.map(msg => {
+          const avatarUrl = withAvatarFallback(msg.sender_avatar_url || (msg.sender_type === 'admin' ? '' : currentUser?.avatar_url));
+          const avatarHtml = avatarUrl
+            ? `<img class="support-msg-avatar" src="${avatarUrl}" alt="${msg.sender_name}" onerror="${onImgFallback('avatar')}" />`
+            : `<div class="support-msg-avatar support-msg-avatar-fallback">${esc((msg.sender_name || 'U').charAt(0).toUpperCase())}</div>`;
+          return `
+          <div class="support-msg-row${msg.sender_type === 'admin' ? ' is-admin' : ''}">
+            <div class="support-msg-avatar-wrap">${avatarHtml}</div>
+            <div class="support-msg-bubble">
+              <div class="support-msg-head">
+                <strong class="support-msg-name${msg.sender_type === 'admin' ? ' is-admin' : ''}">
+                  ${msg.sender_name}
+                  ${msg.sender_type === 'admin' ? '<span class="support-msg-badge">Admin</span>' : ''}
+                </strong>
+                <span class="support-msg-time">${new Date(msg.created_at).toLocaleString('vi-VN')}</span>
+              </div>
+              <div class="support-msg-text">${msg.message}</div>
             </div>
-            <div style="font-size:14px;line-height:1.7;color:var(--text-body);white-space:pre-wrap;">${msg.message}</div>
           </div>
-        `).join('')}
+        `;}).join('')}
         ${!messages.length ? '<div style="padding:32px 20px;text-align:center;color:var(--text-muted);">Chưa có tin nhắn</div>' : ''}
       </div>
     `;

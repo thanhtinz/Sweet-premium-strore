@@ -1260,10 +1260,19 @@ async function renderProduct(view, { slug }) {
             const list = el('div', 'pd-review-list');
             reviewData.items.forEach(r => {
               const item = el('div', 'pd-review-item');
+              const avatarUrl = withAvatarFallback(r.user_avatar_url || r.avatar_url);
+              const avatarHtml = avatarUrl
+                ? `<img class="pd-review-avatar" src="${avatarUrl}" alt="${esc(r.user_name)}" onerror="${onImgFallback('avatar')}" />`
+                : `<div class="pd-review-avatar pd-review-avatar-fallback">${esc((r.user_name || 'U').charAt(0).toUpperCase())}</div>`;
               item.innerHTML = `
                 <div class="pd-review-head">
-                  <span class="pd-review-user">${esc(r.user_name)}</span>
-                  ${r.is_verified ? '<span class="pd-badge pd-badge-green pd-badge-sm">Đã mua hàng</span>' : ''}
+                  <div class="pd-review-user-wrap">
+                    ${avatarHtml}
+                    <div class="pd-review-user-meta">
+                      <span class="pd-review-user">${esc(r.user_name)}</span>
+                      ${r.is_verified ? '<span class="pd-badge pd-badge-green pd-badge-sm">Đã mua hàng</span>' : ''}
+                    </div>
+                  </div>
                 </div>
                 <div class="pd-review-stars">${starsHtml(r.rating, 14)}</div>
                 <div class="pd-review-comment">${esc(r.comment)}</div>

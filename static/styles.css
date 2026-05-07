@@ -450,11 +450,6 @@ img { max-width: 100%; display: block; }
   max-width: 300px;
 }
 
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
 .user-info-text {
   display: flex;
   flex-direction: column;
@@ -4297,6 +4292,16 @@ a.support-contact-value:hover {
   border: 1px solid var(--border); background: var(--bg-card);
 }
 .pd-review-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.pd-review-user-wrap { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.pd-review-user-meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pd-review-avatar {
+  width: 42px; height: 42px; border-radius: 999px; object-fit: cover; flex-shrink: 0;
+  border: 1px solid var(--border); background: var(--bg-page);
+}
+.pd-review-avatar-fallback {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; color: var(--text-heading);
+}
 .pd-review-user { font-weight: 600; font-size: 14px; color: var(--text-heading); }
 .pd-review-stars { display: flex; gap: 1px; margin-bottom: 6px; align-items: center; }
 .pd-review-comment { font-size: 14px; line-height: 1.7; color: var(--text-body); margin-bottom: 8px; word-wrap: break-word; overflow-wrap: break-word; }
@@ -4544,12 +4549,6 @@ a.support-contact-value:hover {
   color: #fff;
   transform: none;
 }
-
-  cursor: pointer; padding: 4px;
-  border-radius: 4px; transition: background var(--transition);
-  display: flex; align-items: center;
-}
-.pd-modal-star:hover { background: var(--amber-bg); }
 
 /* ── Card 6: Related products ── */
 .pd-rel-scroll {
