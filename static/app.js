@@ -321,9 +321,23 @@ async function init() {
     window.appSettings = appSettings;
 
     const logoUrl = appSettings.logo_url || appSettings.site_logo;
+    const faviconUrl = appSettings.favicon_url;
+    const defaultImageUrl = appSettings.default_image_url;
+    const defaultAvatarUrl = appSettings.default_avatar_url;
     if (appSettings.site_name) {
       document.title = appSettings.site_name;
     }
+    if (faviconUrl) {
+      let favicon = document.querySelector('link[rel="icon"]');
+      if (!favicon) {
+        favicon = document.createElement('link');
+        favicon.rel = 'icon';
+        document.head.appendChild(favicon);
+      }
+      favicon.href = faviconUrl;
+    }
+    if (defaultImageUrl) window.defaultImageUrl = defaultImageUrl;
+    if (defaultAvatarUrl) window.defaultAvatarUrl = defaultAvatarUrl;
 
     const logoLink = qs('#logo-link');
     if (logoLink) {

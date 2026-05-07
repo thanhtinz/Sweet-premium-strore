@@ -43,8 +43,8 @@ async function renderHome(view) {
     heroBanners.forEach((b, i) => {
       const slide = el('div', `banner-slide${i === 0 ? ' active' : ''}`);
       const inner = b.link
-        ? `<a href="${b.link}"><img src="${b.image_url}" alt="${b.title}" loading="lazy" decoding="async" /></a>`
-        : `<img src="${b.image_url}" alt="${b.title}" loading="lazy" decoding="async" />`;
+        ? `<a href="${b.link}"><img src="${withImageFallback(b.image_url)}" alt="${b.title}" loading="lazy" decoding="async" onerror="${onImgFallback()}" /></a>`
+        : `<img src="${withImageFallback(b.image_url)}" alt="${b.title}" loading="lazy" decoding="async" onerror="${onImgFallback()}" />`;
       slide.innerHTML = inner;
       track.appendChild(slide);
     });
@@ -87,8 +87,8 @@ async function renderHome(view) {
     catBanners.forEach(b => {
       const card = el('div', 'banner-card');
       const inner = b.link
-        ? `<a href="${b.link}"><img src="${b.image_url}" alt="${b.title}" loading="lazy" decoding="async" /></a>`
-        : `<img src="${b.image_url}" alt="${b.title}" loading="lazy" decoding="async" />`;
+        ? `<a href="${b.link}"><img src="${withImageFallback(b.image_url)}" alt="${b.title}" loading="lazy" decoding="async" onerror="${onImgFallback()}" /></a>`
+        : `<img src="${withImageFallback(b.image_url)}" alt="${b.title}" loading="lazy" decoding="async" onerror="${onImgFallback()}" />`;
       card.innerHTML = inner;
       grid.appendChild(card);
     });
@@ -168,7 +168,7 @@ async function renderHome(view) {
     categories.forEach(cat => {
       const pill = el('button', 'cat-pill');
       const iconUrl = cat.image_url || cat.icon_url;
-      const iconHtml = iconUrl ? `<img src="${iconUrl}" alt="" loading="lazy" decoding="async" style="width:16px;height:16px;object-fit:contain;border-radius:2px;margin-right:4px;" />` : ico.box;
+      const iconHtml = iconUrl ? `<img src="${withImageFallback(iconUrl)}" alt="" loading="lazy" decoding="async" onerror="${onImgFallback()}" style="width:16px;height:16px;object-fit:contain;border-radius:2px;margin-right:4px;" />` : ico.box;
       pill.innerHTML = `${iconHtml} <span>${cat.name}</span>`;
       pill.dataset.slug = cat.slug;
       pills.appendChild(pill);
@@ -201,7 +201,7 @@ async function renderHome(view) {
         children.forEach(sub => {
           const card = el('div', 'subcat-card');
           const iconHtml = sub.icon_url
-            ? `<img src="${sub.icon_url}" alt="${sub.name}" loading="lazy" decoding="async" />`
+            ? `<img src="${withImageFallback(sub.icon_url)}" alt="${sub.name}" loading="lazy" decoding="async" onerror="${onImgFallback()}" />`
             : `<div class="subcat-icon">${ico.box}</div>`;
           card.innerHTML = `${iconHtml}<span class="subcat-name">${sub.name}</span>`;
           card.onclick = () => {
@@ -310,7 +310,7 @@ async function renderHome(view) {
       if (!cat) continue;
       
       const catHead = el('div', 'section-head mt-32');
-      catHead.innerHTML = `<div class="section-title mb-0">${cat.icon_url ? `<img src="${cat.icon_url}" loading="lazy" decoding="async" style="width:24px;height:24px;object-fit:contain;vertical-align:middle"/>` : ico.box} ${cat.name}</div><a href="#/all?cat=${cat.slug}" class="btn btn-primary btn-sm" style="font-weight: 600;">Xem tất cả <i class="fa-solid fa-arrow-right"></i></a>`;
+      catHead.innerHTML = `<div class="section-title mb-0">${cat.icon_url ? `<img src="${withImageFallback(cat.icon_url)}" loading="lazy" decoding="async" onerror="${onImgFallback()}" style="width:24px;height:24px;object-fit:contain;vertical-align:middle"/>` : ico.box} ${cat.name}</div><a href="#/all?cat=${cat.slug}" class="btn btn-primary btn-sm" style="font-weight: 600;">Xem tất cả <i class="fa-solid fa-arrow-right"></i></a>`;
       frag.appendChild(catHead);
       
       const catData = homeCatProducts[slug];
@@ -1482,7 +1482,7 @@ function renderCart(view) {
     itemEl.innerHTML = `
       <div style="position: relative;">
         <div style="display: flex; gap: 16px; align-items: flex-start;">
-          ${item.product_img ? `<img src="${item.product_img}" loading="lazy" decoding="async" style="width: 80px; height: 80px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border);" />` : `<div style="width: 80px; height: 80px; background: var(--bg-body); border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border);"><i class="fa-solid fa-image text-muted"></i></div>`}
+          ${withImageFallback(item.product_img) ? `<img src="${withImageFallback(item.product_img)}" loading="lazy" decoding="async" onerror="${onImgFallback()}" style="width: 80px; height: 80px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border);" />` : `<div style="width: 80px; height: 80px; background: var(--bg-body); border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border);"><i class="fa-solid fa-image text-muted"></i></div>`}
           
           <div style="flex: 1; padding-right: 40px;">
             <div style="font-weight: 700; font-size: 16px; margin-bottom: 6px; color: var(--text-heading);">${item.product_name}</div>
@@ -1755,7 +1755,7 @@ async function renderCheckout(view) {
           <div style="border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
             ${cart.map(i => `
               <div style="display: flex; gap: 16px; margin-bottom: ${cart.length > 1 ? '16px' : '0'};">
-                ${i.product_img ? `<img src="${i.product_img}" loading="lazy" decoding="async" style="width:60px; height:60px; border-radius:8px; object-fit:cover" />` : `<div style="width:60px; height:60px; border-radius:8px; background:var(--bg-body); display:flex; align-items:center; justify-content:center"><i class="fa-solid fa-image text-muted"></i></div>`}
+                ${withImageFallback(i.product_img) ? `<img src="${withImageFallback(i.product_img)}" loading="lazy" decoding="async" onerror="${onImgFallback()}" style="width:60px; height:60px; border-radius:8px; object-fit:cover" />` : `<div style="width:60px; height:60px; border-radius:8px; background:var(--bg-body); display:flex; align-items:center; justify-content:center"><i class="fa-solid fa-image text-muted"></i></div>`}
                 <div style="flex:1">
                   <div class="fw-600" style="margin-bottom: 4px;">${i.product_name} <span class="text-primary">x${i.quantity}</span></div>
                   <div class="text-muted text-sm"><i class="fa-solid fa-cube"></i> ${i.pkg_name}</div>
@@ -2005,8 +2005,8 @@ async function renderOrders(view) {
       else if (o.status === 'pending' || o.status === 'pending_payment') { stText = 'Chờ xử lý'; stColor = '#f59e0b'; stIcon = 'clock'; }
       else if (o.status === 'processing') { stText = 'Đang xử lý'; stColor = '#3b82f6'; stIcon = 'spinner fa-spin'; }
 
-      const img = o.product_img || `<div style="width:56px; height:56px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:24px;"><i class="fa-solid fa-box"></i></div>`;
-      const imgHtml = img.startsWith('<') ? img : `<img src="${img}" style="width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--border);" />`;
+      const img = withImageFallback(o.product_img) || `<div style="width:56px; height:56px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:24px;"><i class="fa-solid fa-box"></i></div>`;
+      const imgHtml = img.startsWith('<') ? img : `<img src="${img}" onerror="${onImgFallback()}" style="width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--border);" />`;
 
       card.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
@@ -2071,8 +2071,8 @@ async function renderOrderDetail(view, { code }) {
       </div>
     `;
     
-    const img = d.product_img || `<div style="width:56px; height:56px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:24px;"><i class="fa-solid fa-box"></i></div>`;
-    const imgHtml = img.startsWith('<') ? img : `<img src="${img}" style="width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--border);" />`;
+    const img = withImageFallback(d.product_img) || `<div style="width:56px; height:56px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:24px;"><i class="fa-solid fa-box"></i></div>`;
+    const imgHtml = img.startsWith('<') ? img : `<img src="${img}" onerror="${onImgFallback()}" style="width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--border);" />`;
 
     leftCol.innerHTML += `
       <div class="card mb-16" style="overflow: hidden;">

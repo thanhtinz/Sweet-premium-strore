@@ -5731,6 +5731,62 @@ label.toggle-switch input:focus-visible + .toggle-slider {
   margin-bottom: 20px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
+.settings-image-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.settings-image-field {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.settings-image-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-image-preview-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.settings-image-preview {
+  min-height: 140px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: var(--bg-page);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 12px;
+}
+.settings-image-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  border-radius: 10px;
+}
+.settings-image-preview span {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.settings-image-preview-favicon {
+  min-height: 96px;
+}
+.settings-image-preview-favicon img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+.settings-image-preview-avatar img {
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  object-fit: cover;
+}
 .settings-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -5738,6 +5794,7 @@ label.toggle-switch input:focus-visible + .toggle-slider {
 }
 @media (max-width: 640px) {
   .settings-row { grid-template-columns: 1fr; }
+  .settings-image-grid { grid-template-columns: 1fr; }
   .settings-tabs { gap: 0; }
   .settings-tab { padding: 10px 14px; font-size: 12px; }
   .settings-card { padding: 20px; }

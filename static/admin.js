@@ -1261,10 +1261,36 @@ async function renderAdminSettings(view) {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             Hình ảnh
           </div>
-          ${field('im-logo', 'Logo URL', im.logo_url, { placeholder: 'https://example.com/logo.png' })}
-          ${field('im-favicon', 'Favicon URL', im.favicon_url, { placeholder: 'https://example.com/favicon.ico' })}
-          ${field('im-default', 'Default Image URL', im.default_image_url, { placeholder: 'https://example.com/default.png' })}
-          ${field('im-avatar', 'Default Avatar URL', im.default_avatar_url, { placeholder: 'https://example.com/avatar.png' })}
+          <div class="settings-image-grid">
+            <div class="settings-image-field">
+              ${field('im-logo', 'Logo URL', im.logo_url, { placeholder: 'https://example.com/logo.png' })}
+              <div class="settings-image-preview-wrap">
+                <div class="settings-image-preview-label">Xem trước logo</div>
+                <div class="settings-image-preview" id="im-logo-preview">${im.logo_url ? `<img src="${esc(im.logo_url)}" alt="Logo preview" />` : '<span>Chưa có ảnh</span>'}</div>
+              </div>
+            </div>
+            <div class="settings-image-field">
+              ${field('im-favicon', 'Favicon URL', im.favicon_url, { placeholder: 'https://example.com/favicon.ico' })}
+              <div class="settings-image-preview-wrap">
+                <div class="settings-image-preview-label">Xem trước favicon</div>
+                <div class="settings-image-preview settings-image-preview-favicon" id="im-favicon-preview">${im.favicon_url ? `<img src="${esc(im.favicon_url)}" alt="Favicon preview" />` : '<span>Chưa có ảnh</span>'}</div>
+              </div>
+            </div>
+            <div class="settings-image-field">
+              ${field('im-default', 'Default Image URL', im.default_image_url, { placeholder: 'https://example.com/default.png' })}
+              <div class="settings-image-preview-wrap">
+                <div class="settings-image-preview-label">Xem trước ảnh mặc định</div>
+                <div class="settings-image-preview" id="im-default-preview">${im.default_image_url ? `<img src="${esc(im.default_image_url)}" alt="Default image preview" />` : '<span>Chưa có ảnh</span>'}</div>
+              </div>
+            </div>
+            <div class="settings-image-field">
+              ${field('im-avatar', 'Default Avatar URL', im.default_avatar_url, { placeholder: 'https://example.com/avatar.png' })}
+              <div class="settings-image-preview-wrap">
+                <div class="settings-image-preview-label">Xem trước avatar</div>
+                <div class="settings-image-preview settings-image-preview-avatar" id="im-avatar-preview">${im.default_avatar_url ? `<img src="${esc(im.default_avatar_url)}" alt="Avatar preview" />` : '<span>Chưa có ảnh</span>'}</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1390,6 +1416,49 @@ async function renderAdminSettings(view) {
   };
 
   // ── Save handler ──
+  const bindImagePreview = (inputId, previewId, emptyText = 'Chưa có ảnh', mode = 'contain') => {
+    const input = qs(`#${inputId}`, content);
+    const preview = qs(`#${previewId}`, content);
+    if (!input || !preview) return;
+    const renderPreview = () => {
+      const url = input.value.trim();
+      if (!url) {
+        preview.innerHTML = `<span>${emptyText}</span>`;
+        return;
+      }
+      const img = new Image();
+      img.alt = 'preview';
+      img.onload = () => {
+        img.style.display = 'block';
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = mode === 'favicon' ? '48px' : '180px';
+        img.style.objectFit = mode === 'avatar' ? 'cover' : 'contain';
+        if (mode === 'avatar') {
+          img.style.width = '96px';
+          img.style.height = '96px';
+          img.style.borderRadius = '999px';
+        } else if (mode === 'favicon') {
+          img.style.width = '48px';
+          img.style.height = '48px';
+        }
+        preview.innerHTML = '';
+        preview.appendChild(img);
+      };
+      img.onerror = () => {
+        preview.innerHTML = `<span>Không tải được ảnh</span>`;
+      };
+      img.src = url;
+    };
+    input.addEventListener('input', renderPreview);
+    input.addEventListener('change', renderPreview);
+    renderPreview();
+  };
+
+  bindImagePreview('im-logo', 'im-logo-preview', 'Chưa có logo');
+  bindImagePreview('im-favicon', 'im-favicon-preview', 'Chưa có favicon', 'favicon');
+  bindImagePreview('im-default', 'im-default-preview', 'Chưa có ảnh mặc định');
+  bindImagePreview('im-avatar', 'im-avatar-preview', 'Chưa có avatar', 'avatar');
+
   qs('#settings-unified-form', content).onsubmit = async (e) => {
     e.preventDefault();
     const val = (id) => qs(`#${id}`, content)?.value ?? '';

@@ -86,8 +86,9 @@ def get_public_settings(db: Session = Depends(get_db)):
                 if field in data and data[field] is not None:
                     result[field] = data[field]
         elif row.key == "settings_images":
-            if data.get("logo_url"):
-                result["logo_url"] = data["logo_url"]
+            for field in ["logo_url", "favicon_url", "default_image_url", "default_avatar_url"]:
+                if data.get(field):
+                    result[field] = data[field]
         elif row.key == "settings_features":
             result["features"] = data
         elif row.key == "settings_appearance":
