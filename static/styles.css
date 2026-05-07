@@ -475,6 +475,9 @@ img { max-width: 100%; display: block; }
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
 }
+.card-body {
+  padding: 20px;
+}
 
 /* Stat cards */
 .stats-grid {
@@ -1602,6 +1605,21 @@ tr:hover td { background: #FAFBFC; }
 }
 
 /* Wishlist Empty Hint */
+.home-wl-scroll {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+.home-wl-scroll::-webkit-scrollbar { display: none; }
+.home-wl-scroll .product-card {
+  min-width: 180px;
+  max-width: 200px;
+  flex-shrink: 0;
+}
+
 .wishlist-empty-hint {
   display: flex;
   align-items: center;
@@ -1995,6 +2013,51 @@ tr:hover td { background: #FAFBFC; }
   padding: 20px;
   background: var(--bg-card);
 }
+/* ─── Payment Options ─── */
+.payment-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 12px;
+  background: var(--bg-card);
+}
+.payment-option:last-child { margin-bottom: 0; }
+.payment-option:hover:not(.disabled) {
+  border-color: var(--primary);
+}
+.payment-option.selected {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.06);
+}
+.payment-option.disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.payment-option-icon {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #fff;
+}
+.pay-icon-balance { background: #10b981; }
+.pay-icon-payos { background: var(--primary); }
+.pay-icon-disabled { background: #94a3b8; }
+.payment-option-info { flex: 1; min-width: 0; }
+.payment-option-name { font-size: 15px; font-weight: 700; color: var(--text-heading); margin-bottom: 2px; }
+.payment-option-desc { font-size: 13px; color: var(--text-muted); }
+.payment-option-check { font-size: 22px; color: var(--border); }
+.payment-option-check.active { color: var(--primary); }
+
 .cart-summary-card {
   background: var(--bg-card);
   border: 1px solid var(--border-dark);

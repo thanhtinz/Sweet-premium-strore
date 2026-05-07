@@ -21,10 +21,14 @@ def gen_order_code():
 def order_to_dict(o: Order) -> dict:
     pkg_name = None
     product_name = None
+    product_slug = None
+    product_img = None
     if o.package:
         pkg_name = o.package.name
         if o.package.product:
             product_name = o.package.product.name
+            product_slug = o.package.product.slug
+            product_img = o.package.product.image_url
     return {
         "id": o.id,
         "order_code": o.order_code,
@@ -33,6 +37,8 @@ def order_to_dict(o: Order) -> dict:
         "package_id": o.package_id,
         "package_name": pkg_name,
         "product_name": product_name,
+        "product_slug": product_slug,
+        "product_img": product_img,
         "quantity": o.quantity,
         "total_amount": float(o.total_amount),
         "status": o.status,

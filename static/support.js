@@ -43,14 +43,14 @@ async function renderSupportPage(slug) {
 async function renderSupportHome(view) {
   view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
-    const [config, pages] = await Promise.all([
-      apiFetch("/support/config").catch(() => ({})),
-      apiFetch("/support/pages").catch(() => [])
-    ]);
+    const pages = await apiFetch("/support/pages").catch(() => []);
 
-    const contactEmail = config.contact_email || 'support@shopkey.vn';
-    const contactPhone = config.contact_phone || '';
-    const contactHours = config.working_hours || '8:00 - 22:00';
+    const contactEmail = appSettings.contact_email || 'support@shopkey.vn';
+    const contactPhone = appSettings.contact_phone || '';
+    const contactHours = appSettings.contact_hours || '8:00 - 22:00';
+    const fb = appSettings.social_fb || '';
+    const tele = appSettings.social_tele || '';
+    const discord = appSettings.social_discord || '';
 
     const pageMeta = {
       warranty:         { icon: "fa-shield-halved", color: "#3b82f6" },
@@ -106,6 +106,20 @@ async function renderSupportHome(view) {
               <div style="color:var(--text-heading);font-weight:600;font-size:14px;">${contactHours}</div>
             </div>
           </div>
+          ${fb || tele || discord ? `
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:44px;height:44px;border-radius:12px;background:#f3e8ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="fa-solid fa-share-nodes" style="color:#a855f7;font-size:18px;"></i>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--text-muted);font-weight:600;text-transform:uppercase;">Mạng xã hội</div>
+              <div style="display:flex; gap:8px; margin-top:2px;">
+                ${fb ? `<a href="${fb}" target="_blank" style="color:#1877F2;font-size:18px;" title="Facebook"><i class="fa-brands fa-facebook"></i></a>` : ''}
+                ${tele ? `<a href="${tele}" target="_blank" style="color:#229ED9;font-size:18px;" title="Telegram"><i class="fa-brands fa-telegram"></i></a>` : ''}
+                ${discord ? `<a href="${discord}" target="_blank" style="color:#5865F2;font-size:18px;" title="Discord"><i class="fa-brands fa-discord"></i></a>` : ''}
+              </div>
+            </div>
+          </div>` : ''}
         </div>
       </div>
     `;

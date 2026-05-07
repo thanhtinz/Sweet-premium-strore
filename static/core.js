@@ -16,7 +16,22 @@ let cart = JSON.parse(localStorage.getItem('cart') || '[]');
 let appSettings = {};
 
 // ── Utilities ──────────────────────────────────────────────────
-const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n) + ' <img src="/static/candy-icon.png" class="currency-icon" alt="candy" />';
+const fmt = (n) => {
+  const icon = window.appSettings?.currency_icon;
+  const name = window.appSettings?.currency_name;
+  let currencySuffix = '';
+  
+  if (icon) {
+    currencySuffix = ` <img src="${icon}" class="currency-icon" alt="currency" />`;
+  } else if (name) {
+    currencySuffix = ` ${name}`;
+  } else {
+    // Default fallback
+    currencySuffix = ` <img src="/static/candy-icon.png" class="currency-icon" alt="candy" />`;
+  }
+  
+  return new Intl.NumberFormat('vi-VN').format(n) + currencySuffix;
+};
 const fmtDate = (s) => s ? new Date(s).toLocaleString('vi-VN') : '—';
 const esc = (s) => { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
 const qs = (s, el = document) => el.querySelector(s);
@@ -141,7 +156,7 @@ function addToCart(product, pkg, quantity = 1, fields = {}) {
   if (existing) existing.quantity += quantity;
   else cart.push({ pkg_id: pkg.id, pkg_name: pkg.name, pkg_price: price, product_name: product.name, product_slug: product.slug, product_img: product.image_url, delivery_type: pkg.delivery_type, quantity, fields });
   saveCart();
-  toast(`Đã thêm <b>${pkg.name}</b> vào giỏ hàng`, 'success');
+  toast(`Đã thêm <b>${esc(product.name)}</b> — ${esc(pkg.name)} vào giỏ hàng`, 'success');
 }
 function clearCart() {
   cart.length = 0;

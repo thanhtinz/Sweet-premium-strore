@@ -82,6 +82,9 @@ def get_public_settings(db: Session = Depends(get_db)):
                 result["site_description"] = data["site_description"]
             if data.get("copyright_text"):
                 result["copyright_text"] = data["copyright_text"]
+            for field in ["currency_name", "currency_icon", "tax_rate", "contact_email", "contact_phone", "contact_hours", "social_fb", "social_tele", "social_discord"]:
+                if field in data and data[field] is not None:
+                    result[field] = data[field]
         elif row.key == "settings_images":
             if data.get("logo_url"):
                 result["logo_url"] = data["logo_url"]

@@ -1008,6 +1008,23 @@ async function renderAdminSettings(view) {
             ]
           })}
         </div>
+        
+        <div class="settings-card mt-16">
+          <div class="settings-section-title"><i class="fa-solid fa-address-book"></i> Thông tin liên hệ (Hỗ trợ)</div>
+          ${field('g-contact-email', 'Email hỗ trợ', g.contact_email, { placeholder: 'support@example.com' })}
+          ${field('g-contact-phone', 'Hotline', g.contact_phone, { placeholder: '1900 xxxx' })}
+          ${field('g-contact-hours', 'Giờ làm việc', g.contact_hours, { placeholder: '8:00 - 22:00' })}
+          ${field('g-social-fb', 'Facebook Link', g.social_fb, { placeholder: 'https://facebook.com/...' })}
+          ${field('g-social-tele', 'Telegram Link', g.social_tele, { placeholder: 'https://t.me/...' })}
+          ${field('g-social-discord', 'Discord Link', g.social_discord, { placeholder: 'https://discord.gg/...' })}
+        </div>
+
+        <div class="settings-card mt-16">
+          <div class="settings-section-title"><i class="fa-solid fa-coins"></i> Tiền tệ & Thuế</div>
+          ${field('g-currency-name', 'Tên tiền tệ', g.currency_name, { placeholder: 'Ví dụ: VNĐ, Candy, Coin...' })}
+          ${field('g-currency-icon', 'URL Icon tiền tệ (nếu dùng hình ảnh)', g.currency_icon, { placeholder: '/static/candy-icon.png' })}
+          ${field('g-tax-rate', 'Thuế VAT (%)', g.tax_rate, { type: 'number', placeholder: 'Ví dụ: 8 hoặc 10 (để 0 nếu không thu thuế)' })}
+        </div>
       </div>
 
       <!-- ═══ Appearance ═══ -->
@@ -1201,6 +1218,15 @@ async function renderAdminSettings(view) {
         keywords: val('g-keywords'),
         author: val('g-author'),
         timezone: val('g-timezone'),
+        contact_email: val('g-contact-email'),
+        contact_phone: val('g-contact-phone'),
+        contact_hours: val('g-contact-hours'),
+        social_fb: val('g-social-fb'),
+        social_tele: val('g-social-tele'),
+        social_discord: val('g-social-discord'),
+        currency_name: val('g-currency-name'),
+        currency_icon: val('g-currency-icon'),
+        tax_rate: num('g-tax-rate'),
       },
       settings_appearance: {
         show_slider: chk('ap-show-slider'),

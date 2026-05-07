@@ -293,9 +293,9 @@ async function renderHome(view) {
       wlHead.innerHTML = `<div class="section-title mb-0"><i class="fa-solid fa-heart" style="color:#ef4444"></i> Sản phẩm yêu thích</div><a href="#/wishlist" class="btn btn-primary btn-sm" style="font-weight: 600;">Xem tất cả <i class="fa-solid fa-arrow-right"></i></a>`;
       frag.appendChild(wlHead);
       if (wlData.items?.length) {
-        const wlGrid = el('div', 'product-grid');
-        wlData.items.forEach(p => wlGrid.appendChild(productCard(p)));
-        frag.appendChild(wlGrid);
+        const wlScroll = el('div', 'home-wl-scroll');
+        wlData.items.forEach(p => wlScroll.appendChild(productCard(p)));
+        frag.appendChild(wlScroll);
       } else {
         const emptyWl = el('div', 'wishlist-empty-hint');
         emptyWl.innerHTML = `<i class="fa-regular fa-heart"></i><p>Nhấn <i class="fa-solid fa-heart" style="color:#ef4444"></i> trên sản phẩm để thêm vào danh sách yêu thích</p>`;
@@ -1746,33 +1746,35 @@ async function renderCheckout(view) {
         </div>
       </div>
 
-      <div class="card mb-16">
+      <div class="card mb-16" style="overflow: hidden;">
+        <div class="cart-summary-head">
+          <div class="cart-summary-title"><i class="fa-solid fa-credit-card"></i> Phương thức thanh toán</div>
+        </div>
         <div class="card-body">
-          <div class="fw-700 mb-12" style="font-size: 16px;"><i class="fa-solid fa-credit-card text-primary"></i> Phương thức thanh toán</div>
           ${userBalance >= grandTotal ? `
-          <div class="payment-option selected" data-method="balance" style="border-color: var(--primary); background: var(--primary-light); cursor: pointer;">
-            <div class="payment-option-icon" style="background: #10b981; color: #fff;"><i class="fa-solid fa-wallet"></i></div>
-            <div style="flex:1">
+          <div class="payment-option selected" data-method="balance">
+            <div class="payment-option-icon pay-icon-balance"><i class="fa-solid fa-wallet"></i></div>
+            <div class="payment-option-info">
               <div class="payment-option-name">Số dư tài khoản</div>
               <div class="payment-option-desc">Số dư hiện tại: <strong style="color:#10b981">${fmt(userBalance)}</strong></div>
             </div>
-            <div style="color: var(--primary); font-size: 20px;"><i class="fa-solid fa-circle-check"></i></div>
+            <div class="payment-option-check active"><i class="fa-solid fa-circle-check"></i></div>
           </div>` : `
-          <div class="payment-option" data-method="balance" style="cursor: not-allowed; opacity: .6; margin-bottom: 0;">
-            <div class="payment-option-icon" style="background: #94a3b8; color: #fff;"><i class="fa-solid fa-wallet"></i></div>
-            <div style="flex:1">
+          <div class="payment-option disabled" data-method="balance">
+            <div class="payment-option-icon pay-icon-disabled"><i class="fa-solid fa-wallet"></i></div>
+            <div class="payment-option-info">
               <div class="payment-option-name">Số dư tài khoản</div>
               <div class="payment-option-desc">Số dư: <strong style="color:#ef4444">${fmt(userBalance)}</strong> — <a href="#/profile" style="color:var(--primary)">Nạp thêm</a></div>
             </div>
-            <div style="color: var(--border); font-size: 20px;"><i class="fa-regular fa-circle"></i></div>
+            <div class="payment-option-check"><i class="fa-regular fa-circle"></i></div>
           </div>`}
-          <div class="payment-option ${userBalance >= grandTotal ? '' : 'selected'}" data-method="payos" style="${userBalance >= grandTotal ? '' : 'border-color: var(--primary); background: var(--primary-light);'} cursor: pointer; margin-top: 12px;">
-            <div class="payment-option-icon" style="background: var(--primary); color: #fff;"><i class="fa-solid fa-qrcode"></i></div>
-            <div style="flex:1">
+          <div class="payment-option ${userBalance >= grandTotal ? '' : 'selected'}" data-method="payos">
+            <div class="payment-option-icon pay-icon-payos"><i class="fa-solid fa-qrcode"></i></div>
+            <div class="payment-option-info">
               <div class="payment-option-name">PayOS — QR Ngân hàng</div>
               <div class="payment-option-desc">Chuyển khoản QR, áp dụng mọi ngân hàng VN</div>
             </div>
-            <div style="color: ${userBalance >= grandTotal ? 'var(--border)' : 'var(--primary)'}; font-size: 20px;"><i class="${userBalance >= grandTotal ? 'fa-regular fa-circle' : 'fa-solid fa-circle-check'}"></i></div>
+            <div class="payment-option-check ${userBalance >= grandTotal ? '' : 'active'}"><i class="${userBalance >= grandTotal ? 'fa-regular fa-circle' : 'fa-solid fa-circle-check'}"></i></div>
           </div>
         </div>
       </div>
@@ -1791,45 +1793,71 @@ async function renderCheckout(view) {
           <span class="summary-label fw-700" style="color: var(--primary); font-size: 16px;">Tổng cộng</span>
           <span class="summary-total" style="font-size: 22px; color: #ef4444;">${fmt(grandTotal)}</span>
         </div>
-        <button class="btn btn-primary btn-lg btn-full mt-16" id="btn-continue" style="background: #10b981; border-color: #10b981;"><i class="fa-solid fa-arrow-right"></i> Tiếp tục thanh toán</button>
-        <a href="#/cart" class="btn btn-ghost btn-full mt-8" style="text-align: center;"><i class="fa-solid fa-arrow-left"></i> Quay lại giỏ hàng</a>
       </div>
     `;
-    grid.appendChild(left); grid.appendChild(right); view.appendChild(grid);
+    
+    // Nút tạo đơn nằm ngoài card
+    const actionsWrapper = el('div');
+    actionsWrapper.innerHTML = `
+      <button class="btn btn-primary btn-lg btn-full mt-16" id="btn-pay" style="background: #10b981; border-color: #10b981;"><i class="fa-solid fa-wallet"></i> Tạo đơn & Thanh toán</button>
+      <a href="#/cart" class="btn btn-ghost btn-full mt-8" style="text-align: center;"><i class="fa-solid fa-arrow-left"></i> Quay lại giỏ hàng</a>
+    `;
+    
+    const rightWrapper = el('div');
+    rightWrapper.appendChild(right);
+    rightWrapper.appendChild(actionsWrapper);
+    
+    grid.appendChild(left); grid.appendChild(rightWrapper); view.appendChild(grid);
 
     // Payment method selection
     let selectedMethod = userBalance >= grandTotal ? 'balance' : 'payos';
     qsa('.payment-option', left).forEach(opt => {
       opt.onclick = () => {
-        if (opt.dataset.method === 'balance' && userBalance < grandTotal) return; // can't select insufficient
+        if (opt.dataset.method === 'balance' && userBalance < grandTotal) return;
         selectedMethod = opt.dataset.method;
         qsa('.payment-option', left).forEach(o => {
           const isSelected = o.dataset.method === selectedMethod;
-          o.style.borderColor = isSelected ? 'var(--primary)' : 'var(--border)';
-          o.style.background = isSelected ? 'var(--primary-light)' : 'transparent';
-          const icon = o.querySelector('div:last-child i');
+          o.classList.toggle('selected', isSelected);
+          const check = o.querySelector('.payment-option-check');
+          const icon = check?.querySelector('i');
           if (icon) {
             icon.className = isSelected ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle';
-            icon.parentElement.style.color = isSelected ? 'var(--primary)' : 'var(--border)';
+            check.classList.toggle('active', isSelected);
           }
         });
       };
     });
 
-    // Continue to Step 3
-    qs('#btn-continue', right).onclick = () => {
-      renderStep3(selectedMethod);
+    // Pay button
+    qs('#btn-pay', actionsWrapper).onclick = async () => {
+      const btn = qs('#btn-pay', actionsWrapper); btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xử lý...';
+      try {
+        const item = cart[0];
+        const order = await apiFetch('/orders/create', { method: 'POST', body: JSON.stringify({ package_id: item.pkg_id, quantity: item.quantity, custom_fields_data: item.fields || {}, payment_method: selectedMethod }) });
+        if (selectedMethod === 'payos') {
+          const link = await apiFetch('/payment/create-link', { method: 'POST', body: JSON.stringify({ order_code: order.order_code }) });
+          cart.length = 0; saveCart(); updateCartCount();
+          window.open(link.payment_url, '_blank');
+          renderStep3(order, 'payos', link.payment_url);
+        } else {
+          // Balance payment
+          cart.length = 0; saveCart(); updateCartCount();
+          renderStep3(order, 'balance');
+        }
+      } catch (e) {
+        renderStep3(null, 'error', null, e.message);
+      }
     };
   }
 
-  // ── Step 3: Order Confirmation & Payment ──
-  function renderStep3(paymentMethod) {
+  // ── Step 3: Order Result ──
+  function renderStep3(order, method, payUrl = null, errorMsg = null) {
     view.innerHTML = '';
     const heroHead = el('div', 'products-hero');
     heroHead.innerHTML = `
       <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/cart">Giỏ hàng</a> <span>›</span> <strong>Hoàn tất</strong></div>
-      <h1 class="products-hero-title"><i class="fa-solid fa-check"></i> Xác nhận & Thanh toán</h1>
-      <p class="products-hero-desc">Xác nhận đơn hàng và tiến hành thanh toán</p>
+      <h1 class="products-hero-title"><i class="fa-solid fa-flag-checkered"></i> Trạng thái đơn hàng</h1>
+      <p class="products-hero-desc">Kết quả giao dịch của bạn</p>
     `;
     view.appendChild(heroHead);
 
@@ -1841,7 +1869,7 @@ async function renderCheckout(view) {
             <div class="step-label">GIỎ HÀNG</div>
           </div>
           <div class="step-line active"></div>
-          <div class="checkout-step completed" style="cursor:pointer" id="step2-back">
+          <div class="checkout-step completed">
             <div class="step-icon"><i class="fa-solid fa-credit-card"></i></div>
             <div class="step-label">THANH TOÁN</div>
           </div>
@@ -1854,90 +1882,44 @@ async function renderCheckout(view) {
       </div>
     `;
 
-    const methodLabel = paymentMethod === 'balance' ? 'Số dư tài khoản' : 'PayOS — QR Ngân hàng';
-    const methodDesc = paymentMethod === 'balance' ? `Trừ trực tiếp từ số dư (${fmt(userBalance)})` : 'Chuyển khoản QR, áp dụng mọi ngân hàng VN';
-    const methodIcon = paymentMethod === 'balance' ? 'fa-wallet' : 'fa-qrcode';
+    const content = el('div', 'card');
+    content.style.maxWidth = '600px';
+    content.style.margin = '0 auto';
+    content.style.padding = '40px 24px';
+    content.style.textAlign = 'center';
 
-    const grid = el('div', 'checkout-grid');
-    const left = el('div');
-    left.innerHTML = `
-      <div class="card mb-16">
-        <div class="card-body">
-          <div class="fw-700 mb-12" style="font-size: 16px;"><i class="fa-solid fa-bag-shopping text-primary"></i> Xác nhận đơn hàng</div>
-          <div style="border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
-            ${cart.map(i => `
-              <div style="display: flex; gap: 16px; margin-bottom: ${cart.length > 1 ? '16px' : '0'};">
-                ${i.product_img ? `<img src="${i.product_img}" loading="lazy" decoding="async" style="width:60px; height:60px; border-radius:8px; object-fit:cover" />` : `<div style="width:60px; height:60px; border-radius:8px; background:var(--bg-body); display:flex; align-items:center; justify-content:center"><i class="fa-solid fa-image text-muted"></i></div>`}
-                <div style="flex:1">
-                  <div class="fw-600" style="margin-bottom: 4px;">${i.product_name} <span class="text-primary">x${i.quantity}</span></div>
-                  <div class="text-muted text-sm"><i class="fa-solid fa-cube"></i> ${i.pkg_name}</div>
-                </div>
-                <div class="fw-700" style="color:var(--text-heading)">${fmt(i.pkg_price * i.quantity)}</div>
-              </div>
-            `).join('')}
-          </div>
+    if (errorMsg) {
+      content.innerHTML = `
+        <div style="font-size: 64px; color: #ef4444; margin-bottom: 16px;"><i class="fa-solid fa-circle-xmark"></i></div>
+        <h2 style="margin-bottom: 8px;">Thanh toán thất bại</h2>
+        <p class="text-muted mb-24" style="font-size:15px;">${errorMsg}</p>
+        <button class="btn btn-primary btn-lg" onclick="location.reload()"><i class="fa-solid fa-rotate-right"></i> Thử lại</button>
+      `;
+    } else if (method === 'payos') {
+      content.innerHTML = `
+        <div style="font-size: 64px; color: var(--primary); margin-bottom: 16px;"><i class="fa-solid fa-qrcode"></i></div>
+        <h2 style="margin-bottom: 8px;">Đang chờ thanh toán</h2>
+        <p class="text-muted mb-8">Mã đơn: <strong>${order.order_code}</strong></p>
+        <p class="mb-24" style="color:var(--text-heading)">Đơn hàng đã được tạo. Trình duyệt đã mở tab thanh toán PayOS an toàn. Nếu chưa mở, bạn có thể bấm nút bên dưới.</p>
+        <div style="display:flex; justify-content:center; gap: 12px; flex-wrap:wrap;">
+          <a href="${payUrl}" target="_blank" class="btn btn-primary btn-lg"><i class="fa-solid fa-money-bill-wave"></i> Thanh toán ngay</a>
+          <a href="#/orders/${order.order_code}" class="btn btn-outline btn-lg">Xem đơn hàng</a>
         </div>
-      </div>
-
-      <div class="card mb-16">
-        <div class="card-body">
-          <div class="fw-700 mb-12" style="font-size: 16px;"><i class="fa-solid fa-credit-card text-primary"></i> Phương thức thanh toán</div>
-          <div class="payment-option selected" style="border-color: var(--primary); background: var(--primary-light);">
-            <div class="payment-option-icon" style="background: var(--primary); color: #fff;"><i class="fa-solid ${methodIcon}"></i></div>
-            <div style="flex:1">
-              <div class="payment-option-name">${methodLabel}</div>
-              <div class="payment-option-desc">${methodDesc}</div>
-            </div>
-            <div style="color: var(--primary); font-size: 20px;"><i class="fa-solid fa-circle-check"></i></div>
-          </div>
+      `;
+    } else {
+      content.innerHTML = `
+        <div style="font-size: 64px; color: #10b981; margin-bottom: 16px;"><i class="fa-solid fa-circle-check"></i></div>
+        <h2 style="margin-bottom: 8px;">Thanh toán thành công!</h2>
+        <p class="text-muted mb-8">Mã đơn: <strong>${order.order_code}</strong></p>
+        <p class="mb-24" style="color:var(--text-heading)">Cảm ơn bạn! Đơn hàng đã được thanh toán và xử lý thành công.</p>
+        <div style="display:flex; justify-content:center; gap: 12px; flex-wrap:wrap;">
+          <a href="#/" class="btn btn-outline btn-lg"><i class="fa-solid fa-house"></i> Về trang chủ</a>
+          <a href="#/orders/${order.order_code}" class="btn btn-primary btn-lg">Xem đơn hàng</a>
         </div>
-      </div>
-    `;
+      `;
+    }
 
-    const right = el('div', 'cart-summary-card');
-    right.innerHTML = `
-      <div class="cart-summary-head"><div class="cart-summary-title"><i class="fa-solid fa-receipt"></i> Tóm tắt đơn hàng</div></div>
-      <div class="cart-summary-body">
-        <div class="summary-row"><span class="summary-label">Tạm tính</span><span class="summary-value">${fmt(subtotal)}</span></div>
-        ${taxRate > 0 ? `
-        <div class="summary-row"><span class="summary-label">Thuế (${taxRate}%)</span><span class="summary-value">${fmt(taxAmount)}</span></div>
-        ` : ''}
-        <div class="divider" style="margin: 16px 0; border-top: 1px dashed var(--border-dark);"></div>
-        <div class="summary-row" style="background: var(--primary-light); padding: 16px; border-radius: 8px; margin: 0 -8px;">
-          <span class="summary-label fw-700" style="color: var(--primary); font-size: 16px;">Tổng cộng</span>
-          <span class="summary-total" style="font-size: 22px; color: #ef4444;">${fmt(grandTotal)}</span>
-        </div>
-        <button class="btn btn-primary btn-lg btn-full mt-16" id="btn-pay" style="background: #10b981; border-color: #10b981;"><i class="fa-solid fa-wallet"></i> Tạo đơn & Thanh toán</button>
-        <button class="btn btn-ghost btn-full mt-8" id="btn-back-step2" style="text-align: center;"><i class="fa-solid fa-arrow-left"></i> Quay lại chọn phương thức</button>
-      </div>
-    `;
-    grid.appendChild(left); grid.appendChild(right); view.appendChild(grid);
-
-    // Back to Step 2
-    qs('#btn-back-step2', right).onclick = () => renderStep2();
-    const step2Back = qs('#step2-back');
-    if (step2Back) step2Back.onclick = () => renderStep2();
-
-    // Pay button
-    qs('#btn-pay', right).onclick = async () => {
-      const btn = qs('#btn-pay', right); btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xử lý...';
-      try {
-        const item = cart[0];
-        const order = await apiFetch('/orders/create', { method: 'POST', body: JSON.stringify({ package_id: item.pkg_id, quantity: item.quantity, custom_fields_data: item.fields || {}, payment_method: paymentMethod }) });
-        if (paymentMethod === 'payos') {
-          const link = await apiFetch('/payment/create-link', { method: 'POST', body: JSON.stringify({ order_code: order.order_code }) });
-          cart.length = 0; saveCart(); updateCartCount();
-          window.open(link.payment_url, '_blank');
-          toast('Đã tạo đơn! Chuyển đến thanh toán...', 'success', 5000);
-          location.hash = `/orders/${order.order_code}`;
-        } else {
-          // Balance payment — already paid
-          cart.length = 0; saveCart(); updateCartCount();
-          toast('Thanh toán thành công!', 'success');
-          location.hash = `/orders/${order.order_code}`;
-        }
-      } catch (e) { toast(e.message, 'error'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-wallet"></i> Tạo đơn & Thanh toán'; }
-    };
+    view.appendChild(content);
   }
 
   // Start at Step 2
@@ -1952,28 +1934,82 @@ async function renderOrders(view) {
     const data = await apiFetch('/orders/my');
     view.innerHTML = '';
     
-    const heroHead = el('div', 'products-hero');
-    heroHead.innerHTML = `
-      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <strong>Đơn hàng</strong></div>
-      <h1 class="products-hero-title"><i class="fa-solid fa-receipt"></i> Đơn hàng của tôi</h1>
-      <p class="products-hero-desc">Quản lý các sản phẩm bạn đã mua và theo dõi trạng thái (${data.total} đơn)</p>
-    `;
-    view.appendChild(heroHead);
-    if (!data.items.length) { view.appendChild(el('div', 'empty-state', '<div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></div><h3>Chưa có đơn hàng</h3><a href="#/" class="btn btn-primary mt-12">Mua sắm ngay</a>')); return; }
-    data.items.forEach(o => {
-      const card = el('div', 'order-card');
-      card.innerHTML = `
-        <div class="order-card-top">
-          <div><div class="order-code">${o.order_code}</div><div class="order-date">${fmtDate(o.created_at)}</div></div>
-          <div class="flex gap-8 items-center">${statusBadge(o.status)}<a href="#/orders/${o.order_code}" class="btn btn-ghost btn-sm">Chi tiết</a></div>
+    // Top Card: Header & Search
+    view.innerHTML += `
+      <div class="card mb-16" style="padding: 20px;">
+        <div style="display:flex; align-items:center; gap:16px; margin-bottom: 24px;">
+          <div style="width:48px; height:48px; background:var(--primary); color:#fff; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px;">
+            <i class="fa-solid fa-receipt"></i>
+          </div>
+          <div>
+            <h1 style="margin:0; font-size:22px; color:var(--text-heading);">Đơn hàng của tôi</h1>
+            <p class="text-muted" style="margin:4px 0 0 0; font-size:14px;">Tổng cộng ${data.total} đơn hàng</p>
+          </div>
         </div>
-        <div class="text-sm">${o.product_name || ''} — <span class="text-muted">${o.package_name || ''}</span></div>
-        <div class="fw-700 text-primary mt-8">${fmt(o.total_amount)}</div>
-        ${o.status === 'completed' && o.delivery_data ? `<div class="delivery-box"><div class="delivery-box-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Dữ liệu nhận hàng</div><div class="delivery-data">${o.delivery_data}</div><button class="btn-copy" onclick="navigator.clipboard.writeText(\`${o.delivery_data}\`).then(()=>toast('Đã sao chép','success'))"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>` : ''}
+        <div style="display:flex; gap:12px;">
+          <div style="flex:1; position:relative;">
+            <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--text-muted);"></i>
+            <input type="text" class="form-input" placeholder="Tìm mã đơn hàng, tên sản phẩm..." style="padding-left:42px; width:100%; border-radius:10px; background: #f8fafc;" disabled />
+          </div>
+          <button class="btn btn-primary" style="border-radius:10px; padding:0 24px;">Tìm kiếm</button>
+        </div>
+      </div>
+    `;
+
+    // Filter Tabs
+    const pendingCount = data.items.filter(i => i.status === 'pending_payment' || i.status === 'pending').length;
+    const processingCount = data.items.filter(i => i.status === 'processing').length;
+    const completedCount = data.items.filter(i => i.status === 'completed').length;
+    view.innerHTML += `
+      <div class="card mb-16" style="padding: 6px;">
+        <div style="display:flex; overflow-x:auto; gap:4px; scrollbar-width:none;">
+          <button class="btn btn-primary" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px;">Tất cả <span style="background:rgba(255,255,255,0.2); margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${data.total}</span></button>
+          <button class="btn btn-ghost" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Chờ xử lý <span style="background:#e2e8f0; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${pendingCount}</span></button>
+          <button class="btn btn-ghost" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Đang xử lý <span style="background:#e2e8f0; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${processingCount}</span></button>
+          <button class="btn btn-ghost" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Hoàn thành <span style="background:#e2e8f0; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${completedCount}</span></button>
+        </div>
+      </div>
+    `;
+
+    if (!data.items.length) { view.innerHTML += `<div class="empty-state"><h3>Chưa có đơn hàng</h3></div>`; return; }
+
+    // List
+    const listWrap = el('div');
+    data.items.forEach(o => {
+      const card = el('div', 'card mb-16');
+      card.style.padding = '20px';
+      
+      let stText = 'Lỗi', stColor = '#ef4444', stIcon = 'circle-xmark';
+      if (o.status === 'completed') { stText = 'Hoàn thành'; stColor = '#10b981'; stIcon = 'circle-check'; }
+      else if (o.status === 'pending' || o.status === 'pending_payment') { stText = 'Chờ xử lý'; stColor = '#f59e0b'; stIcon = 'clock'; }
+      else if (o.status === 'processing') { stText = 'Đang xử lý'; stColor = '#3b82f6'; stIcon = 'spinner fa-spin'; }
+
+      const img = o.product_img || `<div style="width:56px; height:56px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:24px;"><i class="fa-solid fa-box"></i></div>`;
+      const imgHtml = img.startsWith('<') ? img : `<img src="${img}" style="width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--border);" />`;
+
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+          <div style="font-weight:800; font-size:16px; color:var(--text-heading);">#${o.order_code}</div>
+          <div style="font-weight:600; font-size:13px; color:${stColor}; display:flex; align-items:center; gap:6px;">
+            <i class="fa-solid fa-${stIcon}"></i> ${stText}
+          </div>
+        </div>
+        <div style="font-weight:600; font-size:15px; color:var(--text-heading); line-height:1.4; margin-bottom:16px;">${esc(o.product_name || '')} - ${esc(o.package_name || '')}</div>
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; color:var(--text-muted); font-size:14px; margin-bottom:20px; border-bottom:1px dashed var(--border); padding-bottom:20px;">
+          <div>${fmtDate(o.created_at)}</div>
+          <div>Tổng tiền: <span style="font-weight:800; color:#10b981; font-size:16px;">${fmt(o.total_amount)}</span></div>
+        </div>
+        
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          ${imgHtml}
+          <a href="#/orders/${o.order_code}" class="btn" style="background:#eef2ff; color:var(--primary); border:none; padding:10px 20px; border-radius:8px; font-weight:600;">Xem chi tiết</a>
+        </div>
       `;
-      view.appendChild(card);
+      listWrap.appendChild(card);
     });
-  } catch (e) { view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>${e.message}</h3></div>`; }
+    view.appendChild(listWrap);
+  } catch (e) { view.innerHTML = `<div class="empty-state"><h3>${e.message}</h3></div>`; }
 }
 
 // ORDER DETAIL
@@ -1985,176 +2021,244 @@ async function renderOrderDetail(view, { code }) {
     const d = await apiFetch(`/orders/my/${code}`);
     view.innerHTML = '';
     
-    // 3 Steps (Hoàn tất is active here)
-    if (d.status === 'completed' || d.status === 'pending_payment') {
-      view.innerHTML += `
-        <div class="checkout-steps-card">
-          <div class="checkout-steps">
-            <div class="checkout-step completed" onclick="location.hash='/cart'" style="cursor:pointer">
-              <div class="step-icon"><i class="fa-solid fa-cart-shopping"></i></div>
-              <div class="step-label">GIỎ HÀNG</div>
-            </div>
-            <div class="step-line active"></div>
-            <div class="checkout-step completed" onclick="location.hash='/checkout'" style="cursor:pointer">
-              <div class="step-icon"><i class="fa-solid fa-credit-card"></i></div>
-              <div class="step-label">THANH TOÁN</div>
-            </div>
-            <div class="step-line active"></div>
-            <div class="checkout-step active">
-              <div class="step-icon"><i class="fa-solid fa-check"></i></div>
-              <div class="step-label">HOÀN TẤT</div>
+    view.innerHTML += `
+      <div style="margin-bottom: 24px;">
+        <button onclick="location.hash='/orders'" class="btn btn-outline" style="background:#fff; border-radius:12px; padding:10px 20px; font-weight:600; border-color:var(--border); color:var(--text-heading);"><i class="fa-solid fa-arrow-left"></i> Quay lại danh sách</button>
+      </div>
+    `;
+
+    let stText = 'Lỗi', stColor = '#ef4444', stBg = '#fee2e2', stIcon = 'circle-xmark';
+    if (d.status === 'completed') { stText = 'Hoàn thành'; stColor = '#10b981'; stBg = '#ecfdf5'; stIcon = 'circle-check'; }
+    else if (d.status === 'pending' || d.status === 'pending_payment') { stText = 'Chờ xử lý'; stColor = '#f59e0b'; stBg = '#fef3c7'; stIcon = 'clock'; }
+    else if (d.status === 'processing') { stText = 'Đang xử lý'; stColor = '#3b82f6'; stBg = '#eff6ff'; stIcon = 'spinner fa-spin'; }
+
+    const grid = el('div', 'checkout-grid');
+    const leftCol = el('div');
+    
+    leftCol.innerHTML += `
+      <div class="card mb-16" style="padding: 20px; border-top: 4px solid var(--primary); border-radius: 8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div style="font-weight:700; font-size:16px; color:var(--text-heading);">Chi tiết đơn hàng #${d.order_code}</div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn btn-outline btn-sm" style="border-radius:8px; border-color:var(--border); color:var(--text-heading); font-weight:600; padding:6px 12px; font-size:13px;" onclick="window.location.hash='/product/${d.product_slug || ''}'"><i class="fa-solid fa-rotate-right"></i> Mua lại</button>
+            <div style="color:${stColor}; font-weight:600; font-size:13px; display:flex; align-items:center; gap:6px; white-space:nowrap;">
+              <i class="fa-solid fa-${stIcon}"></i> ${stText}
             </div>
           </div>
         </div>
-      `;
-    }
-
-    const heroHead = el('div', 'products-hero');
-    heroHead.innerHTML = `
-      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/orders">Đơn hàng</a> <span>›</span> <strong>#${d.order_code}</strong></div>
-      <h1 class="products-hero-title"><i class="fa-solid fa-file-invoice"></i> Chi tiết đơn hàng</h1>
-      <p class="products-hero-desc">Đơn hàng #${d.order_code} — ${fmtDate(d.created_at)}</p>
+        <div class="text-muted text-sm"><i class="fa-regular fa-calendar"></i> ${fmtDate(d.created_at)}</div>
+      </div>
     `;
-    view.appendChild(heroHead);
+    
+    const img = d.product_img || `<div style="width:56px; height:56px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:24px;"><i class="fa-solid fa-box"></i></div>`;
+    const imgHtml = img.startsWith('<') ? img : `<img src="${img}" style="width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--border);" />`;
 
-    // Determine status badge classes
-    let statusClass = 'badge-gray';
-    let statusText = 'Không xác định';
-    let statusIcon = '<i class="fa-solid fa-circle-question"></i>';
-    
-    if (d.status === 'completed') {
-      statusClass = 'badge-green'; statusText = 'Hoàn thành'; statusIcon = '<i class="fa-solid fa-circle-check"></i>';
-    } else if (d.status === 'pending') {
-      statusClass = 'badge-yellow'; statusText = 'Chờ xử lý'; statusIcon = '<i class="fa-solid fa-clock"></i>';
-    } else if (d.status === 'pending_payment') {
-      statusClass = 'badge-yellow'; statusText = 'Chờ thanh toán'; statusIcon = '<i class="fa-solid fa-wallet"></i>';
-    } else if (d.status === 'cancelled') {
-      statusClass = 'badge-red'; statusText = 'Đã hủy'; statusIcon = '<i class="fa-solid fa-circle-xmark"></i>';
-    }
-
-    const grid = el('div', 'checkout-grid'); // reuse checkout layout
-    
-    // LEFT COL: Order details
-    const leftCol = el('div');
-    
-    // Order info card
     leftCol.innerHTML += `
-      <div class="card mb-16">
-        <div class="card-body">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-            <div>
-              <div class="fw-700" style="font-size: 16px; margin-bottom: 4px;">Đơn hàng #${d.order_code}</div>
-              <div class="text-muted text-sm"><i class="fa-solid fa-calendar"></i> ${fmtDate(d.created_at)}</div>
-            </div>
-            <div class="badge ${statusClass}" style="font-size: 13px; padding: 6px 12px;">${statusIcon} ${statusText}</div>
-          </div>
-          
-          <div class="fw-600 mb-12" style="font-size: 15px;"><i class="fa-solid fa-box"></i> Sản phẩm</div>
-          <div style="border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
-            <div style="display: flex; gap: 16px;">
-              <div style="flex:1">
-                <div class="fw-600" style="margin-bottom: 4px;">${d.product_name || 'Sản phẩm'}</div>
-                <div class="text-muted text-sm"><i class="fa-solid fa-cube"></i> ${d.package_name || 'Gói'} x${d.quantity}</div>
+      <div class="card mb-16" style="overflow: hidden;">
+        <div class="cart-summary-head" style="background:#f8fafc; border-bottom:1px solid var(--border); padding:16px 20px;">
+          <div class="cart-summary-title" style="color:var(--text-heading); font-size:15px;"><i class="fa-solid fa-box text-primary"></i> Thông tin sản phẩm</div>
+        </div>
+        <div class="card-body" style="padding:20px;">
+          <div style="display: flex; gap: 16px; align-items:center;">
+            ${imgHtml}
+            <div style="flex:1">
+              <div class="fw-700" style="margin-bottom: 8px; font-size:16px; color:var(--text-heading);">${esc(d.product_name || 'Sản phẩm')}</div>
+              <div style="display:inline-flex; align-items:center; gap:6px; background:#f1f5f9; padding:4px 10px; border-radius:6px; font-size:13px; font-weight:500; color:#475569;">
+                <i class="fa-solid fa-tag text-primary" style="opacity:0.7"></i> ${esc(d.package_name || 'Gói')}
               </div>
-              <div class="fw-700" style="color:var(--text-heading)">${fmt(d.total_amount)}</div>
             </div>
           </div>
         </div>
       </div>
     `;
 
-    // Custom Fields Data (if exists)
+    leftCol.innerHTML += `
+      <div class="card mb-16" style="overflow: hidden;">
+        <div class="cart-summary-head" style="background:#f8fafc; border-bottom:1px solid var(--border); padding:16px 20px;">
+          <div class="cart-summary-title" style="color:var(--text-heading); font-size:15px;"><i class="fa-solid fa-credit-card text-primary"></i> Thông tin thanh toán</div>
+        </div>
+        <div class="card-body" style="padding:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; font-size:15px; color:var(--text-secondary);">
+            <div>Giá gốc</div>
+            <div style="font-weight:600;">${fmt(d.total_amount)}</div>
+          </div>
+          <div style="border-top:1px dashed var(--border); margin:16px 0;"></div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-weight:700; font-size:16px; color:var(--text-heading);">Tổng thanh toán</div>
+            <div style="font-weight:800; font-size:20px; color:var(--primary);">${fmt(d.total_amount)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+
     if (d.custom_fields_data && Object.keys(d.custom_fields_data).length > 0) {
       leftCol.innerHTML += `
-        <div class="card mb-16">
-          <div class="card-body">
-            <div class="fw-600 mb-12" style="font-size: 15px;"><i class="fa-solid fa-clipboard-list"></i> Thông tin bạn đã cung cấp</div>
-            <div style="background: var(--bg-body); border-radius: 8px; padding: 16px;">
-              ${Object.entries(d.custom_fields_data).map(([k,v]) => `
-                <div style="margin-bottom: 12px; border-bottom: 1px dashed var(--border); padding-bottom: 12px;">
-                  <div style="color: var(--text-muted); font-size: 13px; margin-bottom: 4px;">${k}</div>
-                  <div style="font-weight: 600;">${v}</div>
-                </div>
-              `).join('')}
-            </div>
+        <div class="card mb-16" style="overflow: hidden;">
+          <div class="cart-summary-head" style="background:#f8fafc; border-bottom:1px solid var(--border); padding:16px 20px;">
+            <div class="cart-summary-title" style="color:var(--text-heading); font-size:15px;"><i class="fa-solid fa-list-ul text-primary"></i> Thông tin đơn hàng</div>
+          </div>
+          <div class="card-body" style="padding:20px;">
+            ${Object.entries(d.custom_fields_data).map(([k,v]) => `
+              <div style="margin-bottom:16px; background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:16px;">
+                <div style="color:var(--text-muted); font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">${esc(k)}</div>
+                <div style="font-weight:600; font-size:15px; color:var(--text-heading); word-break:break-all;">${esc(v)}</div>
+              </div>
+            `).join('')}
           </div>
         </div>
       `;
     }
 
-    // Delivery Data (if completed)
     if (d.status === 'completed' && d.delivery_data) {
+      // Parse accounts (split by newline)
+      const rawAccounts = d.delivery_data.split('\\n').map(s => s.trim()).filter(Boolean);
+      const accounts = rawAccounts.length > 0 ? rawAccounts : [d.delivery_data]; // fallback if not newline-separated
+      
+      const accListHtml = accounts.map((acc, idx) => `
+        <div style="background:#eefdf4; border:1px solid #a7f3d0; border-radius:12px; margin-bottom:12px; overflow:hidden;">
+          <div style="display:flex; justify-content:space-between; align-items:center; background:#d1fae5; padding:10px 16px; border-bottom:1px solid #a7f3d0;">
+            <div style="color:#059669; font-weight:800; font-size:15px;">#${idx + 1}</div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-sm" style="background:#a7f3d0; color:#059669; border:none; border-radius:6px; padding:6px 10px;" onclick="navigator.clipboard.writeText(\`${acc.replace(/`/g, '\\`')}\`).then(()=>toast('Đã sao chép','success'))" title="Sao chép"><i class="fa-solid fa-copy"></i></button>
+              <button class="btn btn-sm" style="background:#fecaca; color:#dc2626; border:none; border-radius:6px; padding:6px 10px;" onclick="openReportErrorModal('${d.order_code}', '${esc(d.product_name)}', \`${acc.replace(/`/g, '\\`')}\`)" title="Báo lỗi tài khoản"><i class="fa-solid fa-bug"></i></button>
+            </div>
+          </div>
+          <div style="padding:16px; font-family:monospace; font-size:15px; color:#064e3b; word-break:break-all; white-space:pre-wrap;">${esc(acc)}</div>
+        </div>
+      `).join('');
+
       leftCol.innerHTML += `
-        <div class="card mb-16" style="border-color: #10b981;">
-          <div class="card-body">
-            <div class="fw-700 mb-12" style="font-size: 16px; color: #10b981;"><i class="fa-solid fa-gift"></i> Thông tin nhận hàng</div>
-            <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 16px; position: relative;">
-              <pre style="white-space: pre-wrap; word-break: break-all; margin: 0; font-family: monospace; font-size: 14px; line-height: 1.5; color: #065f46;">${d.delivery_data}</pre>
-              <button class="btn btn-sm btn-primary" onclick="navigator.clipboard.writeText(\`${d.delivery_data.replace(/`/g, '\\`')}\`).then(()=>toast('Đã sao chép','success'))" style="position: absolute; top: 12px; right: 12px; background: #10b981; border: none;"><i class="fa-solid fa-copy"></i> Copy</button>
+        <div class="card mb-16" style="border:1px solid #a7f3d0; overflow:hidden;">
+          <div style="background:#d1fae5; padding:16px 20px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #a7f3d0;">
+            <div style="color:#059669; font-weight:700; font-size:16px; display:flex; align-items:center; gap:8px;">
+              <i class="fa-solid fa-gift"></i> Thông tin tài khoản
+            </div>
+            <div style="background:#a7f3d0; color:#059669; font-weight:600; font-size:13px; padding:4px 12px; border-radius:20px;">
+              ${accounts.length} tài khoản
+            </div>
+          </div>
+          <div class="card-body" style="padding:24px; background:#fff;">
+            
+            <!-- Actions -->
+            <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin-bottom:24px;">
+              <button class="btn" style="background:#16a34a; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-weight:600;" onclick="navigator.clipboard.writeText(\`${d.delivery_data.replace(/`/g, '\\`')}\`).then(()=>toast('Đã sao chép tất cả','success'))"><i class="fa-solid fa-copy"></i> Sao chép tất cả</button>
+              <button class="btn" style="background:#2563eb; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-weight:600;" onclick="downloadFile('${d.order_code}.txt', \`${d.delivery_data.replace(/`/g, '\\`')}\`)"><i class="fa-solid fa-file-lines"></i> Xuất TXT</button>
+              <button class="btn" style="background:#8b5cf6; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-weight:600;" onclick="downloadFile('${d.order_code}.csv', \`${accounts.join('\\n').replace(/`/g, '\\`')}\`)"><i class="fa-solid fa-file-csv"></i> Xuất CSV</button>
+            </div>
+
+            <div style="border-top:1px dashed #cbd5e1; margin-bottom:24px;"></div>
+
+            <!-- Account List -->
+            <div>
+              ${accListHtml}
             </div>
           </div>
         </div>
       `;
     }
 
-    // RIGHT COL: Payment & Summary
     const rightCol = el('div');
-    
-    let paymentActionHtml = '';
     if (d.status === 'pending' || d.status === 'pending_payment') {
-      paymentActionHtml = `
-        <div class="card mt-16" style="border-color:var(--yellow); background:var(--yellow-light)">
+      rightCol.innerHTML = `
+        <div class="card" style="border-color:var(--yellow); background:var(--yellow-light)">
           <div class="card-body">
-            <div class="fw-600 mb-8" style="color:var(--yellow)"><i class="fa-solid fa-circle-info"></i> Chờ thanh toán</div>
-            <p class="text-sm mb-16" style="color:#B45309">Đơn hàng của bạn đang chờ được thanh toán. Vui lòng thanh toán để nhận hàng.</p>
-            <button class="btn btn-primary btn-full" onclick="location.href='/api/payment/pay/${d.order_code}'" style="background: #D97706; border-color: #D97706;"><i class="fa-solid fa-money-bill"></i> Thanh toán ngay</button>
+            <h3 style="margin-top:0; color:var(--yellow-dark)">Chưa thanh toán</h3>
+            <p style="color:var(--text-muted); font-size:14px; margin-bottom:16px;">Bạn cần thanh toán đơn hàng này để hệ thống xử lý giao hàng.</p>
+            <button class="btn btn-primary btn-full" onclick="location.hash='/checkout'"><i class="fa-solid fa-credit-card"></i> Thanh toán ngay</button>
             <button class="btn btn-ghost btn-full mt-8" id="btn-check-status"><i class="fa-solid fa-rotate"></i> Cập nhật trạng thái</button>
           </div>
         </div>
       `;
     }
 
-    const taxRate = parseFloat(appSettings.tax_rate) || 0;
-    const subtotalCalc = taxRate > 0 ? Math.round(d.total_amount / (1 + taxRate/100)) : d.total_amount;
-    const taxAmountCalc = d.total_amount - subtotalCalc;
-
-    rightCol.innerHTML = `
-      <div class="cart-summary-card">
-        <div class="cart-summary-head"><div class="cart-summary-title"><i class="fa-solid fa-receipt"></i> Tóm tắt đơn hàng</div></div>
-        <div class="cart-summary-body">
-          <div class="summary-row"><span class="summary-label">Tạm tính</span><span class="summary-value">${fmt(subtotalCalc)}</span></div>
-          ${taxRate > 0 ? `
-          <div class="summary-row"><span class="summary-label">Thuế (${taxRate}%)</span><span class="summary-value">${fmt(taxAmountCalc)}</span></div>
-          ` : ''}
-          <div class="divider" style="margin: 16px 0; border-top: 1px dashed var(--border-dark);"></div>
-          <div class="summary-row"><span class="summary-label fw-700" style="font-size: 16px;">Tổng cộng</span><span class="summary-total" style="color: #ef4444; font-size: 22px;">${fmt(d.total_amount)}</span></div>
-          
-          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px dashed var(--border-dark);">
-            <div class="fw-600 mb-12" style="font-size: 14px;">Phương thức thanh toán</div>
-            <div style="display: flex; align-items: center; gap: 12px; background: var(--bg-body); padding: 12px; border-radius: 8px;">
-              <div style="width: 32px; height: 32px; background: #fff; border-radius: 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); color: var(--primary);"><i class="fa-solid fa-wallet"></i></div>
-              <div class="fw-600 text-sm">${d.payment_method?.toUpperCase() || 'Chuyển khoản'}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      ${paymentActionHtml}
-    `;
-
     grid.appendChild(leftCol);
     grid.appendChild(rightCol);
     view.appendChild(grid);
     
     qs('#btn-check-status', rightCol)?.addEventListener('click', () => renderOrderDetail(view, { code }));
-  } catch (e) { view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>${e.message}</h3></div>`; }
+  } catch (e) { view.innerHTML = `<div class="empty-state"><h3>${e.message}</h3></div>`; }
 }
 
-// LOGIN
-let _authConfig = null;
-async function getAuthConfig() {
-  if (_authConfig) return _authConfig;
-  _authConfig = await apiFetch('/auth/config').catch(() => ({}));
-  return _authConfig;
+// ── Helpers for Delivery Data ──
+function downloadFile(filename, content) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
+function openReportErrorModal(orderCode, productName, accountData) {
+  // Create a custom fullscreen overlay specifically for this modal to match the design perfectly
+  const overlay = el('div');
+  overlay.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;';
+  
+  const modal = el('div');
+  modal.style.cssText = 'background:#fff; border-radius:12px; width:100%; max-width:480px; overflow:hidden; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);';
+  
+  modal.innerHTML = `
+    <div style="background: linear-gradient(135deg, #1e3a8a, #0d9488); color:#fff; padding:16px 20px; display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="margin:0; font-size:18px; display:flex; align-items:center; gap:8px;"><i class="fa-solid fa-bug"></i> Báo lỗi tài khoản</h3>
+      <button id="btn-close-custom-modal" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:32px; height:32px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div style="padding:24px;">
+      <div style="background:#f8fafc; border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:20px;">
+        <div style="display:flex; margin-bottom:12px;"><div style="width:100px; color:var(--text-secondary); font-weight:600;">Đơn hàng:</div><div style="font-weight:700; color:var(--text-heading);">#${orderCode}</div></div>
+        <div style="display:flex; margin-bottom:12px;"><div style="width:100px; color:var(--text-secondary); font-weight:600;">Sản phẩm:</div><div style="font-weight:600; color:var(--text-heading);">${productName}</div></div>
+        <div style="color:var(--text-secondary); font-weight:600; margin-bottom:8px;">Tài khoản lỗi:</div>
+        <div style="background:#fef2f2; border:1px solid #fecaca; color:#dc2626; padding:12px; border-radius:8px; font-family:monospace; font-size:14px; word-break:break-all;">${esc(accountData)}</div>
+      </div>
+      
+      <div style="margin-bottom:24px;">
+        <label style="display:block; font-weight:700; margin-bottom:8px; font-size:14px; color:var(--text-heading)">Mô tả lỗi <span style="color:#ef4444">*</span></label>
+        <textarea id="error-desc" class="form-input" rows="4" placeholder="Mô tả chi tiết lỗi bạn gặp phải với tài khoản này..." style="border-radius:8px; resize:none; width:100%; border:1px solid var(--border); padding:12px; font-family:inherit;"></textarea>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:12px;">
+        <button class="btn btn-outline" id="btn-cancel-custom-modal" style="background:#f1f5f9; border:none; color:var(--text-secondary); padding:10px 20px; border-radius:8px; font-weight:600;">Đóng</button>
+        <button class="btn btn-primary" id="btn-submit-error" style="background: linear-gradient(135deg, #1e3a8a, #0d9488); border:none; padding:10px 20px; border-radius:8px; font-weight:600;"><i class="fa-solid fa-paper-plane"></i> Gửi báo lỗi</button>
+      </div>
+    </div>
+  `;
+  
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const closeCustomModal = () => document.body.removeChild(overlay);
+  
+  qs('#btn-close-custom-modal', modal).onclick = closeCustomModal;
+  qs('#btn-cancel-custom-modal', modal).onclick = closeCustomModal;
+  
+  // Close on outside click
+  overlay.onclick = (e) => { if (e.target === overlay) closeCustomModal(); };
+  
+  qs('#btn-submit-error', modal).onclick = async () => {
+    const desc = qs('#error-desc', modal).value.trim();
+    if (!desc) return toast('Vui lòng nhập mô tả lỗi', 'error');
+    
+    const btn = qs('#btn-submit-error', modal);
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang gửi...';
+    
+    try {
+      await apiFetch('/support/tickets', {
+        method: 'POST',
+        body: JSON.stringify({
+          subject: `Báo lỗi tài khoản đơn hàng #${orderCode}`,
+          content: `Sản phẩm: ${productName}\n\nTài khoản lỗi:\n${accountData}\n\nMô tả lỗi của khách hàng:\n${desc}`
+        })
+      });
+      closeCustomModal();
+      toast('Đã gửi báo lỗi thành công. Chúng tôi sẽ kiểm tra và phản hồi sớm!', 'success', 5000);
+    } catch (e) {
+      toast(e.message, 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Gửi báo lỗi';
+    }
+  };
+}
 

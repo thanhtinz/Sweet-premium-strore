@@ -263,6 +263,28 @@ async function init() {
         fSiteName.textContent = appSettings.site_name || 'ShopKey';
       }
     }
+    
+    // Update footer description
+    const fSiteDesc = qs('#f-site-desc');
+    if (fSiteDesc && appSettings.site_description) {
+      fSiteDesc.textContent = appSettings.site_description;
+    }
+    
+    // Update footer copyright
+    const fCopyright = qs('#f-copyright');
+    if (fCopyright && appSettings.copyright_text) {
+      fCopyright.innerHTML = appSettings.copyright_text;
+    }
+    
+    // Update footer socials
+    const fSocials = qs('#f-socials');
+    if (fSocials) {
+      let socialHtml = '';
+      if (appSettings.social_fb) socialHtml += `<a href="${appSettings.social_fb}" target="_blank" title="Facebook"><i class="fa-brands fa-facebook"></i></a>`;
+      if (appSettings.social_tele) socialHtml += `<a href="${appSettings.social_tele}" target="_blank" title="Telegram"><i class="fa-brands fa-telegram"></i></a>`;
+      if (appSettings.social_discord) socialHtml += `<a href="${appSettings.social_discord}" target="_blank" title="Discord"><i class="fa-brands fa-discord"></i></a>`;
+      fSocials.innerHTML = socialHtml;
+    }
     // Footer copyright text
     const fSiteCopy = qs('#f-site-copy');
     if (fSiteCopy) {

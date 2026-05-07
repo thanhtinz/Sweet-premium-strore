@@ -76,26 +76,13 @@ def list_wishlist(
     )
 
     return {
-        "items": [_product_summary(p) for p in items],
+        "items": [_product_to_dict(p, db) for p in items],
         "total": total,
         "page": page,
         "pages": max(1, (total + limit - 1) // limit),
     }
 
 
-def _product_summary(p: Product):
-    # Find min price from packages
-    min_price = None
-    if p.packages:
-        prices = [pkg.price for pkg in p.packages if pkg.price]
-        if prices:
-            min_price = float(min(prices))
-    return {
-        "id": p.id,
-        "name": p.name,
-        "slug": p.slug,
-        "image_url": p.image_url,
-        "min_price": min_price,
-        "category_name": p.category.name if p.category else None,
-        "sold_count": getattr(p, 'sold_count', 0) or 0,
-    }
+def _product_to_dict(p, db):
+    from api.products import product_to_dict
+    return product_to_dict(p, include_packages=True, db=db)
