@@ -263,8 +263,8 @@ async function loadSidebar() {
     supportItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-headset"></i></div><span>Hỗ trợ</span>';
     if (appSettings.features?.support !== false) nav.appendChild(supportItem);
 
-    const blogItem = el('a', 'nav-item' + (location.hash === '#/blog' ? ' active' : ''));
-    blogItem.href = '#/blog';
+    const blogItem = el('a', 'nav-item' + (location.pathname.startsWith('/blog') || location.hash === '#/blog' ? ' active' : ''));
+    blogItem.href = '/blog';
     blogItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-newspaper"></i></div><span>Blog</span>';
     if (appSettings.features?.blog !== false) nav.appendChild(blogItem);
 

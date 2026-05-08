@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 
 from db.init_db import init_db
-from db.models import Product, SiteConfig, SiteSetting
+from db.models import BlogPost, Product, SiteConfig, SiteSetting
 from db import SessionLocal
 from api.auth import router as auth_router
 from api.categories import router as cat_router
@@ -128,6 +128,35 @@ def build_share_product_html(product: Product, settings: dict, request: Request,
 </html>"""
 
 
+def build_blog_meta(post: BlogPost | None, settings: dict, request: Request) -> dict:
+    site_name = settings.get("site_name") or "ShopKey"
+    site_description = settings.get("site_description") or "Cập nhật tin tức, hướng dẫn và mẹo hay mỗi ngày"
+    logo_url = absolute_url(settings.get("logo_url") or settings.get("site_logo") or "", request)
+    favicon_url = absolute_url(settings.get("favicon_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request)
+
+    if post:
+        title = post.meta_title or post.title or f"Blog | {site_name}"
+        raw_desc = post.meta_description or post.excerpt or site_description
+        description = " ".join(str(raw_desc).replace("<", " ").replace(">", " ").split())[:220]
+        image_url = absolute_url(post.thumbnail_url or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request)
+    else:
+        title = f"Blog | {site_name}"
+        description = site_description
+        image_url = absolute_url(settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request)
+
+    return {
+        "site_name": site_name,
+        "title": title,
+        "description": description,
+        "image_url": image_url,
+        "favicon_url": favicon_url,
+        "logo_url": logo_url,
+        "canonical_url": str(request.url),
+        "copyright_text": settings.get("copyright_text") or f"Copyright © 2026 {site_name}. All rights reserved.",
+    }
+
+
+
 def create_app(static_dir: str) -> FastAPI:
     app = FastAPI(title="Digital Product Shop", version="1.0.0")
 
@@ -191,6 +220,43 @@ def create_app(static_dir: str) -> FastAPI:
             return HTMLResponse(build_share_product_html(product, settings, request, ref=ref))
         finally:
             db.close()
+
+    @app.get("/blog", response_class=HTMLResponse)
+    def blog_index_page(request: Request):
+        db = SessionLocal()
+        try:
+            settings = load_public_settings(db)
+            meta = build_blog_meta(None, settings, request)
+        finally:
+            db.close()
+
+        import time
+        nocache = str(int(time.time() * 1000))
+        return templates.TemplateResponse(
+            request,
+            "blog.html",
+            {"css_hash": nocache, "js_hash": nocache, **meta},
+        )
+
+    @app.get("/blog/{slug}", response_class=HTMLResponse)
+    def blog_post_page(request: Request, slug: str):
+        db = SessionLocal()
+        try:
+            post = db.query(BlogPost).filter(BlogPost.slug == slug, BlogPost.is_published == True).first()
+            if not post:
+                raise HTTPException(status_code=404, detail="Post not found")
+            settings = load_public_settings(db)
+            meta = build_blog_meta(post, settings, request)
+        finally:
+            db.close()
+
+        import time
+        nocache = str(int(time.time() * 1000))
+        return templates.TemplateResponse(
+            request,
+            "blog.html",
+            {"css_hash": nocache, "js_hash": nocache, "blog_slug": slug, **meta},
+        )
 
     # SPA fallback — all non-API routes serve index.html
     @app.get("/{full_path:path}", response_class=HTMLResponse)

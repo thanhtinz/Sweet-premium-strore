@@ -3,6 +3,8 @@
 // ═══════════════════════════════════════════════════════════════
 
 async function renderBlogList(view) {
+  window.location.href = '/blog' + (location.hash.includes('?') ? location.hash.slice(location.hash.indexOf('?')) : '');
+  return;
   view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   const params = new URLSearchParams(location.hash.split('?')[1] || '');
   const page = parseInt(params.get('page') || '1');
@@ -85,6 +87,8 @@ async function renderBlogList(view) {
 }
 
 async function renderBlogPost(view, { slug }) {
+  window.location.href = `/blog/${slug}`;
+  return;
   view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
     const post = await apiFetch(`/blog/posts/${slug}`);
