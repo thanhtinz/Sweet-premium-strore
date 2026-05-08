@@ -1,14 +1,25 @@
 from datetime import datetime, timezone
 from sqlalchemy import (
     Column, Integer, String, Text, Boolean, Numeric, DateTime,
-    ForeignKey, JSON, UniqueConstraint
+    ForeignKey, JSON, UniqueConstraint, LargeBinary
 )
 from sqlalchemy.orm import relationship
 from db import Base
 
 
+
 def now_utc():
     return datetime.now(timezone.utc)
+
+
+class UploadedImage(Base):
+    __tablename__ = "uploaded_images"
+
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String(255), nullable=True)
+    data = Column(LargeBinary, nullable=False)
+    mime_type = Column(String(100), nullable=False, default="application/octet-stream")
+    created_at = Column(DateTime(timezone=True), default=now_utc)
 
 
 class Category(Base):

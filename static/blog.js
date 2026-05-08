@@ -296,16 +296,36 @@ async function renderAdminBlog(view) {
         </div>
         <div class="form-group">
           <label class="form-label">Tóm tắt</label>
+          <div class="editor-toolbar" id="bp-excerpt-toolbar">
+            <button type="button" class="btn btn-ghost btn-sm" data-editor-action="bold"><b>B</b></button>
+            <button type="button" class="btn btn-ghost btn-sm" data-editor-action="italic"><i>I</i></button>
+            <button type="button" class="btn btn-ghost btn-sm" data-editor-action="link"><i class="fa-solid fa-link"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm" data-editor-action="ul"><i class="fa-solid fa-list-ul"></i></button>
+          </div>
           <textarea class="form-textarea" id="bp-excerpt" rows="3" placeholder="Tóm tắt ngắn gọn">${excerptVal}</textarea>
         </div>
         <div class="form-group">
           <label class="form-label">Nội dung (HTML)</label>
+          <div class="editor-toolbar" id="bp-content-toolbar">
+            <button type="button" class="btn btn-ghost btn-sm" data-editor-action="bold"><b>B</b></button>
+            <button type="button" class="btn btn-ghost btn-sm" data-editor-action="italic"><i>I</i></button>
+            <button type="button" class="btn btn-ghost btn-sm" data-editor-action="underline"><u>U</u></button>
+            <button type="button" class="btn btn-ghost btn-sm" data-editor-action="link"><i class="fa-solid fa-link"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm" data-editor-action="image"><i class="fa-regular fa-image"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm" data-editor-action="ul"><i class="fa-solid fa-list-ul"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm" data-editor-action="ol"><i class="fa-solid fa-list-ol"></i></button>
+            <button type="button" class="btn btn-ghost btn-sm" data-editor-action="h2">H2</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-editor-action="quote"><i class="fa-solid fa-quote-left"></i></button>
+          </div>
           <textarea class="form-textarea" id="bp-content" rows="16" placeholder="Nội dung bài viết (hỗ trợ HTML)">${contentVal}</textarea>
         </div>
         <div class="form-row form-row-2">
           <div class="form-group">
-            <label class="form-label">Thumbnail URL</label>
-            <input type="text" class="form-input" id="bp-thumb" value="${thumbVal}" placeholder="https://..." />
+            <label class="form-label">Thumbnail</label>
+            <div class="flex gap-8 items-center">
+              <input type="text" class="form-input flex-1" id="bp-thumb" value="${thumbVal}" placeholder="https://... hoặc upload ảnh" />
+              ${imageUploadControl('bp-thumb', 'bp-thumb-upload')}
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label">Trạng thái</label>
@@ -352,10 +372,15 @@ async function renderAdminBlog(view) {
       qs('.toggle-text', content).textContent = e.target.checked ? 'Published' : 'Draft';
     };
 
+    createRichTextEditor({ textareaId: 'bp-excerpt', toolbarId: 'bp-excerpt-toolbar', placeholder: 'Nhập tóm tắt bài viết...', minHeight: 180 });
+    createRichTextEditor({ textareaId: 'bp-content', toolbarId: 'bp-content-toolbar', placeholder: 'Nhập nội dung bài viết...', minHeight: 520 });
+    bindImageUploads(content);
+
     qs('#bp-cancel', content).onclick = () => { editingPost = null; render(); };
     qs('#bp-back', content).onclick = () => { editingPost = null; render(); };
 
     qs('#bp-save', content).onclick = async () => {
+      if (window.syncRichTextEditors) window.syncRichTextEditors();
       const body = {
         title: qs('#bp-title', content).value.trim(),
         slug: qs('#bp-slug', content).value.trim() || undefined,
@@ -406,6 +431,7 @@ function showBlogCatModal(cat, onDone) {
     </form>
   `);
   qs('#bc-cancel').onclick = closeModal;
+  createRichTextEditor({ textarea: qs('#bc-desc'), placeholder: 'Nhập mô tả danh mục blog...', minHeight: 160 });
   // Auto slug from name
   qs('#bc-name').oninput = (e) => {
     const slug = e.target.value.toLowerCase().replace(/[đĐ]/g, 'd').replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').trim();
@@ -413,6 +439,7 @@ function showBlogCatModal(cat, onDone) {
   };
   qs('#blog-cat-form').onsubmit = async (e) => {
     e.preventDefault();
+    if (window.syncRichTextEditors) window.syncRichTextEditors();
     const body = {
       name: qs('#bc-name').value.trim(),
       slug: qs('#bc-slug').value.trim() || undefined,

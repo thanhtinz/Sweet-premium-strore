@@ -6,6 +6,71 @@
 // The sidebar has already been reconfigured for admin mode in app.js.
 function renderAdminShell(wrap) {
   // no-op - layout is now handled globally
+async function uploadAdminImage(file, { input = null, preview = null } = {}) {
+  if (!file) return null;
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await fetch('/api/banners/admin/upload-image', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${authToken}` },
+    body: fd,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Upload failed');
+  if (input) {
+    input.value = data.url;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  if (preview) {
+    preview.innerHTML = `<img src="${data.url}" alt="Preview" />`;
+  }
+  return data;
+}
+
+function imageUploadControl(inputId, uploadId, label = 'Upload') {
+  return `<label class="btn btn-ghost btn-sm admin-image-upload-btn" style="white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-upload"></i> ${label}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" id="${uploadId}" data-image-target="${inputId}" style="display:none" /></label>`;
+}
+
+function bindImageUpload(uploadId, inputId, { previewId = null } = {}) {
+  const upload = qs(`#${uploadId}`);
+  const input = qs(`#${inputId}`);
+  const preview = previewId ? qs(`#${previewId}`) : null;
+  if (!upload || !input) return;
+  upload.onchange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      await uploadAdminImage(file, { input, preview });
+      toast('Upload thành công', 'success');
+    } catch (err) {
+      toast('Upload thất bại: ' + err.message, 'error');
+    } finally {
+      upload.value = '';
+    }
+  };
+}
+
+function bindImageUploads(root = document) {
+  qsa('input[type="file"][data-image-target]', root).forEach(upload => {
+    const input = qs(`#${upload.dataset.imageTarget}`, root) || qs(`#${upload.dataset.imageTarget}`);
+    if (!input || upload.dataset.boundUpload === '1') return;
+    upload.dataset.boundUpload = '1';
+    upload.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        await uploadAdminImage(file, { input });
+        toast('Upload thành công', 'success');
+      } catch (err) {
+        toast('Upload thất bại: ' + err.message, 'error');
+      } finally {
+        upload.value = '';
+      }
+    };
+  });
+}
+
 }
 
 // ADMIN DASHBOARD
@@ -103,14 +168,14 @@ function showCatModal(cat, refresh, allCats = []) {
         <label class="form-label">URL icon</label>
         <div class="flex gap-8 items-center">
           <input class="form-input flex-1" id="cf-icon" value="${cat?.icon_url || ''}" placeholder="https://..." />
-          <label class="btn btn-ghost btn-sm" style="white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-upload"></i> Upload<input type="file" accept="image/*" id="cf-icon-upload" style="display:none" /></label>
+          <label class="btn btn-ghost btn-sm" style="white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-upload"></i> Upload<input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" id="cf-icon-upload" data-image-target="cf-icon" style="display:none" /></label>
         </div>
       </div>
       <div class="form-group">
         <label class="form-label">Hình ảnh (URL)</label>
         <div class="flex gap-8 items-center">
           <input class="form-input flex-1" id="cf-image" value="${cat?.image_url || ''}" placeholder="https://..." />
-          <label class="btn btn-ghost btn-sm" style="white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-upload"></i> Upload<input type="file" accept="image/*" id="cf-image-upload" style="display:none" /></label>
+          <label class="btn btn-ghost btn-sm" style="white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-upload"></i> Upload<input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" id="cf-image-upload" data-image-target="cf-image" style="display:none" /></label>
         </div>
       </div>
       <div class="form-row form-row-2">
@@ -123,23 +188,7 @@ function showCatModal(cat, refresh, allCats = []) {
   `, cat ? `Sửa: ${cat.name}` : 'Thêm danh mục');
   qs('#cat-cancel').onclick = closeModal;
 
-  const uploadCatImage = async (file, inputEl) => {
-    const fd = new FormData();
-    fd.append('file', file);
-    try {
-      const res = await fetch('/api/banners/admin/upload-image', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${authToken}` },
-        body: fd,
-      });
-      if (!res.ok) throw new Error('Upload failed');
-      const data = await res.json();
-      inputEl.value = data.url;
-      toast('Upload thành công', 'success');
-    } catch (err) { toast('Upload thất bại: ' + err.message, 'error'); }
-  };
-  qs('#cf-icon-upload').onchange = (e) => { if (e.target.files[0]) uploadCatImage(e.target.files[0], qs('#cf-icon')); };
-  qs('#cf-image-upload').onchange = (e) => { if (e.target.files[0]) uploadCatImage(e.target.files[0], qs('#cf-image')); };
+  bindImageUploads(qs('#modal-content'));
 
   qs('#cat-form').onsubmit = async (e) => {
     e.preventDefault();
@@ -242,19 +291,27 @@ function showProductModal(prod, cats, refresh) {
       <div class="form-group">
         <label class="form-label">Mô tả</label>
         <div class="editor-toolbar" id="pf-desc-toolbar">
-          <button type="button" class="btn btn-ghost btn-sm" data-insert-html="bold"><b>B</b></button>
-          <button type="button" class="btn btn-ghost btn-sm" data-insert-html="italic"><i>I</i></button>
-          <button type="button" class="btn btn-ghost btn-sm" data-insert-html="link"><i class="fa-solid fa-link"></i> Link</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-insert-html="image"><i class="fa-regular fa-image"></i> Ảnh</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-insert-html="table"><i class="fa-solid fa-table"></i> Table</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-insert-html="ul"><i class="fa-solid fa-list-ul"></i> List</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-insert-html="h2">H2</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-insert-html="html"><i class="fa-solid fa-code"></i> HTML</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="bold"><b>B</b></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="italic"><i>I</i></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="underline"><u>U</u></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="link"><i class="fa-solid fa-link"></i> Link</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="image"><i class="fa-regular fa-image"></i> Ảnh</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="ul"><i class="fa-solid fa-list-ul"></i> List</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="ol"><i class="fa-solid fa-list-ol"></i> Số</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="h2">H2</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="quote"><i class="fa-solid fa-quote-left"></i></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="html"><i class="fa-solid fa-code"></i> HTML</button>
         </div>
         <textarea class="form-textarea rich-textarea" id="pf-desc" rows="10" placeholder="Hỗ trợ HTML: link, ảnh, bảng, heading, list...">${prod?.description || ''}</textarea>
         <div class="form-hint">Bạn có thể nhập HTML trực tiếp hoặc dùng các nút chèn nhanh phía trên.</div>
       </div>
-      <div class="form-group"><label class="form-label">URL ảnh</label><input class="form-input" id="pf-img" value="${prod?.image_url || ''}" /></div>
+      <div class="form-group">
+        <label class="form-label">Ảnh sản phẩm</label>
+        <div class="flex gap-8 items-center">
+          <input class="form-input flex-1" id="pf-img" value="${prod?.image_url || ''}" placeholder="https://... hoặc upload ảnh" />
+          ${imageUploadControl('pf-img', 'pf-img-upload')}
+        </div>
+      </div>
       <div class="form-row form-row-3">
         <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="pf-order" value="${prod?.sort_order ?? 0}" /></div>
         <div class="form-group"><label class="form-label">Nổi bật</label><select class="form-select" id="pf-featured"><option value="false" ${!prod?.is_featured ? 'selected' : ''}>Không</option><option value="true" ${prod?.is_featured ? 'selected' : ''}>Có</option></select></div>
@@ -272,35 +329,17 @@ function showProductModal(prod, cats, refresh) {
   };
 
   qs('#prod-cancel').onclick = closeModal;
+  bindImageUploads(qs('#modal-content'));
 
-  const descEl = qs('#pf-desc');
-  const insertAtCursor = (text) => {
-    const start = descEl.selectionStart ?? descEl.value.length;
-    const end = descEl.selectionEnd ?? descEl.value.length;
-    descEl.value = `${descEl.value.slice(0, start)}${text}${descEl.value.slice(end)}`;
-    const nextPos = start + text.length;
-    descEl.focus();
-    descEl.setSelectionRange(nextPos, nextPos);
-  };
-
-  qs('#pf-desc-toolbar').onclick = (e) => {
-    const btn = e.target.closest('[data-insert-html]');
-    if (!btn) return;
-    const type = btn.dataset.insertHtml;
-    const snippets = {
-      bold: '<strong>Nội dung in đậm</strong>',
-      italic: '<em>Nội dung in nghiêng</em>',
-      link: '<a href="https://example.com" target="_blank" rel="noopener noreferrer">Tên liên kết</a>',
-      image: '<img src="https://example.com/image.jpg" alt="Mô tả ảnh" style="max-width:100%;border-radius:12px;" />',
-      table: '<table><thead><tr><th>Cột 1</th><th>Cột 2</th></tr></thead><tbody><tr><td>Dữ liệu 1</td><td>Dữ liệu 2</td></tr></tbody></table>',
-      ul: '<ul><li>Mục 1</li><li>Mục 2</li></ul>',
-      h2: '<h2>Tiêu đề nội dung</h2>',
-      html: '<div class="content-block">Nội dung HTML tùy chỉnh</div>',
-    };
-    insertAtCursor(snippets[type] || '');
-  };
+  createRichTextEditor({
+    textarea: qs('#pf-desc'),
+    toolbarId: 'pf-desc-toolbar',
+    placeholder: 'Nhập mô tả sản phẩm...',
+    minHeight: 380,
+  });
   qs('#prod-form').onsubmit = async (e) => {
     e.preventDefault();
+    if (window.syncRichTextEditors) window.syncRichTextEditors();
     const cat_id = qs('#pf-cat-child').value || qs('#pf-cat-parent').value;
     const body = { name: qs('#pf-name').value, category_id: cat_id ? parseInt(cat_id) : null, description: qs('#pf-desc').value || null, image_url: qs('#pf-img').value || null, sort_order: parseInt(qs('#pf-order').value) || 0, is_featured: qs('#pf-featured').value === 'true', is_active: qs('#pf-active').value === 'true' };
     try { if (prod) await apiFetch(`/products/${prod.id}`, { method: 'PUT', body: JSON.stringify(body) }); else await apiFetch('/products/', { method: 'POST', body: JSON.stringify(body) }); closeModal(); toast(prod ? 'Cập nhật!' : 'Tạo mới!', 'success'); refresh(); }
@@ -359,7 +398,15 @@ async function showPackagesModal(productId, productName, prefetchedProduct = nul
         <div class="form-group"><label class="form-label">Giao hàng</label><select class="form-select" id="pkg-delivery"><option value="manual">Thủ công</option><option value="auto">Tự động</option></select></div>
         <div class="form-group"><label class="form-label">Mô tả</label><input class="form-input" id="pkg-desc" placeholder="Mô tả..." /></div>
       </div>
-      <div class="form-group"><label class="form-label">Chú ý (hiển thị khi chọn gói)</label><textarea class="form-textarea" id="pkg-notes" rows="2" placeholder="Lưu ý riêng cho gói này..."></textarea></div>
+      <div class="form-group"><label class="form-label">Chú ý (hiển thị khi chọn gói)</label>
+        <div class="editor-toolbar" id="pkg-notes-toolbar">
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="bold"><b>B</b></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="italic"><i>I</i></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="link"><i class="fa-solid fa-link"></i></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="ul"><i class="fa-solid fa-list-ul"></i></button>
+        </div>
+        <textarea class="form-textarea" id="pkg-notes" rows="4" placeholder="Lưu ý riêng cho gói này..."></textarea>
+      </div>
       <div class="form-row form-row-2" id="pkg-stock-row">
         <div class="form-group">
           <label class="form-label">Quản lý kho</label>
@@ -472,8 +519,15 @@ async function showPackagesModal(productId, productName, prefetchedProduct = nul
     });
   });
 
+  createRichTextEditor({
+    textareaId: 'pkg-notes',
+    toolbarId: 'pkg-notes-toolbar',
+    placeholder: 'Nhập lưu ý cho gói...',
+  });
+
   qs('#pkg-form', modal).onsubmit = async (e) => {
     e.preventDefault();
+    if (window.syncRichTextEditors) window.syncRichTextEditors();
     const isStockManaged = qs('#pkg-stock-toggle', modal).checked;
     const body = {
       name: qs('#pkg-name', modal).value,
@@ -535,7 +589,15 @@ function showPackageFormModal(pkg, refresh) {
         <div class="form-group"><label class="form-label">Giao hàng</label><select class="form-select" id="epkg-delivery"><option value="manual" ${pkg.delivery_type==='manual'?'selected':''}>Thủ công</option><option value="auto" ${pkg.delivery_type==='auto'?'selected':''}>Tự động</option></select></div>
         <div class="form-group"><label class="form-label">Mô tả</label><input class="form-input" id="epkg-desc" value="${pkg.description || ''}" placeholder="Mô tả..." /></div>
       </div>
-      <div class="form-group"><label class="form-label">Chú ý (hiển thị khi chọn gói)</label><textarea class="form-textarea" id="epkg-notes" rows="2" placeholder="Lưu ý riêng cho gói này...">${pkg.notes || ''}</textarea></div>
+      <div class="form-group"><label class="form-label">Chú ý (hiển thị khi chọn gói)</label>
+        <div class="editor-toolbar" id="epkg-notes-toolbar">
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="bold"><b>B</b></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="italic"><i>I</i></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="link"><i class="fa-solid fa-link"></i></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="ul"><i class="fa-solid fa-list-ul"></i></button>
+        </div>
+        <textarea class="form-textarea" id="epkg-notes" rows="4" placeholder="Lưu ý riêng cho gói này...">${pkg.notes || ''}</textarea>
+      </div>
       <div class="form-row form-row-2" id="epkg-stock-row">
         <div class="form-group">
           <label class="form-label">Quản lý kho</label>
@@ -572,8 +634,15 @@ function showPackageFormModal(pkg, refresh) {
 
   qs('#epkg-cancel', emodal).onclick = closeModal;
 
+  createRichTextEditor({
+    textareaId: 'epkg-notes',
+    toolbarId: 'epkg-notes-toolbar',
+    placeholder: 'Nhập lưu ý cho gói...',
+  });
+
   qs('#edit-pkg-form', emodal).onsubmit = async (e) => {
     e.preventDefault();
+    if (window.syncRichTextEditors) window.syncRichTextEditors();
     const isStockManaged = qs('#epkg-stock-toggle', emodal).checked;
     const body = {
       name: qs('#epkg-name', emodal).value,
@@ -1263,28 +1332,40 @@ async function renderAdminSettings(view) {
           </div>
           <div class="settings-image-grid">
             <div class="settings-image-field">
-              ${field('im-logo', 'Logo URL', im.logo_url, { placeholder: 'https://example.com/logo.png' })}
+              <div class="image-field-row">
+                ${field('im-logo', 'Logo URL', im.logo_url, { placeholder: 'https://example.com/logo.png' })}
+                ${imageUploadControl('im-logo', 'im-logo-upload')}
+              </div>
               <div class="settings-image-preview-wrap">
                 <div class="settings-image-preview-label">Xem trước logo</div>
                 <div class="settings-image-preview" id="im-logo-preview">${im.logo_url ? `<img src="${esc(im.logo_url)}" alt="Logo preview" />` : '<span>Chưa có ảnh</span>'}</div>
               </div>
             </div>
             <div class="settings-image-field">
-              ${field('im-favicon', 'Favicon URL', im.favicon_url, { placeholder: 'https://example.com/favicon.ico' })}
+              <div class="image-field-row">
+                ${field('im-favicon', 'Favicon URL', im.favicon_url, { placeholder: 'https://example.com/favicon.ico' })}
+                ${imageUploadControl('im-favicon', 'im-favicon-upload')}
+              </div>
               <div class="settings-image-preview-wrap">
                 <div class="settings-image-preview-label">Xem trước favicon</div>
                 <div class="settings-image-preview settings-image-preview-favicon" id="im-favicon-preview">${im.favicon_url ? `<img src="${esc(im.favicon_url)}" alt="Favicon preview" />` : '<span>Chưa có ảnh</span>'}</div>
               </div>
             </div>
             <div class="settings-image-field">
-              ${field('im-default', 'Default Image URL', im.default_image_url, { placeholder: 'https://example.com/default.png' })}
+              <div class="image-field-row">
+                ${field('im-default', 'Default Image URL', im.default_image_url, { placeholder: 'https://example.com/default.png' })}
+                ${imageUploadControl('im-default', 'im-default-upload')}
+              </div>
               <div class="settings-image-preview-wrap">
                 <div class="settings-image-preview-label">Xem trước ảnh mặc định</div>
                 <div class="settings-image-preview" id="im-default-preview">${im.default_image_url ? `<img src="${esc(im.default_image_url)}" alt="Default image preview" />` : '<span>Chưa có ảnh</span>'}</div>
               </div>
             </div>
             <div class="settings-image-field">
-              ${field('im-avatar', 'Default Avatar URL', im.default_avatar_url, { placeholder: 'https://example.com/avatar.png' })}
+              <div class="image-field-row">
+                ${field('im-avatar', 'Default Avatar URL', im.default_avatar_url, { placeholder: 'https://example.com/avatar.png' })}
+                ${imageUploadControl('im-avatar', 'im-avatar-upload')}
+              </div>
               <div class="settings-image-preview-wrap">
                 <div class="settings-image-preview-label">Xem trước avatar</div>
                 <div class="settings-image-preview settings-image-preview-avatar" id="im-avatar-preview">${im.default_avatar_url ? `<img src="${esc(im.default_avatar_url)}" alt="Avatar preview" />` : '<span>Chưa có ảnh</span>'}</div>
@@ -1458,6 +1539,7 @@ async function renderAdminSettings(view) {
   bindImagePreview('im-favicon', 'im-favicon-preview', 'Chưa có favicon', 'favicon');
   bindImagePreview('im-default', 'im-default-preview', 'Chưa có ảnh mặc định');
   bindImagePreview('im-avatar', 'im-avatar-preview', 'Chưa có avatar', 'avatar');
+  bindImageUploads(content);
 
   qs('#settings-unified-form', content).onsubmit = async (e) => {
     e.preventDefault();
@@ -2116,6 +2198,14 @@ function showSupportPageModal(page, onDone) {
       </div>
       <div class="form-group">
         <label class="form-label">Nội dung (HTML)</label>
+        <div class="editor-toolbar" id="page-content-toolbar">
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="bold"><b>B</b></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="italic"><i>I</i></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="link"><i class="fa-solid fa-link"></i></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="image"><i class="fa-regular fa-image"></i></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="ul"><i class="fa-solid fa-list-ul"></i></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="h2">H2</button>
+        </div>
         <textarea class="form-input" id="page-content" rows="10">${page?.content || ''}</textarea>
       </div>
       <div class="form-group">
@@ -2135,9 +2225,17 @@ function showSupportPageModal(page, onDone) {
     </form>
   `);
   
+  createRichTextEditor({
+    textareaId: 'page-content',
+    toolbarId: 'page-content-toolbar',
+    placeholder: 'Nhập nội dung trang hỗ trợ...',
+  });
+
   qs('#page-cancel').onclick = closeModal;
+  createRichTextEditor({ textarea: qs('#page-desc'), placeholder: 'Nhập mô tả SEO...', minHeight: 160 });
   qs('#page-form').onsubmit = async (e) => {
     e.preventDefault();
+    if (window.syncRichTextEditors) window.syncRichTextEditors();
     const body = {
       slug: qs('#page-slug').value,
       title: qs('#page-title').value,
@@ -2739,37 +2837,23 @@ function showAnnouncementModal(ann, onDone) {
     </form>
   `);
 
-  // Toolbar insert helpers
+  createRichTextEditor({
+    textareaId: 'ann-content',
+    toolbarId: 'ann-content-toolbar',
+    previewId: 'ann-preview',
+    placeholder: 'Nhập nội dung thông báo...',
+  });
+
   const ta = qs('#ann-content');
   const preview = qs('#ann-preview');
-  const updatePreview = () => { preview.innerHTML = ta.value; };
+  const updatePreview = () => { if (window.syncRichTextEditors) window.syncRichTextEditors(); preview.innerHTML = ta.value; };
   ta.oninput = updatePreview;
   updatePreview();
-
-  qsa('#ann-toolbar [data-insert]').forEach(btn => {
-    btn.onclick = () => {
-      const s = ta.selectionStart, e = ta.selectionEnd, sel = ta.value.substring(s, e);
-      const inserts = {
-        bold: [`<b>`, sel || 'text', `</b>`],
-        italic: [`<i>`, sel || 'text', `</i>`],
-        link: [`<a href="`, sel || 'https://...', `">link text</a>`],
-        img: [`<img src="`, sel || 'https://...image.jpg', `" alt="ảnh" />`],
-        ul: [`<ul>\n  <li>`, sel || 'item 1', `</li>\n  <li>item 2</li>\n</ul>`],
-        h3: [`<h3>`, sel || 'Heading', `</h3>`],
-        quote: [`<blockquote>`, sel || 'Trích dẫn...', `</blockquote>`],
-        br: [`<br>\n`, '', ``],
-      };
-      const [pre, mid, post] = inserts[btn.dataset.insert] || ['', '', ''];
-      const text = pre + mid + post;
-      ta.setRangeText(text, s, e, 'end');
-      ta.focus();
-      updatePreview();
-    };
-  });
 
   qs('#ann-cancel').onclick = closeModal;
   qs('#ann-form').onsubmit = async (e) => {
     e.preventDefault();
+    if (window.syncRichTextEditors) window.syncRichTextEditors();
     const body = {
       title: qs('#ann-title').value.trim(),
       content: qs('#ann-content').value.trim(),

@@ -386,11 +386,18 @@ img { max-width: 100%; display: block; }
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-xs);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
   color: var(--text-body);
   transition: all var(--transition);
+  box-shadow: 0 1px 3px rgba(17, 24, 39, 0.12);
 }
-.header-btn:hover { background: var(--bg-page); color: var(--text-heading); }
+.header-btn:hover {
+  background: var(--bg-page);
+  color: var(--text-heading);
+  box-shadow: 0 3px 10px rgba(17, 24, 39, 0.16);
+}
 .cart-badge {
   position: absolute;
   top: 2px; right: 2px;
@@ -409,25 +416,33 @@ img { max-width: 100%; display: block; }
 /* User menu */
 .auth-buttons { display: flex; align-items: center; gap: 8px; margin-left: 8px; }
 
-.user-menu { position: relative; margin-left: 8px; }
+.user-menu { position: relative; margin-left: 4px; }
 
 .user-avatar-btn {
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
+  justify-content: center;
+  padding: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
   color: var(--text-body);
-  transition: background var(--transition);
+  background: #fff;
+  transition: background var(--transition), box-shadow var(--transition), transform var(--transition), border-color var(--transition);
   cursor: pointer;
+  box-shadow: 0 1px 3px rgba(17, 24, 39, 0.12);
 }
-.user-avatar-btn:hover { background: var(--bg-page); }
+.user-avatar-btn:hover {
+  background: var(--bg-page);
+  box-shadow: 0 3px 10px rgba(17, 24, 39, 0.16);
+}
 
 .user-avatar {
-  width: 32px; height: 32px;
+  width: 30px; height: 30px;
   border-radius: 50%;
   background: transparent;
-  border: 1px solid var(--border);
+  border: 0;
   color: var(--text-heading);
   font-size: 13px;
   font-weight: 700;
@@ -435,6 +450,11 @@ img { max-width: 100%; display: block; }
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+.user-avatar-btn.has-image .user-avatar {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  overflow: hidden;
 }
 
 /* Browse All Button */
@@ -1149,6 +1169,104 @@ tr:hover td { background: #FAFBFC; }
 }
 .form-error { font-size: 12px; color: var(--red); margin-top: 5px; }
 .form-hint  { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
+.rich-editor {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.rich-editor:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(93,95,239,0.1);
+}
+.rich-editor-surface {
+  width: 100%;
+  min-height: 260px;
+  padding: 16px 18px;
+  color: var(--text-heading);
+  font-size: 14px;
+  line-height: 1.75;
+  outline: none;
+  overflow-y: auto;
+  white-space: normal;
+}
+.rich-editor-surface:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.rich-editor-surface h2,
+.rich-editor-surface h3 {
+  margin: 12px 0 8px;
+  color: var(--text-heading);
+}
+.rich-editor-surface p,
+.rich-editor-surface ul,
+.rich-editor-surface ol,
+.rich-editor-surface blockquote {
+  margin: 0 0 10px;
+}
+.rich-editor-surface blockquote {
+.image-field-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.image-field-row .form-group {
+  flex: 1;
+  margin-bottom: 0;
+}
+.admin-image-upload-btn {
+  margin-bottom: 0;
+}
+@media (max-width: 640px) {
+  .image-field-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+  padding: 10px 14px;
+  border-left: 3px solid var(--primary);
+  background: rgba(93,95,239,0.06);
+  border-radius: 10px;
+}
+.rich-editor-surface img {
+.rich-editor-textarea {
+  min-height: 320px;
+}
+.tox.tox-tinymce {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.tox .tox-toolbar,
+.tox .tox-toolbar__overflow,
+.tox .tox-toolbar__primary {
+  background: #f8fafc !important;
+}
+.tox .tox-edit-area__iframe {
+  background: #ffffff !important;
+}
+.admin-main .tox.tox-tinymce {
+  border-radius: 14px;
+}
+
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+}
+.admin-main .rich-editor {
+  background: #f8fafc;
+}
+.admin-main .rich-editor:focus-within {
+  background: #ffffff;
+}
+
 
 /* ─── Badges ─── */
 .badge {

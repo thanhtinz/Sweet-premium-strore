@@ -1,16 +1,29 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from typing import Optional, List
+from typing import Optional
 from db import get_db
-from db.models import Banner
+from db.models import Banner, UploadedImage
 from api.auth import get_current_admin
-import os, uuid, aiofiles
 
 router = APIRouter(prefix="/banners", tags=["banners"])
 
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+INLINE_SAFE_IMAGE_MIME = {"image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"}
+IMAGE_EXTENSIONS = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "image/avif": ".avif",
+}
+
+
+def _normalize_image_mime(mime: str) -> str:
+    mime = (mime or "").split(";")[0].lower().strip()
+    if mime not in INLINE_SAFE_IMAGE_MIME:
+        raise HTTPException(400, "Chỉ hỗ trợ ảnh PNG, JPG, GIF, WEBP hoặc AVIF")
+    return mime
 
 
 # ── Public ──────────────────────────────────────────────────
@@ -28,15 +41,43 @@ def admin_list(db: Session = Depends(get_db)):
 
 
 @router.post("/admin/upload-image", dependencies=[Depends(get_current_admin)])
-async def upload_image(file: UploadFile = File(...)):
-    ext = os.path.splitext(file.filename or "img.png")[1].lower()
-    if ext not in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"):
-        raise HTTPException(400, "Unsupported image type")
-    name = f"{uuid.uuid4().hex[:12]}{ext}"
-    path = os.path.join(UPLOAD_DIR, name)
-    async with aiofiles.open(path, "wb") as f:
-        await f.write(await file.read())
-    return {"url": f"/static/uploads/{name}"}
+async def upload_image(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    contents = await file.read(MAX_UPLOAD_BYTES + 1)
+    if not contents:
+        raise HTTPException(400, "File rỗng")
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "Ảnh quá lớn, tối đa 5MB")
+    mime = _normalize_image_mime(file.content_type or "")
+    ext = IMAGE_EXTENSIONS.get(mime, ".img")
+    filename = (file.filename or f"image{ext}")[:240]
+    img = UploadedImage(filename=filename, data=contents, mime_type=mime)
+    db.add(img)
+    db.commit()
+    db.refresh(img)
+    return {"url": f"/api/banners/images/{img.id}", "id": img.id}
+
+
+@router.get("/images/{image_id}")
+def get_uploaded_image(image_id: int, db: Session = Depends(get_db)):
+    row = db.query(UploadedImage).filter(UploadedImage.id == image_id).first()
+    if not row or row.data is None:
+        raise HTTPException(404, "Image not found")
+    mime = (row.mime_type or "application/octet-stream").lower()
+    if mime not in INLINE_SAFE_IMAGE_MIME:
+        return Response(
+            content=bytes(row.data),
+            media_type="application/octet-stream",
+            headers={"X-Content-Type-Options": "nosniff", "Content-Disposition": "attachment"},
+        )
+    return Response(
+        content=bytes(row.data),
+        media_type=mime,
+        headers={
+            "Cache-Control": "public, max-age=86400",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": "inline",
+        },
+    )
 
 
 class BannerCreate(BaseModel):

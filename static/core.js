@@ -51,9 +51,12 @@ const withImageFallback = (url) => url || getDefaultImageUrl() || '';
 const withAvatarFallback = (url) => url || getDefaultAvatarUrl() || '';
 const onImgFallback = (type = 'image') => {
   const fallback = type === 'avatar' ? getDefaultAvatarUrl() : getDefaultImageUrl();
-  return fallback
-    ? `this.onerror=null;this.src=${JSON.stringify(fallback)};`
-    : `this.onerror=null;this.style.display='none';`;
+  if (!fallback) return "this.onerror=null;this.style.display='none';";
+  const safeFallback = String(fallback)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r?\n/g, '');
+  return `this.onerror=null;this.src='${safeFallback}';`;
 };
 
 // ── SVG Icons ──────────────────────────────────────────────────
@@ -156,12 +159,15 @@ function updateAuthUI() {
       const name = currentUser.display_name || currentUser.email?.split('@')[0] || 'User';
       const avatarUrl = withAvatarFallback(currentUser.avatar_url);
       if (avatarUrl) {
+        userAvatar.parentElement?.classList.add('has-image');
         userAvatar.innerHTML = `<img src="${avatarUrl}" alt="" onerror="${onImgFallback('avatar')}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" />`;
       } else {
+        userAvatar.parentElement?.classList.remove('has-image');
         userAvatar.textContent = name.charAt(0).toUpperCase();
       }
     } else {
-      userAvatar.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+      userAvatar.parentElement?.classList.remove('has-image');
+      userAvatar.innerHTML = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c1.8-4 4.4-6 8-6s6.2 2 8 6"/><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>';
     }
   };
 
@@ -217,6 +223,7 @@ function cartTotal() { return cart.reduce((s, i) => s + i.pkg_price * i.quantity
 
 // ── Modal ──────────────────────────────────────────────────────
 function openModal(html, title = '') {
+  if (window.syncRichTextEditors) window.syncRichTextEditors();
   const overlay = qs('#modal-overlay');
   const content = qs('#modal-content');
   const titleEl = qs('#modal-title');
@@ -225,6 +232,7 @@ function openModal(html, title = '') {
   overlay.style.display = 'flex';
 }
 function closeModal() {
+  if (window.syncRichTextEditors) window.syncRichTextEditors();
   const overlay = qs('#modal-overlay');
   if (!overlay) return;
   overlay.style.display = 'none';
