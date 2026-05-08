@@ -150,6 +150,20 @@ function updateAuthUI() {
   const dropdownEmail = qs('#dropdown-email');
   const dropdownBalance = qs('#dropdown-balance');
   const userAvatar = qs('#user-avatar');
+  const renderAvatar = () => {
+    if (!userAvatar) return;
+    if (currentUser) {
+      const name = currentUser.display_name || currentUser.email?.split('@')[0] || 'User';
+      const avatarUrl = withAvatarFallback(currentUser.avatar_url);
+      if (avatarUrl) {
+        userAvatar.innerHTML = `<img src="${avatarUrl}" alt="" onerror="${onImgFallback('avatar')}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" />`;
+      } else {
+        userAvatar.textContent = name.charAt(0).toUpperCase();
+      }
+    } else {
+      userAvatar.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+    }
+  };
 
   if (currentUser) {
     if (loggedIn) loggedIn.style.display = '';
@@ -162,18 +176,12 @@ function updateAuthUI() {
       const bal = currentUser.balance || 0;
       dropdownBalance.innerHTML = `Số dư: ${bal.toLocaleString('vi-VN')} <img src="/static/candy-icon.png" class="currency-icon" alt="candy" />`;
     }
-    if (userAvatar) {
-      if (currentUser.avatar_url) {
-        userAvatar.innerHTML = `<img src="${currentUser.avatar_url}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover" />`;
-      } else {
-        userAvatar.textContent = name.charAt(0).toUpperCase();
-      }
-    }
+    renderAvatar();
     if (dropdownAdmin) dropdownAdmin.style.display = currentUser.is_admin ? 'flex' : 'none';
   } else {
     if (loggedIn) loggedIn.style.display = 'none';
     if (loggedOut) loggedOut.style.display = '';
-    if (userAvatar) userAvatar.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+    renderAvatar();
   }
 }
 

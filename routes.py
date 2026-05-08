@@ -1,5 +1,7 @@
 import hashlib
 import os
+import json
+from html import escape
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, FileResponse
@@ -8,6 +10,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 
 from db.init_db import init_db
+from db.models import Product, SiteConfig, SiteSetting
+from db import SessionLocal
 from api.auth import router as auth_router
 from api.categories import router as cat_router
 from api.products import router as prod_router
@@ -36,6 +40,81 @@ def get_file_hash(filepath: str) -> str:
             return hashlib.md5(f.read()).hexdigest()[:8]
     except FileNotFoundError:
         return "0"
+
+
+def load_public_settings(db) -> dict:
+    public_keys = ["site_name", "site_logo", "site_description", "site_banner", "currency", "tax_rate", "home_categories"]
+    settings = db.query(SiteSetting).filter(SiteSetting.key.in_(public_keys)).all()
+    result = {s.key: s.value for s in settings}
+    config_keys = ["settings_general", "settings_images", "settings_features", "settings_appearance"]
+    rows = db.query(SiteConfig).filter(SiteConfig.key.in_(config_keys)).all()
+    for row in rows:
+        try:
+            data = json.loads(row.value) if row.value else {}
+        except (json.JSONDecodeError, TypeError):
+            data = {}
+        if row.key == "settings_general":
+            if data.get("title") and not result.get("site_name"):
+                result["site_name"] = data["title"]
+            if data.get("site_description") and not result.get("site_description"):
+                result["site_description"] = data["site_description"]
+            if data.get("copyright_text"):
+                result["copyright_text"] = data["copyright_text"]
+            for field in ["currency_name", "currency_icon", "tax_rate", "contact_email", "contact_phone", "contact_hours", "social_fb", "social_tele", "social_discord"]:
+                if field in data and data[field] is not None:
+                    result[field] = data[field]
+        elif row.key == "settings_images":
+            for field in ["logo_url", "favicon_url", "default_image_url", "default_avatar_url"]:
+                if data.get(field):
+                    result[field] = data[field]
+        elif row.key == "settings_features":
+            result["features"] = data
+        elif row.key == "settings_appearance":
+            if data.get("home_categories"):
+                result["home_categories"] = data["home_categories"]
+    return result
+
+
+def build_share_product_html(product: Product, settings: dict, request: Request, ref: str | None = None) -> str:
+    site_name = settings.get("site_name") or "ShopKey"
+    site_description = settings.get("site_description") or "Mua tài khoản, key, gift card và các sản phẩm số uy tín"
+    title = f"{product.name} | {site_name}"
+    raw_desc = product.description or product.notes or site_description
+    description = " ".join(str(raw_desc).replace("<", " ").replace(">", " ").split())[:220]
+    image_url = product.image_url or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or ""
+    favicon_url = settings.get("favicon_url") or settings.get("logo_url") or settings.get("site_logo") or ""
+    target_hash = f"#/product/{product.slug}"
+    if ref:
+        target_hash += f"?ref={escape(ref)}"
+    target_url = f"{request.base_url}{target_hash}".replace("//#", "/#")
+    redirect_url = f"{request.base_url}#/product/{product.slug}"
+    if ref:
+        redirect_url += f"?ref={escape(ref)}"
+    return f"""<!DOCTYPE html>
+<html lang=\"vi\">
+<head>
+  <meta charset=\"UTF-8\" />
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />
+  <title>{escape(title)}</title>
+  <meta name=\"description\" content=\"{escape(description)}\" />
+  <meta property=\"og:type\" content=\"product\" />
+  <meta property=\"og:title\" content=\"{escape(title)}\" />
+  <meta property=\"og:description\" content=\"{escape(description)}\" />
+  <meta property=\"og:url\" content=\"{escape(target_url)}\" />
+  <meta property=\"og:site_name\" content=\"{escape(site_name)}\" />
+  <meta property=\"og:image\" content=\"{escape(image_url)}\" />
+  <meta name=\"twitter:card\" content=\"summary_large_image\" />
+  <meta name=\"twitter:title\" content=\"{escape(title)}\" />
+  <meta name=\"twitter:description\" content=\"{escape(description)}\" />
+  <meta name=\"twitter:image\" content=\"{escape(image_url)}\" />
+  {f'<link rel=\"icon\" href=\"{escape(favicon_url)}\" />' if favicon_url else ''}
+  <meta http-equiv=\"refresh\" content=\"0; url={escape(redirect_url)}\" />
+  <script>window.location.replace({json.dumps(redirect_url)});</script>
+</head>
+<body>
+  <p>Đang chuyển hướng tới <a href=\"{escape(redirect_url)}\">{escape(product.name)}</a>...</p>
+</body>
+</html>"""
 
 
 def create_app(static_dir: str) -> FastAPI:
@@ -89,6 +168,18 @@ def create_app(static_dir: str) -> FastAPI:
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     templates = Jinja2Templates(directory=static_dir)
+
+    @app.get("/share/product/{slug}", response_class=HTMLResponse)
+    def share_product_page(request: Request, slug: str, ref: str | None = None):
+        db = SessionLocal()
+        try:
+            product = db.query(Product).filter(Product.slug == slug, Product.is_active == True).first()
+            if not product:
+                raise HTTPException(status_code=404, detail="Product not found")
+            settings = load_public_settings(db)
+            return HTMLResponse(build_share_product_html(product, settings, request, ref=ref))
+        finally:
+            db.close()
 
     # SPA fallback — all non-API routes serve index.html
     @app.get("/{full_path:path}", response_class=HTMLResponse)

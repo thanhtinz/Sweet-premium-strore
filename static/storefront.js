@@ -802,9 +802,28 @@ async function renderProduct(view, { slug }) {
             const rate = aff.commission_rate || 5;
             const refCode = aff.ref_code;
             const siteBase = location.origin;
+            const shareTitle = `${p.name} | ${window.appSettings?.site_name || 'ShopKey'}`;
+            const shareDesc = (p.description || p.notes || window.appSettings?.site_description || 'Xem ngay sản phẩm này').replace(/<[^>]*>/g, ' ').trim().slice(0, 180);
+            const shareImage = withImageFallback(p.image_url || p.category_icon || window.appSettings?.logo_url || window.appSettings?.site_logo);
             const refLink = `${siteBase}/#/product/${p.slug}?ref=${refCode}`;
-            const shareText = encodeURIComponent(`${p.name} - Xem ngay!`);
-            const shareUrl = encodeURIComponent(refLink);
+            const shareLanding = `${siteBase}/share/product/${p.slug}?ref=${encodeURIComponent(refCode)}`;
+            const shareText = encodeURIComponent(`${shareTitle} - ${shareDesc}`);
+            const shareUrl = encodeURIComponent(shareLanding);
+
+            const setShareMeta = () => {
+              const setMeta = (selector, attr, value) => {
+                const node = document.querySelector(selector);
+                if (node && value) node.setAttribute(attr, value);
+              };
+              setMeta('meta[property="og:title"]', 'content', shareTitle);
+              setMeta('meta[property="og:description"]', 'content', shareDesc);
+              setMeta('meta[property="og:url"]', 'content', refLink);
+              setMeta('meta[property="og:image"]', 'content', shareImage);
+              setMeta('meta[name="twitter:title"]', 'content', shareTitle);
+              setMeta('meta[name="twitter:description"]', 'content', shareDesc);
+              setMeta('meta[name="twitter:image"]', 'content', shareImage);
+            };
+            setShareMeta();
 
             let pkgCommHtml = '';
             if (p.packages?.length) {
@@ -830,6 +849,15 @@ async function renderProduct(view, { slug }) {
                   <div class="share-link-box">
                     <input type="text" class="share-link-input" id="share-ref-link" value="${refLink}" readonly />
                     <button class="share-copy-btn" id="share-copy-btn"><i class="fa-regular fa-copy"></i> Sao chép</button>
+                  </div>
+
+                  <div class="share-share-preview">
+                    <div class="share-share-preview-thumb">${shareImage ? `<img src="${shareImage}" alt="${p.name}" onerror="${onImgFallback()}" />` : '<i class="fa-solid fa-image"></i>'}</div>
+                    <div class="share-share-preview-meta">
+                      <div class="share-share-preview-site">${window.appSettings?.site_name || 'ShopKey'}</div>
+                      <div class="share-share-preview-title">${shareTitle}</div>
+                      <div class="share-share-preview-desc">${shareDesc}</div>
+                    </div>
                   </div>
 
                   <div class="share-socials">

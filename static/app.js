@@ -324,20 +324,41 @@ async function init() {
     const faviconUrl = appSettings.favicon_url;
     const defaultImageUrl = appSettings.default_image_url;
     const defaultAvatarUrl = appSettings.default_avatar_url;
+    const siteName = appSettings.site_name || 'ShopKey';
+    const siteDescription = appSettings.site_description || 'Mua tài khoản, key, gift card và các sản phẩm số uy tín';
     if (appSettings.site_name) {
       document.title = appSettings.site_name;
     }
+    const setMeta = (selector, attr, value) => {
+      const node = document.querySelector(selector);
+      if (node && value) node.setAttribute(attr, value);
+    };
+    setMeta('meta[name="description"]', 'content', siteDescription);
+    setMeta('meta[property="og:title"]', 'content', siteName);
+    setMeta('meta[property="og:description"]', 'content', siteDescription);
+    setMeta('meta[property="og:site_name"]', 'content', siteName);
+    setMeta('meta[property="og:url"]', 'content', location.origin + location.pathname);
+    setMeta('meta[property="og:image"]', 'content', defaultImageUrl || logoUrl || '');
+    setMeta('meta[name="twitter:title"]', 'content', siteName);
+    setMeta('meta[name="twitter:description"]', 'content', siteDescription);
+    setMeta('meta[name="twitter:image"]', 'content', defaultImageUrl || logoUrl || '');
     if (faviconUrl) {
-      let favicon = document.querySelector('link[rel="icon"]');
-      if (!favicon) {
-        favicon = document.createElement('link');
-        favicon.rel = 'icon';
-        document.head.appendChild(favicon);
-      }
+      qsa('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').forEach(node => node.remove());
+      const favicon = document.createElement('link');
+      favicon.rel = 'icon';
       favicon.href = faviconUrl;
+      document.head.appendChild(favicon);
+
+      const shortcut = document.createElement('link');
+      shortcut.rel = 'shortcut icon';
+      shortcut.href = faviconUrl;
+      document.head.appendChild(shortcut);
     }
     if (defaultImageUrl) window.defaultImageUrl = defaultImageUrl;
-    if (defaultAvatarUrl) window.defaultAvatarUrl = defaultAvatarUrl;
+    if (defaultAvatarUrl) {
+      window.defaultAvatarUrl = defaultAvatarUrl;
+      if (typeof updateAuthUI === 'function') updateAuthUI();
+    }
 
     const logoLink = qs('#logo-link');
     if (logoLink) {

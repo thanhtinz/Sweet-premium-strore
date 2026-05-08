@@ -14,8 +14,7 @@ function renderLogin(view) {
   page.innerHTML = `
     <div class="auth-card">
       <div class="auth-card-header">
-        <div class="auth-logo-mark">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        <div class="auth-logo-mark">${window.appSettings?.logo_url || window.appSettings?.site_logo ? `<img src="${window.appSettings.logo_url || window.appSettings.site_logo}" alt="${window.appSettings?.site_name || 'Logo'}" class="auth-logo-image" onerror="${onImgFallback()}" />` : `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>`}
         </div>
         <h1 class="auth-title">Đăng nhập</h1>
         <p class="auth-subtitle">Chào mừng trở lại! Nhập thông tin để tiếp tục.</p>
@@ -140,8 +139,7 @@ function renderRegister(view) {
   page.innerHTML = `
     <div class="auth-card">
       <div class="auth-card-header">
-        <div class="auth-logo-mark">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+        <div class="auth-logo-mark">${window.appSettings?.logo_url || window.appSettings?.site_logo ? `<img src="${window.appSettings.logo_url || window.appSettings.site_logo}" alt="${window.appSettings?.site_name || 'Logo'}" class="auth-logo-image" onerror="${onImgFallback()}" />` : `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>`}
         </div>
         <h1 class="auth-title">Tạo tài khoản</h1>
         <p class="auth-subtitle">Đăng ký miễn phí, chỉ mất 30 giây.</p>

@@ -27,7 +27,7 @@ async function renderProfile(view) {
       <div class="info-card-body">
         <div class="profile-card-inner" style="background: none; border: none; padding: 0;">
           <div class="profile-avatar">
-            ${u.avatar_url ? `<img src="${esc(u.avatar_url)}" alt="" />` : `<div class="profile-avatar-placeholder">${esc((u.display_name || u.email || 'U').charAt(0).toUpperCase())}</div>`}
+            ${withAvatarFallback(u.avatar_url) ? `<img src="${esc(withAvatarFallback(u.avatar_url))}" alt="" onerror="${onImgFallback('avatar')}" />` : `<div class="profile-avatar-placeholder">${esc((u.display_name || u.email || 'U').charAt(0).toUpperCase())}</div>`}
           </div>
           <div class="profile-info">
             <div class="profile-name">${esc(u.display_name || u.email?.split('@')[0] || 'User')}</div>
