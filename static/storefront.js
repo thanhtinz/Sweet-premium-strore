@@ -192,11 +192,6 @@ async function renderHome(view) {
         if (parent?.children?.length) children = parent.children;
       }
       if (children.length) {
-        if (parentSlug && parent) {
-          const header = el('div', 'subcat-header');
-          header.innerHTML = `<div class="section-title">${ico.grid} Danh mục con của ${esc(parent.name)}</div><div class="text-muted text-sm">Chọn danh mục con để mở trang tất cả sản phẩm</div>`;
-          subGrid.appendChild(header);
-        }
         const grid = el('div', 'subcat-grid');
         children.forEach(sub => {
           const card = el('div', 'subcat-card');
@@ -388,22 +383,6 @@ async function renderAllProducts(view) {
     <p class="products-hero-desc" id="ph-desc">Khám phá bộ sưu tập sản phẩm chất lượng cao được chọn lọc dành riêng cho bạn</p>
   `;
   view.appendChild(heroHead);
-
-  // Category navigation bar
-  if (categories.length) {
-    const catNav = el('div', 'products-cat-nav');
-    const allBtn = el('a', `products-cat-btn${!initCat ? ' active' : ''}`, `<i class="fa-solid fa-border-all"></i> <span>Tất cả</span>`);
-    allBtn.href = '#/all';
-    catNav.appendChild(allBtn);
-    categories.forEach(c => {
-      const iconUrl = c.image_url || c.icon_url;
-      const iconHtml = iconUrl ? `<img src="${iconUrl}" alt="" loading="lazy" decoding="async" />` : `<i class="fa-solid fa-folder"></i>`;
-      const btn = el('a', `products-cat-btn${c.slug === initCat ? ' active' : ''}`, `${iconHtml} <span>${c.name}</span>`);
-      btn.href = `#/all?cat=${c.slug}`;
-      catNav.appendChild(btn);
-    });
-    view.appendChild(catNav);
-  }
 
   // Filter card
   const filterCard = el('div', 'filter-card');
@@ -676,6 +655,8 @@ async function renderProduct(view, { slug }) {
     const p = await apiFetch(`/products/${slug}`);
     let selectedPkg = p.packages?.[0] || null;
     let quantity = 1;
+    let appliedCoupon = null;
+
     let reviewPage = 1;
     let reviewData = null;
 
@@ -771,8 +752,23 @@ async function renderProduct(view, { slug }) {
 
       // Product name + action icons (share & wishlist)
       const nameRow = el('div', 'pd-name-row');
+      const siteName = window.appSettings?.site_name || window.appSettings?.title || 'Store';
+      const uppercaseLetters = (siteName.match(/[A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯẠ-Ỵ]/g) || []).join('');
+      const siteInitials = (uppercaseLetters || siteName
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(word => word[0])
+        .join(''))
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/[^a-z0-9]/g, '') || 's';
+      const productCode = `${siteInitials}${String(p.id || '').padStart(4, '0')}`;
       nameRow.innerHTML = `
-        <h1 class="pd-name">${p.name}</h1>
+        <div class="pd-title-block">
+          <h1 class="pd-name">${p.name}</h1>
+          <div class="pd-product-code"><i class="fa-solid fa-barcode"></i> Mã sản phẩm: <span>${productCode}</span></div>
+        </div>
         <div class="pd-name-actions">
           ${currentUser && appSettings.features?.affiliate !== false ? `<button class="pd-action-icon pd-share-icon" id="pd-share-btn" title="Chia sẻ kiếm tiền"><i class="fa-solid fa-hand-holding-dollar"></i><span class="pd-action-badge" id="pd-share-badge" style="display:none"></span></button>` : ''}
           ${appSettings.features?.wishlist !== false ? `<button class="pd-action-icon pd-heart-icon ${currentUser && window._wishlistIds?.has(p.id) ? 'active' : ''} ${currentUser ? '' : 'disabled'}" id="pd-heart-btn" title="${currentUser ? 'Yêu thích' : 'Đăng nhập để yêu thích'}"><i class="fa-${currentUser && window._wishlistIds?.has(p.id) ? 'solid' : 'regular'} fa-heart"></i></button>` : ''}
@@ -1022,6 +1018,8 @@ async function renderProduct(view, { slug }) {
           `;
           if (!oos) {
             pill.onclick = () => {
+              appliedCoupon = null;
+
               selectedPkg = pkg;
               quantity = 1;
               qsa('.pd-pkg-pill', pkgGrid).forEach(e => e.classList.remove('selected'));
@@ -1106,9 +1104,10 @@ async function renderProduct(view, { slug }) {
             </div>
             <div class="pd-coupon-body" id="pd-coupon-body" style="display:none">
               <div class="pd-coupon-row">
-                <input class="pd-coupon-input" id="pd-coupon-code" type="text" placeholder="Nhập mã giảm giá" />
+                <input class="pd-coupon-input" id="pd-coupon-code" type="text" placeholder="Nhập mã giảm giá" value="${appliedCoupon?.code || ''}" />
                 <button class="pd-coupon-btn" id="pd-coupon-apply">Áp dụng</button>
               </div>
+              <div class="form-hint" id="pd-coupon-status">${appliedCoupon ? `Đã áp dụng mã ${appliedCoupon.code}` : ''}</div>
             </div>
           `;
           orderBody.appendChild(couponWrap);
@@ -1120,6 +1119,10 @@ async function renderProduct(view, { slug }) {
               <span class="pd-price-label">Tạm tính</span>
               <span class="pd-price-value" id="pd-subtotal-price">${fmt(price)}</span>
             </div>
+            <div class="pd-price-row" id="pd-discount-row" style="display:none;">
+              <span class="pd-price-label">Giảm giá</span>
+              <span class="pd-price-value" id="pd-discount-price" style="color:#10b981;">-0</span>
+            </div>
             <div class="pd-price-divider"></div>
             <div class="pd-price-row pd-price-total-row">
               <span class="pd-price-label pd-price-total-label">Tổng cộng</span>
@@ -1127,6 +1130,23 @@ async function renderProduct(view, { slug }) {
             </div>
           `;
           orderBody.appendChild(priceSummary);
+
+          const updateProductCouponSummary = () => {
+            const discountRow = qs('#pd-discount-row', orderBody);
+            const discountPrice = qs('#pd-discount-price', orderBody);
+            const totalPrice = qs('#pd-total-price', orderBody);
+            if (!totalPrice) return;
+            if (appliedCoupon?.discount) {
+              if (discountRow) discountRow.style.display = '';
+              if (discountPrice) discountPrice.innerHTML = `-${fmt(appliedCoupon.discount)}`;
+              totalPrice.innerHTML = fmt(Math.max(0, price - appliedCoupon.discount));
+            } else {
+              if (discountRow) discountRow.style.display = 'none';
+              if (discountPrice) discountPrice.textContent = '-0';
+              totalPrice.innerHTML = fmt(price);
+            }
+          };
+          updateProductCouponSummary();
 
           // F) Action buttons row
           const btnRow = el('div', 'pd-btn-row');
@@ -1174,10 +1194,23 @@ async function renderProduct(view, { slug }) {
             }
           };
           const couponApply = qs('#pd-coupon-apply', orderBody);
-          if (couponApply) couponApply.onclick = () => {
-            const code = qs('#pd-coupon-code', orderBody)?.value.trim();
+          if (couponApply) couponApply.onclick = async () => {
+            const codeInput = qs('#pd-coupon-code', orderBody);
+            const status = qs('#pd-coupon-status', orderBody);
+            const code = codeInput?.value.trim();
             if (!code) return toast('Nhập mã giảm giá', 'error');
-            toast('Mã giảm giá không hợp lệ', 'error');
+            try {
+              const quoted = await apiFetch('/gift-codes/quote', { method: 'POST', body: JSON.stringify({ code, amount: price }) });
+              appliedCoupon = { code: quoted.code, discount: quoted.discount, final_amount: quoted.final_amount };
+              if (status) status.textContent = `Đã áp dụng mã ${quoted.code} (-${fmt(quoted.discount)})`;
+              updateProductCouponSummary();
+              toast('Đã áp dụng mã giảm giá', 'success');
+            } catch (err) {
+              appliedCoupon = null;
+              if (status) status.textContent = '';
+              updateProductCouponSummary();
+              toast(err.message || 'Mã giảm giá không hợp lệ', 'error');
+            }
           };
 
           const addCartBtn = qs('#pd-add-cart', orderBody);
@@ -1187,14 +1220,14 @@ async function renderProduct(view, { slug }) {
             if (isOutOfStock(selectedPkg)) return toast('Hết hàng', 'error');
             if (!currentUser) { toast('Đăng nhập để mua', 'error'); return location.hash = '/login'; }
             const f = collectFields();
-            if (f) addToCart(p, selectedPkg, quantity, f);
+            if (f) addToCart(p, selectedPkg, quantity, f, appliedCoupon);
           };
           if (buyNowBtn) buyNowBtn.onclick = () => {
             if (!selectedPkg) return toast('Chọn gói', 'error');
             if (isOutOfStock(selectedPkg)) return toast('Hết hàng', 'error');
             if (!currentUser) { toast('Đăng nhập để mua', 'error'); return location.hash = '/login'; }
             const f = collectFields();
-            if (f) { addToCart(p, selectedPkg, quantity, f); location.hash = '/cart'; }
+            if (f) { addToCart(p, selectedPkg, quantity, f, appliedCoupon); location.hash = '/cart'; }
           };
         };
         renderOrderForm();
@@ -1409,13 +1442,21 @@ async function renderProduct(view, { slug }) {
 }
 
 // CART
-window.updateCartQty = function(pkg_id, diff) {
+window.updateCartQty = async function(pkg_id, diff) {
   const item = cart.find(i => i.pkg_id === pkg_id);
   if (item) {
     item.quantity += diff;
     if (item.quantity <= 0) {
       removeFromCart(pkg_id);
     } else {
+      if (cartCoupon?.code) {
+        try {
+          const quoted = await apiFetch('/gift-codes/quote', { method: 'POST', body: JSON.stringify({ code: cartCoupon.code, amount: cartTotal() }) });
+          cartCoupon = { code: quoted.code, discount: quoted.discount, final_amount: quoted.final_amount };
+        } catch (_) {
+          cartCoupon = null;
+        }
+      }
       saveCart();
       updateAuthUI(); // update header badge
     }
@@ -1425,6 +1466,12 @@ window.updateCartQty = function(pkg_id, diff) {
 };
 
 function renderCart(view) {
+  if (!currentUser) {
+    toast('Vui lòng đăng nhập để xem giỏ hàng', 'error');
+    location.hash = '/login';
+    return;
+  }
+
   view.innerHTML = '';
   
   const heroHead = el('div', 'products-hero');
@@ -1549,10 +1596,8 @@ function renderCart(view) {
   
   listCard.appendChild(listBody);
   contentWrapper.appendChild(listCard);
-  const subtotal = cartTotal();
-  const taxRate = parseFloat(appSettings.tax_rate) || 0;
-  const taxAmount = Math.round((subtotal * taxRate) / 100);
-  const grandTotal = subtotal + taxAmount;
+  const totals = cartGrandTotal();
+  const { subtotal, discount, taxRate, taxAmount, grandTotal } = totals;
 
   const summary = el('div', 'cart-summary-card');
   summary.innerHTML = `
@@ -1564,6 +1609,12 @@ function renderCart(view) {
         <span class="summary-label">Tạm tính (${totalItems} sản phẩm)</span>
         <span class="summary-value">${fmt(subtotal)}</span>
       </div>
+      ${discount > 0 ? `
+      <div class="summary-row">
+        <span class="summary-label">Giảm giá</span>
+        <span class="summary-value" style="color:#10b981;">-${fmt(discount)}</span>
+      </div>
+      ` : ''}
       ${taxRate > 0 ? `
       <div class="summary-row">
         <span class="summary-label">Thuế (${taxRate}%)</span>
@@ -1587,8 +1638,10 @@ function renderCart(view) {
       <i class="fa-solid fa-chevron-down" style="transition: transform 0.2s; color: #fff;"></i>
     </div>
     <div class="info-card-body" style="display: none;">
-      <input type="text" class="form-input" placeholder="Nhập mã giảm giá" style="margin-bottom: 12px; background: #fff; border: 1px solid var(--border); border-radius: 8px; height: 44px;">
-      <button class="btn btn-primary btn-full" style="background: #3b5998; border-color: #3b5998; border-radius: 8px; font-weight: 600; box-shadow: 0 2px 4px rgba(59, 89, 152, 0.2);">Áp dụng</button>
+      <input type="text" class="form-input" id="cart-coupon-code" value="${cartCoupon?.code || ''}" placeholder="Nhập mã giảm giá" style="margin-bottom: 12px; background: #fff; border: 1px solid var(--border); border-radius: 8px; height: 44px;">
+      ${cartCoupon ? `<div class="form-hint" style="color:#10b981;margin-bottom:10px;"><i class="fa-solid fa-ticket"></i> Đã áp dụng ${esc(cartCoupon.code)}: -${fmt(cartCoupon.discount)}</div>` : ''}
+      <button class="btn btn-primary btn-full" id="cart-coupon-apply" style="background: #3b5998; border-color: #3b5998; border-radius: 8px; font-weight: 600; box-shadow: 0 2px 4px rgba(59, 89, 152, 0.2);">Áp dụng</button>
+      ${cartCoupon ? `<button class="btn btn-ghost btn-full mt-8" id="cart-coupon-remove" style="border-radius:8px;">Bỏ mã</button>` : ''}
     </div>
   `;
   
@@ -1610,6 +1663,26 @@ function renderCart(view) {
   
   contentWrapper.addEventListener('click', e => { const btn = e.target.closest('[data-pkg]'); if (btn) { removeFromCart(parseInt(btn.dataset.pkg)); renderCart(view); } });
   qs('#btn-checkout', actionsWrap).addEventListener('click', () => { if (!currentUser) { toast('Đăng nhập để thanh toán', 'error'); return location.hash = '/login'; } location.hash = '/checkout'; });
+  qs('#cart-coupon-apply', couponCard)?.addEventListener('click', async () => {
+    const code = qs('#cart-coupon-code', couponCard)?.value.trim();
+    if (!code) return toast('Nhập mã giảm giá', 'error');
+    try {
+      const quoted = await apiFetch('/gift-codes/quote', { method: 'POST', body: JSON.stringify({ code, amount: cartTotal() }) });
+      cartCoupon = { code: quoted.code, discount: quoted.discount, final_amount: quoted.final_amount };
+      saveCart();
+      toast('Đã áp dụng mã giảm giá', 'success');
+      renderCart(view);
+    } catch (err) {
+      toast(err.message || 'Mã giảm giá không hợp lệ', 'error');
+    }
+  });
+  qs('#cart-coupon-remove', couponCard)?.addEventListener('click', () => {
+    cartCoupon = null;
+    saveCart();
+    toast('Đã bỏ mã giảm giá', 'info');
+    renderCart(view);
+  });
+
   qs('#btn-clear-cart', actionsWrap).addEventListener('click', () => { 
     if (confirm('Bạn muốn xóa tất cả sản phẩm khỏi giỏ?')) { 
       clearCart();
@@ -1740,10 +1813,8 @@ async function renderCheckout(view) {
   view.innerHTML = '';
 
   const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
-  const subtotal = cartTotal();
-  const taxRate = parseFloat(appSettings.tax_rate) || 0;
-  const taxAmount = Math.round((subtotal * taxRate) / 100);
-  const grandTotal = subtotal + taxAmount;
+  const totals = cartGrandTotal();
+  const { subtotal, discount, taxRate, taxAmount, grandTotal } = totals;
 
   // ── Step 2: Payment Method Selection ──
   let userBalance = 0;
@@ -1796,6 +1867,7 @@ async function renderCheckout(view) {
                 <div style="flex:1">
                   <div class="fw-600" style="margin-bottom: 4px;">${i.product_name} <span class="text-primary">x${i.quantity}</span></div>
                   <div class="text-muted text-sm"><i class="fa-solid fa-cube"></i> ${i.pkg_name}</div>
+                  ${cartCoupon ? `<div class="text-sm" style="color:#10b981;margin-top:4px;"><i class="fa-solid fa-ticket"></i> Mã ${esc(cartCoupon.code)} áp dụng cho toàn đơn</div>` : ''}
                 </div>
                 <div class="fw-700" style="color:var(--text-heading)">${fmt(i.pkg_price * i.quantity)}</div>
               </div>
@@ -1843,6 +1915,7 @@ async function renderCheckout(view) {
       <div class="cart-summary-head"><div class="cart-summary-title"><i class="fa-solid fa-receipt"></i> Tóm tắt đơn hàng</div></div>
       <div class="cart-summary-body">
         <div class="summary-row"><span class="summary-label">Tạm tính</span><span class="summary-value">${fmt(subtotal)}</span></div>
+        ${discount > 0 ? `<div class="summary-row"><span class="summary-label">Giảm giá</span><span class="summary-value" style="color:#10b981;">-${fmt(discount)}</span></div>` : ''}
         ${taxRate > 0 ? `
         <div class="summary-row"><span class="summary-label">Thuế (${taxRate}%)</span><span class="summary-value">${fmt(taxAmount)}</span></div>
         ` : ''}
@@ -1890,16 +1963,15 @@ async function renderCheckout(view) {
     qs('#btn-pay', actionsWrapper).onclick = async () => {
       const btn = qs('#btn-pay', actionsWrapper); btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xử lý...';
       try {
-        const item = cart[0];
-        const order = await apiFetch('/orders/create', { method: 'POST', body: JSON.stringify({ package_id: item.pkg_id, quantity: item.quantity, custom_fields_data: item.fields || {}, payment_method: selectedMethod }) });
+        const order = await apiFetch('/orders/create', { method: 'POST', body: JSON.stringify({ items: cart.map(item => ({ package_id: item.pkg_id, quantity: item.quantity, custom_fields_data: item.fields || {} })), payment_method: selectedMethod, coupon_code: cartCoupon?.code || null }) });
         if (selectedMethod === 'payos') {
           const link = await apiFetch('/payment/create-link', { method: 'POST', body: JSON.stringify({ order_code: order.order_code }) });
-          cart.length = 0; saveCart(); updateCartCount();
+          cart.length = 0; cartCoupon = null; saveCart(); updateCartCount();
           window.open(link.payment_url, '_blank');
           renderStep3(order, 'payos', link.payment_url);
         } else {
           // Balance payment
-          cart.length = 0; saveCart(); updateCartCount();
+          cart.length = 0; cartCoupon = null; saveCart(); updateCartCount();
           renderStep3(order, 'balance');
         }
       } catch (e) {
@@ -1985,6 +2057,23 @@ async function renderCheckout(view) {
 }
 
 // ORDERS
+function orderPrimaryItem(order) {
+  return Array.isArray(order?.items) && order.items.length ? order.items[0] : null;
+}
+
+function orderSummaryLabel(order) {
+  const primary = orderPrimaryItem(order);
+  if (!primary) return `${esc(order.product_name || '')}${order.package_name ? ` - ${esc(order.package_name)}` : ''}`.trim() || 'Đơn hàng';
+  const extra = (order.items?.length || 0) - 1;
+  const base = `${esc(primary.product_name || '')} - ${esc(primary.package_name || '')}`;
+  return extra > 0 ? `${base} <span class="text-muted">+${extra} sản phẩm</span>` : base;
+}
+
+function orderDisplayImage(order) {
+  const primary = orderPrimaryItem(order);
+  return withImageFallback(primary?.product_img || order.product_img);
+}
+
 async function renderOrders(view) {
   if (!currentUser) return location.hash = '/login';
   view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
@@ -2042,7 +2131,7 @@ async function renderOrders(view) {
       else if (o.status === 'pending' || o.status === 'pending_payment') { stText = 'Chờ xử lý'; stColor = '#f59e0b'; stIcon = 'clock'; }
       else if (o.status === 'processing') { stText = 'Đang xử lý'; stColor = '#3b82f6'; stIcon = 'spinner fa-spin'; }
 
-      const img = withImageFallback(o.product_img) || `<div style="width:56px; height:56px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:24px;"><i class="fa-solid fa-box"></i></div>`;
+      const img = orderDisplayImage(o) || `<div style="width:56px; height:56px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:24px;"><i class="fa-solid fa-box"></i></div>`;
       const imgHtml = img.startsWith('<') ? img : `<img src="${img}" onerror="${onImgFallback()}" style="width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--border);" />`;
 
       card.innerHTML = `
@@ -2052,7 +2141,7 @@ async function renderOrders(view) {
             <i class="fa-solid fa-${stIcon}"></i> ${stText}
           </div>
         </div>
-        <div style="font-weight:600; font-size:15px; color:var(--text-heading); line-height:1.4; margin-bottom:16px;">${esc(o.product_name || '')} - ${esc(o.package_name || '')}</div>
+        <div style="font-weight:600; font-size:15px; color:var(--text-heading); line-height:1.4; margin-bottom:16px;">${orderSummaryLabel(o)}</div>
         
         <div style="display:flex; justify-content:space-between; align-items:center; color:var(--text-muted); font-size:14px; margin-bottom:20px; border-bottom:1px dashed var(--border); padding-bottom:20px;">
           <div>${fmtDate(o.created_at)}</div>
@@ -2108,24 +2197,36 @@ async function renderOrderDetail(view, { code }) {
       </div>
     `;
     
-    const img = withImageFallback(d.product_img) || `<div style="width:56px; height:56px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:24px;"><i class="fa-solid fa-box"></i></div>`;
+    const img = orderDisplayImage(d) || `<div style="width:56px; height:56px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:24px;"><i class="fa-solid fa-box"></i></div>`;
     const imgHtml = img.startsWith('<') ? img : `<img src="${img}" onerror="${onImgFallback()}" style="width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--border);" />`;
+
+    const orderItems = Array.isArray(d.items) && d.items.length ? d.items : [{ product_name: d.product_name, package_name: d.package_name, product_img: d.product_img, quantity: d.quantity, line_total: d.total_amount, custom_fields_data: d.custom_fields_data, delivery_data: d.delivery_data, product_slug: d.product_slug }];
 
     leftCol.innerHTML += `
       <div class="card mb-16" style="overflow: hidden;">
         <div class="cart-summary-head" style="background:#f8fafc; border-bottom:1px solid var(--border); padding:16px 20px;">
-          <div class="cart-summary-title" style="color:var(--text-heading); font-size:15px;"><i class="fa-solid fa-box text-primary"></i> Thông tin sản phẩm</div>
+          <div class="cart-summary-title" style="color:var(--text-heading); font-size:15px;"><i class="fa-solid fa-box text-primary"></i> Sản phẩm trong đơn</div>
         </div>
         <div class="card-body" style="padding:20px;">
-          <div style="display: flex; gap: 16px; align-items:center;">
-            ${imgHtml}
-            <div style="flex:1">
-              <div class="fw-700" style="margin-bottom: 8px; font-size:16px; color:var(--text-heading);">${esc(d.product_name || 'Sản phẩm')}</div>
-              <div style="display:inline-flex; align-items:center; gap:6px; background:#f1f5f9; padding:4px 10px; border-radius:6px; font-size:13px; font-weight:500; color:#475569;">
-                <i class="fa-solid fa-tag text-primary" style="opacity:0.7"></i> ${esc(d.package_name || 'Gói')}
+          ${orderItems.map((item, idx) => {
+            const itemImg = withImageFallback(item.product_img) || '';
+            const itemImgHtml = itemImg ? `<img src="${itemImg}" onerror="${onImgFallback()}" style="width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--border);" />` : `<div style="width:56px; height:56px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:24px;"><i class="fa-solid fa-box"></i></div>`;
+            return `
+              <div style="display:flex; gap:16px; align-items:center; ${idx < orderItems.length - 1 ? 'padding-bottom:16px; margin-bottom:16px; border-bottom:1px dashed var(--border);' : ''}">
+                ${itemImgHtml}
+                <div style="flex:1">
+                  <div class="fw-700" style="margin-bottom: 8px; font-size:16px; color:var(--text-heading);">${esc(item.product_name || 'Sản phẩm')}</div>
+                  <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+                    <div style="display:inline-flex; align-items:center; gap:6px; background:#f1f5f9; padding:4px 10px; border-radius:6px; font-size:13px; font-weight:500; color:#475569;">
+                      <i class="fa-solid fa-tag text-primary" style="opacity:0.7"></i> ${esc(item.package_name || 'Gói')}
+                    </div>
+                    <div class="text-sm text-muted">SL: ${item.quantity || 1}</div>
+                    <div class="text-sm" style="font-weight:700; color:var(--primary);">${fmt(item.line_total || 0)}</div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            `;
+          }).join('')}
         </div>
       </div>
     `;
@@ -2149,17 +2250,23 @@ async function renderOrderDetail(view, { code }) {
       </div>
     `;
 
-    if (d.custom_fields_data && Object.keys(d.custom_fields_data).length > 0) {
+    const itemsWithFields = orderItems.filter(item => item.custom_fields_data && Object.keys(item.custom_fields_data).length > 0);
+    if (itemsWithFields.length > 0) {
       leftCol.innerHTML += `
         <div class="card mb-16" style="overflow: hidden;">
           <div class="cart-summary-head" style="background:#f8fafc; border-bottom:1px solid var(--border); padding:16px 20px;">
             <div class="cart-summary-title" style="color:var(--text-heading); font-size:15px;"><i class="fa-solid fa-list-ul text-primary"></i> Thông tin đơn hàng</div>
           </div>
           <div class="card-body" style="padding:20px;">
-            ${Object.entries(d.custom_fields_data).map(([k,v]) => `
+            ${itemsWithFields.map(item => `
               <div style="margin-bottom:16px; background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:16px;">
-                <div style="color:var(--text-muted); font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">${esc(k)}</div>
-                <div style="font-weight:600; font-size:15px; color:var(--text-heading); word-break:break-all;">${esc(v)}</div>
+                <div style="font-weight:700; color:var(--text-heading); margin-bottom:12px;">${esc(item.product_name || 'Sản phẩm')} — ${esc(item.package_name || 'Gói')}</div>
+                ${Object.entries(item.custom_fields_data || {}).map(([k,v]) => `
+                  <div style="margin-bottom:12px;">
+                    <div style="color:var(--text-muted); font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">${esc(k)}</div>
+                    <div style="font-weight:600; font-size:15px; color:var(--text-heading); word-break:break-all;">${esc(v)}</div>
+                  </div>
+                `).join('')}
               </div>
             `).join('')}
           </div>
@@ -2319,4 +2426,3 @@ function openReportErrorModal(orderCode, productName, accountData) {
     }
   };
 }
-

@@ -65,6 +65,53 @@ def check_code(code: str, db: Session = Depends(get_db)):
         "max_discount": float(gc.max_discount) if gc.max_discount else None,
     }
 
+class GiftCodeQuote(BaseModel):
+    code: str
+    amount: float
+
+
+def quote_gift_code(code: str, order_amount: float, db: Session, consume: bool = False) -> dict:
+    gc = db.query(GiftCode).filter(GiftCode.code == code.upper().strip()).first()
+    if not gc or not gc.is_active:
+        raise HTTPException(404, "Mã không hợp lệ")
+    now = datetime.now(timezone.utc)
+    if gc.starts_at and gc.starts_at > now:
+        raise HTTPException(400, "Mã chưa có hiệu lực")
+    if gc.expires_at and gc.expires_at < now:
+        raise HTTPException(400, "Mã đã hết hạn")
+    if gc.usage_limit > 0 and gc.usage_count >= gc.usage_limit:
+        raise HTTPException(400, "Mã đã hết lượt sử dụng")
+    if gc.min_order and order_amount < float(gc.min_order):
+        raise HTTPException(400, f"Đơn tối thiểu {int(gc.min_order)}đ")
+
+    if gc.discount_type == "percent":
+        discount = order_amount * float(gc.discount_value) / 100
+        if gc.max_discount:
+            discount = min(discount, float(gc.max_discount))
+    else:
+        discount = float(gc.discount_value)
+
+    discount = min(max(discount, 0), order_amount)
+    if consume:
+        gc.usage_count += 1
+        db.flush()
+    return {
+        "code": gc.code,
+        "discount_type": gc.discount_type,
+        "discount_value": float(gc.discount_value),
+        "min_order": float(gc.min_order) if gc.min_order else 0,
+        "max_discount": float(gc.max_discount) if gc.max_discount else None,
+        "discount": round(discount),
+        "final_amount": round(order_amount - discount),
+        "code_id": gc.id,
+    }
+
+
+@router.post("/quote")
+def quote_code(body: GiftCodeQuote, db: Session = Depends(get_db)):
+    return quote_gift_code(body.code, body.amount, db, consume=False)
+
+
 
 def apply_gift_code(code: str, order_amount: float, db: Session) -> dict:
     """Apply gift code and return discount info. Called from orders/checkout."""

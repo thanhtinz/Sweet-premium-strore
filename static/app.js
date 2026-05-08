@@ -163,8 +163,6 @@ async function navigate() {
     return;
   }
 
-  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
-
   try {
     await Promise.resolve(route.handler(view, route.params));
   } catch (e) {

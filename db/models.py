@@ -131,7 +131,11 @@ class Order(Base):
     user_email = Column(String(255))
     package_id = Column(Integer, ForeignKey("product_packages.id", ondelete="SET NULL"), nullable=True)
     quantity = Column(Integer, default=1)
+    subtotal_amount = Column(Numeric(12, 2), nullable=True)
+    discount_amount = Column(Numeric(12, 2), nullable=True)
+    tax_amount = Column(Numeric(12, 2), nullable=True)
     total_amount = Column(Numeric(12, 2), nullable=False)
+    coupon_code = Column(String(100), nullable=True)
     status = Column(String(20), default="pending")  # pending, paid, processing, completed, cancelled
     payment_method = Column(String(50), default="payos")
     payment_link_id = Column(String(255))
@@ -141,6 +145,28 @@ class Order(Base):
     created_at = Column(DateTime(timezone=True), default=now_utc)
     updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
 
+    package = relationship("ProductPackage")
+    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    package_id = Column(Integer, ForeignKey("product_packages.id", ondelete="SET NULL"), nullable=True)
+    product_name_snapshot = Column(String(255), nullable=True)
+    package_name_snapshot = Column(String(255), nullable=True)
+    quantity = Column(Integer, default=1)
+    unit_price = Column(Numeric(12, 2), nullable=False)
+    line_total = Column(Numeric(12, 2), nullable=False)
+    custom_fields_data = Column(JSON)
+    delivery_data = Column(Text)
+    status = Column(String(20), default="pending")
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+    updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
+
+    order = relationship("Order", back_populates="items")
     package = relationship("ProductPackage")
 
 

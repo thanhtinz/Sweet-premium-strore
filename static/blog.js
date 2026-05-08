@@ -324,8 +324,9 @@ async function renderAdminBlog(view) {
             <label class="form-label">Thumbnail</label>
             <div class="flex gap-8 items-center">
               <input type="text" class="form-input flex-1" id="bp-thumb" value="${thumbVal}" placeholder="https://... hoặc upload ảnh" />
-              ${imageUploadControl('bp-thumb', 'bp-thumb-upload')}
+              ${imageUploadControl('bp-thumb', 'bp-thumb-upload', 'Upload', 'bp-thumb-preview')}
             </div>
+            <div class="admin-upload-preview" id="bp-thumb-preview">${thumbVal ? `<img src="${thumbVal}" alt="Thumbnail preview" />` : '<span>Chưa có thumbnail</span>'}</div>
           </div>
           <div class="form-group">
             <label class="form-label">Trạng thái</label>

@@ -158,7 +158,6 @@ function createRichTextEditor({
       suffix: '.min',
       promotion: false,
       branding: false,
-      language: 'vi',
       height: minHeight,
       min_height: minHeight,
       menubar: 'file edit insert view format table tools help',

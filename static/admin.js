@@ -6,6 +6,8 @@
 // The sidebar has already been reconfigured for admin mode in app.js.
 function renderAdminShell(wrap) {
   // no-op - layout is now handled globally
+}
+
 async function uploadAdminImage(file, { input = null, preview = null } = {}) {
   if (!file) return null;
   const fd = new FormData();
@@ -17,19 +19,27 @@ async function uploadAdminImage(file, { input = null, preview = null } = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.detail || 'Upload failed');
+  const imageUrl = data.url;
   if (input) {
-    input.value = data.url;
+    input.value = imageUrl;
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
-  if (preview) {
-    preview.innerHTML = `<img src="${data.url}" alt="Preview" />`;
-  }
+  if (preview) renderAdminImagePreview(preview, imageUrl);
   return data;
 }
 
-function imageUploadControl(inputId, uploadId, label = 'Upload') {
-  return `<label class="btn btn-ghost btn-sm admin-image-upload-btn" style="white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-upload"></i> ${label}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" id="${uploadId}" data-image-target="${inputId}" style="display:none" /></label>`;
+function renderAdminImagePreview(preview, url, emptyText = 'Chưa có ảnh') {
+  if (!preview) return;
+  if (!url) {
+    preview.innerHTML = `<span>${emptyText}</span>`;
+    return;
+  }
+  preview.innerHTML = `<img src="${url}" alt="Preview" />`;
+}
+
+function imageUploadControl(inputId, uploadId, label = 'Upload', previewId = '') {
+  return `<label class="btn btn-ghost btn-sm admin-image-upload-btn" style="white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-upload"></i> ${label}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" id="${uploadId}" data-image-target="${inputId}" ${previewId ? `data-image-preview="${previewId}"` : ''} style="display:none" /></label>`;
 }
 
 function bindImageUpload(uploadId, inputId, { previewId = null } = {}) {
@@ -54,13 +64,14 @@ function bindImageUpload(uploadId, inputId, { previewId = null } = {}) {
 function bindImageUploads(root = document) {
   qsa('input[type="file"][data-image-target]', root).forEach(upload => {
     const input = qs(`#${upload.dataset.imageTarget}`, root) || qs(`#${upload.dataset.imageTarget}`);
+    const preview = upload.dataset.imagePreview ? (qs(`#${upload.dataset.imagePreview}`, root) || qs(`#${upload.dataset.imagePreview}`)) : null;
     if (!input || upload.dataset.boundUpload === '1') return;
     upload.dataset.boundUpload = '1';
     upload.onchange = async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
       try {
-        await uploadAdminImage(file, { input });
+        await uploadAdminImage(file, { input, preview });
         toast('Upload thành công', 'success');
       } catch (err) {
         toast('Upload thất bại: ' + err.message, 'error');
@@ -69,8 +80,6 @@ function bindImageUploads(root = document) {
       }
     };
   });
-}
-
 }
 
 // ADMIN DASHBOARD
@@ -168,15 +177,17 @@ function showCatModal(cat, refresh, allCats = []) {
         <label class="form-label">URL icon</label>
         <div class="flex gap-8 items-center">
           <input class="form-input flex-1" id="cf-icon" value="${cat?.icon_url || ''}" placeholder="https://..." />
-          <label class="btn btn-ghost btn-sm" style="white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-upload"></i> Upload<input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" id="cf-icon-upload" data-image-target="cf-icon" style="display:none" /></label>
+          ${imageUploadControl('cf-icon', 'cf-icon-upload', 'Upload', 'cf-icon-preview')}
         </div>
+        <div class="admin-upload-preview admin-upload-preview-sm" id="cf-icon-preview">${cat?.icon_url ? `<img src="${cat.icon_url}" alt="Icon preview" />` : '<span>Chưa có icon</span>'}</div>
       </div>
       <div class="form-group">
         <label class="form-label">Hình ảnh (URL)</label>
         <div class="flex gap-8 items-center">
           <input class="form-input flex-1" id="cf-image" value="${cat?.image_url || ''}" placeholder="https://..." />
-          <label class="btn btn-ghost btn-sm" style="white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-upload"></i> Upload<input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" id="cf-image-upload" data-image-target="cf-image" style="display:none" /></label>
+          ${imageUploadControl('cf-image', 'cf-image-upload', 'Upload', 'cf-image-preview')}
         </div>
+        <div class="admin-upload-preview" id="cf-image-preview">${cat?.image_url ? `<img src="${cat.image_url}" alt="Image preview" />` : '<span>Chưa có ảnh</span>'}</div>
       </div>
       <div class="form-row form-row-2">
         <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="cf-order" value="${cat?.sort_order ?? 0}" /></div>
@@ -309,8 +320,9 @@ function showProductModal(prod, cats, refresh) {
         <label class="form-label">Ảnh sản phẩm</label>
         <div class="flex gap-8 items-center">
           <input class="form-input flex-1" id="pf-img" value="${prod?.image_url || ''}" placeholder="https://... hoặc upload ảnh" />
-          ${imageUploadControl('pf-img', 'pf-img-upload')}
+          ${imageUploadControl('pf-img', 'pf-img-upload', 'Upload', 'pf-img-preview')}
         </div>
+        <div class="admin-upload-preview" id="pf-img-preview">${prod?.image_url ? `<img src="${prod.image_url}" alt="Product image preview" />` : '<span>Chưa có ảnh</span>'}</div>
       </div>
       <div class="form-row form-row-3">
         <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="pf-order" value="${prod?.sort_order ?? 0}" /></div>
@@ -788,6 +800,35 @@ function showPackageFieldModal(pkg, refresh) {
   };
 }
 
+function adminOrderPrimaryItem(order) {
+  return Array.isArray(order?.items) && order.items.length ? order.items[0] : null;
+}
+
+function adminOrderSummary(order) {
+  const primary = adminOrderPrimaryItem(order);
+  if (!primary) return esc(order.product_name || '—');
+  const extra = (order.items?.length || 0) - 1;
+  const base = `${esc(primary.product_name || '—')} — ${esc(primary.package_name || '—')}`;
+  return extra > 0 ? `${base} <span class="text-muted">+${extra} sản phẩm</span>` : base;
+}
+
+function adminOrderItemsHtml(order) {
+  const items = Array.isArray(order?.items) && order.items.length ? order.items : [{ product_name: order.product_name, package_name: order.package_name, quantity: order.quantity, line_total: order.total_amount, custom_fields_data: order.custom_fields_data, delivery_data: order.delivery_data }];
+  return items.map((item, idx) => `
+    <div class="order-item-card" style="padding:${idx < items.length - 1 ? '0 0 12px 0' : '0'}; margin:${idx < items.length - 1 ? '0 0 12px 0' : '0'}; border-bottom:${idx < items.length - 1 ? '1px dashed var(--border)' : 'none'};">
+      <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
+        <div>
+          <div style="font-weight:700; color:var(--text-heading);">${esc(item.product_name || '—')}</div>
+          <div class="text-sm text-muted" style="margin-top:4px;">${esc(item.package_name || '—')} · SL ${item.quantity || 1}</div>
+        </div>
+        <div class="text-sm" style="font-weight:700; color:var(--primary);">${fmt(item.line_total || 0)}</div>
+      </div>
+      ${item.custom_fields_data && Object.keys(item.custom_fields_data).length ? `<div class="mt-8 text-sm">${Object.entries(item.custom_fields_data).map(([k,v]) => `<div><strong>${esc(k)}:</strong> ${esc(v)}</div>`).join('')}</div>` : ''}
+      ${item.delivery_data ? `<div class="delivery-box mt-12"><div class="delivery-box-title">Dữ liệu giao</div><div class="delivery-data">${esc(item.delivery_data)}</div></div>` : ''}
+    </div>
+  `).join('');
+}
+
 // ADMIN ORDERS
 async function renderAdminOrders(view) {
   if (!view) return; const content = view;
@@ -814,7 +855,7 @@ async function renderAdminOrders(view) {
       <div class="flex gap-6 mb-16 flex-wrap">${['', 'pending', 'paid', 'processing', 'completed', 'cancelled'].map(s => `<button class="btn btn-sm ${status === s ? 'btn-primary' : 'btn-ghost'}" data-filter="${s}">${s || 'Tất cả'}</button>`).join('')}</div>
       <div class="table-wrap"><table>
         <thead><tr><th>Mã đơn</th><th>Khách</th><th>SP</th><th>Tiền</th><th>PTTT</th><th>TT</th><th>Ngày</th><th></th></tr></thead>
-        <tbody>${data.items.map(o => `<tr><td class="td-mono">${o.order_code}</td><td class="text-sm">${esc(o.user_email) || '—'}</td><td class="text-sm">${esc(o.product_name) || '—'}</td><td class="text-primary">${fmt(o.total_amount)}</td><td class="text-sm">${o.payment_method || 'payos'}</td><td>${statusBadge(o.status)}</td><td class="text-sm text-muted">${fmtDate(o.created_at)}</td><td>${actionButtons(o)}</td></tr>`).join('')}</tbody>
+        <tbody>${data.items.map(o => `<tr><td class="td-mono">${o.order_code}</td><td class="text-sm">${esc(o.user_email) || '—'}</td><td class="text-sm">${adminOrderSummary(o)}</td><td class="text-primary">${fmt(o.total_amount)}</td><td class="text-sm">${o.payment_method || 'payos'}</td><td>${statusBadge(o.status)}</td><td class="text-sm text-muted">${fmtDate(o.created_at)}</td><td>${actionButtons(o)}</td></tr>`).join('')}</tbody>
       </table></div>
     `;
 
@@ -860,8 +901,9 @@ async function renderAdminOrders(view) {
       if (viewBtn) {
         const o = JSON.parse(decodeURIComponent(viewBtn.dataset.od));
         openModal(`
-          <div class="order-meta">${Object.entries({ 'Mã đơn': o.order_code, 'Khách': esc(o.user_email), 'SP': esc(o.product_name), 'Gói': esc(o.package_name), 'Tiền': fmt(o.total_amount), 'PTTT': o.payment_method || 'payos', 'TT': o.status, 'Ngày': fmtDate(o.created_at) }).map(([k, v]) => `<div class="order-meta-item"><div class="order-meta-label">${k}</div><div class="order-meta-value">${v || '—'}</div></div>`).join('')}</div>
-          ${o.delivery_data ? `<div class="delivery-box mt-12"><div class="delivery-box-title">Dữ liệu giao</div><div class="delivery-data">${esc(o.delivery_data)}</div></div>` : ''}
+          <div class="order-meta">${Object.entries({ 'Mã đơn': o.order_code, 'Khách': esc(o.user_email), 'Tóm tắt': adminOrderSummary(o), 'Tiền': fmt(o.total_amount), 'PTTT': o.payment_method || 'payos', 'TT': o.status, 'Ngày': fmtDate(o.created_at), 'Coupon': o.coupon_code || '—' }).map(([k, v]) => `<div class="order-meta-item"><div class="order-meta-label">${k}</div><div class="order-meta-value">${v || '—'}</div></div>`).join('')}</div>
+          <div class="delivery-box mt-12"><div class="delivery-box-title">Danh sách sản phẩm</div><div>${adminOrderItemsHtml(o)}</div></div>
+          ${o.delivery_data ? `<div class="delivery-box mt-12"><div class="delivery-box-title">Tổng dữ liệu giao</div><div class="delivery-data">${esc(o.delivery_data)}</div></div>` : ''}
         `, `Đơn: ${o.order_code}`);
       }
     };
@@ -1334,7 +1376,7 @@ async function renderAdminSettings(view) {
             <div class="settings-image-field">
               <div class="image-field-row">
                 ${field('im-logo', 'Logo URL', im.logo_url, { placeholder: 'https://example.com/logo.png' })}
-                ${imageUploadControl('im-logo', 'im-logo-upload')}
+                ${imageUploadControl('im-logo', 'im-logo-upload', 'Upload', 'im-logo-preview')}
               </div>
               <div class="settings-image-preview-wrap">
                 <div class="settings-image-preview-label">Xem trước logo</div>
@@ -1344,7 +1386,7 @@ async function renderAdminSettings(view) {
             <div class="settings-image-field">
               <div class="image-field-row">
                 ${field('im-favicon', 'Favicon URL', im.favicon_url, { placeholder: 'https://example.com/favicon.ico' })}
-                ${imageUploadControl('im-favicon', 'im-favicon-upload')}
+                ${imageUploadControl('im-favicon', 'im-favicon-upload', 'Upload', 'im-favicon-preview')}
               </div>
               <div class="settings-image-preview-wrap">
                 <div class="settings-image-preview-label">Xem trước favicon</div>
@@ -1354,7 +1396,7 @@ async function renderAdminSettings(view) {
             <div class="settings-image-field">
               <div class="image-field-row">
                 ${field('im-default', 'Default Image URL', im.default_image_url, { placeholder: 'https://example.com/default.png' })}
-                ${imageUploadControl('im-default', 'im-default-upload')}
+                ${imageUploadControl('im-default', 'im-default-upload', 'Upload', 'im-default-preview')}
               </div>
               <div class="settings-image-preview-wrap">
                 <div class="settings-image-preview-label">Xem trước ảnh mặc định</div>
@@ -1364,7 +1406,7 @@ async function renderAdminSettings(view) {
             <div class="settings-image-field">
               <div class="image-field-row">
                 ${field('im-avatar', 'Default Avatar URL', im.default_avatar_url, { placeholder: 'https://example.com/avatar.png' })}
-                ${imageUploadControl('im-avatar', 'im-avatar-upload')}
+                ${imageUploadControl('im-avatar', 'im-avatar-upload', 'Upload', 'im-avatar-preview')}
               </div>
               <div class="settings-image-preview-wrap">
                 <div class="settings-image-preview-label">Xem trước avatar</div>

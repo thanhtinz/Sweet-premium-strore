@@ -2,6 +2,7 @@ import hashlib
 import os
 import json
 from html import escape
+from urllib.parse import urljoin
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, FileResponse
@@ -75,14 +76,24 @@ def load_public_settings(db) -> dict:
     return result
 
 
+def absolute_url(url: str, request: Request) -> str:
+    if not url:
+        return ""
+    if url.startswith(("http://", "https://")):
+        return url
+    return urljoin(str(request.base_url), url.lstrip("/"))
+
+
 def build_share_product_html(product: Product, settings: dict, request: Request, ref: str | None = None) -> str:
     site_name = settings.get("site_name") or "ShopKey"
     site_description = settings.get("site_description") or "Mua tài khoản, key, gift card và các sản phẩm số uy tín"
     title = f"{product.name} | {site_name}"
     raw_desc = product.description or product.notes or site_description
     description = " ".join(str(raw_desc).replace("<", " ").replace(">", " ").split())[:220]
-    image_url = product.image_url or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or ""
-    favicon_url = settings.get("favicon_url") or settings.get("logo_url") or settings.get("site_logo") or ""
+    # Social previews must use the admin-configured image, not an arbitrary product/page screenshot.
+    share_image = settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or ""
+    image_url = absolute_url(share_image, request)
+    favicon_url = absolute_url(settings.get("favicon_url") or settings.get("logo_url") or settings.get("site_logo") or "", request)
     target_hash = f"#/product/{product.slug}"
     if ref:
         target_hash += f"?ref={escape(ref)}"

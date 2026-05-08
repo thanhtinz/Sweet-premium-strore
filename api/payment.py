@@ -1,14 +1,11 @@
 import os
-import hmac
-import hashlib
 import json
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
-from typing import Optional
+from sqlalchemy.orm import Session, joinedload
 from db import get_db
-from db.models import Order
+from db.models import Order, OrderItem, ProductPackage
 from api.auth import get_current_user
 from api.orders import auto_deliver
 
@@ -64,7 +61,10 @@ def create_payment_link(
     if not client_id:
         raise HTTPException(status_code=503, detail="Payment not configured")
 
-    order = db.query(Order).filter(
+    order = db.query(Order).options(
+        joinedload(Order.package).joinedload(ProductPackage.product),
+        joinedload(Order.items).joinedload(OrderItem.package).joinedload(ProductPackage.product),
+    ).filter(
         Order.order_code == data.order_code,
         Order.user_id == current_user["user_id"],
         Order.status == "pending"
@@ -76,22 +76,33 @@ def create_payment_link(
         from payos import PaymentData, ItemData
         payos = get_payos_client(db)
 
-        pkg_name = order.package.name if order.package else "Sản phẩm số"
-        product_name = ""
-        if order.package and order.package.product:
-            product_name = order.package.product.name
-
-        item = ItemData(
-            name=f"{product_name} - {pkg_name}"[:50],
-            quantity=order.quantity,
-            price=int(order.total_amount),
-        )
+        items = []
+        order_items = order.items or []
+        if order_items:
+            for order_item in order_items:
+                package = order_item.package
+                product_name = order_item.product_name_snapshot or (package.product.name if package and package.product else "Sản phẩm số")
+                package_name = order_item.package_name_snapshot or (package.name if package else "Gói")
+                unit_price = int((order_item.line_total or 0) / max(order_item.quantity or 1, 1))
+                items.append(ItemData(
+                    name=f"{product_name} - {package_name}"[:50],
+                    quantity=order_item.quantity,
+                    price=unit_price,
+                ))
+        else:
+            pkg_name = order.package.name if order.package else "Sản phẩm số"
+            product_name = order.package.product.name if order.package and order.package.product else ""
+            items.append(ItemData(
+                name=f"{product_name} - {pkg_name}"[:50],
+                quantity=order.quantity,
+                price=int(order.total_amount),
+            ))
 
         payment_data = PaymentData(
             orderCode=int(order.id),
             amount=int(order.total_amount),
             description=f"Thanh toan {order.order_code}"[:25],
-            items=[item],
+            items=items,
             returnUrl=f"{base_url}/#/orders/{order.order_code}?paid=1",
             cancelUrl=f"{base_url}/#/checkout?cancelled=1",
             buyerEmail=order.user_email or "",
@@ -137,7 +148,7 @@ async def payos_webhook(request: Request, db: Session = Depends(get_db)):
     if not order_id:
         return {"ok": True}
 
-    order = db.query(Order).filter(Order.id == order_id).first()
+    order = db.query(Order).options(joinedload(Order.items)).filter(Order.id == order_id).first()
     if not order:
         return {"ok": True}
 
@@ -145,6 +156,9 @@ async def payos_webhook(request: Request, db: Session = Depends(get_db)):
     if status == "PAID":
         order.status = "paid"
         order.updated_at = now
+        for item in order.items or []:
+            item.status = "paid"
+            item.updated_at = now
         db.commit()
         # Auto-deliver if applicable
         auto_deliver(order, db)
@@ -152,6 +166,9 @@ async def payos_webhook(request: Request, db: Session = Depends(get_db)):
     elif status in ("CANCELLED", "EXPIRED"):
         order.status = "cancelled"
         order.updated_at = now
+        for item in order.items or []:
+            item.status = "cancelled"
+            item.updated_at = now
         db.commit()
 
     return {"ok": True}
@@ -163,7 +180,7 @@ def check_payment_status(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    order = db.query(Order).filter(
+    order = db.query(Order).options(joinedload(Order.items)).filter(
         Order.order_code == order_code,
         Order.user_id == current_user["user_id"]
     ).first()
@@ -178,6 +195,9 @@ def check_payment_status(
             info = payos.getPaymentLinkInfomation(orderId=order.id)
             if info.status == "PAID":
                 order.status = "paid"
+                for item in order.items or []:
+                    item.status = "paid"
+                    item.updated_at = datetime.now(timezone.utc)
                 auto_deliver(order, db)
                 db.commit()
         except Exception:

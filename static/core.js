@@ -14,6 +14,7 @@ let currentUser = null;
 let authToken = null;
 let categories = [];
 let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+let cartCoupon = JSON.parse(localStorage.getItem('cart_coupon') || 'null');
 
 let appSettings = {};
 
@@ -160,7 +161,7 @@ function updateAuthUI() {
       const avatarUrl = withAvatarFallback(currentUser.avatar_url);
       if (avatarUrl) {
         userAvatar.parentElement?.classList.add('has-image');
-        userAvatar.innerHTML = `<img src="${avatarUrl}" alt="" onerror="${onImgFallback('avatar')}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" />`;
+        userAvatar.innerHTML = `<img src="${avatarUrl}" alt="" onerror="${onImgFallback('avatar')}" style="width:100%;height:100%;border-radius:10px;object-fit:cover" />`;
       } else {
         userAvatar.parentElement?.classList.remove('has-image');
         userAvatar.textContent = name.charAt(0).toUpperCase();
@@ -192,7 +193,12 @@ function updateAuthUI() {
 }
 
 // ── Cart ───────────────────────────────────────────────────────
-function saveCart() { localStorage.setItem('cart', JSON.stringify(cart)); updateCartCount(); }
+function saveCart() {
+  localStorage.setItem('cart', JSON.stringify(cart));
+  if (cartCoupon) localStorage.setItem('cart_coupon', JSON.stringify(cartCoupon));
+  else localStorage.removeItem('cart_coupon');
+  updateCartCount();
+}
 function updateCartCount() {
   const badge = qs('#cart-count');
   if (!badge) return;
@@ -200,26 +206,43 @@ function updateCartCount() {
   badge.textContent = count;
   badge.style.display = count > 0 ? 'flex' : 'none';
 }
-function addToCart(product, pkg, quantity = 1, fields = {}) {
+function addToCart(product, pkg, quantity = 1, fields = {}, coupon = null) {
   const price = pkg.flash_sale ? pkg.flash_sale.sale_price : pkg.price;
   const existing = cart.find(i => i.pkg_id === pkg.id);
-  if (existing) existing.quantity += quantity;
-  else cart.push({ pkg_id: pkg.id, pkg_name: pkg.name, pkg_price: price, product_name: product.name, product_slug: product.slug, product_img: product.image_url, delivery_type: pkg.delivery_type, quantity, fields });
+  if (existing) {
+    existing.quantity += quantity;
+    existing.fields = fields || existing.fields || {};
+  } else {
+    cart.push({ pkg_id: pkg.id, pkg_name: pkg.name, pkg_price: price, product_name: product.name, product_slug: product.slug, product_img: product.image_url, delivery_type: pkg.delivery_type, quantity, fields });
+  }
+  if (coupon?.code) cartCoupon = { code: coupon.code, discount: coupon.discount, final_amount: coupon.final_amount };
   saveCart();
   toast(`Đã thêm <b>${esc(product.name)}</b> — ${esc(pkg.name)} vào giỏ hàng`, 'success');
 }
 function clearCart() {
   cart.length = 0;
+  cartCoupon = null;
   saveCart();
 }
 
-function removeFromCart(pkg_id) { 
-  const newCart = cart.filter(i => i.pkg_id !== pkg_id); 
+function removeFromCart(pkg_id) {
+  const newCart = cart.filter(i => i.pkg_id !== pkg_id);
   cart.length = 0;
   cart.push(...newCart);
-  saveCart(); 
+  saveCart();
 }
 function cartTotal() { return cart.reduce((s, i) => s + i.pkg_price * i.quantity, 0); }
+function cartDiscountTotal() {
+  return cartCoupon?.discount || 0;
+}
+function cartGrandTotal() {
+  const subtotal = cartTotal();
+  const discount = Math.min(cartDiscountTotal(), subtotal);
+  const taxRate = parseFloat(appSettings.tax_rate) || 0;
+  const taxable = Math.max(0, subtotal - discount);
+  const taxAmount = Math.round((taxable * taxRate) / 100);
+  return { subtotal, discount, taxRate, taxAmount, grandTotal: taxable + taxAmount };
+}
 
 // ── Modal ──────────────────────────────────────────────────────
 function openModal(html, title = '') {
