@@ -48,6 +48,7 @@ const el = (tag, cls = '', html = '') => {
 
 const getDefaultImageUrl = () => window.defaultImageUrl || window.appSettings?.default_image_url || '';
 const getDefaultAvatarUrl = () => window.defaultAvatarUrl || window.appSettings?.default_avatar_url || '';
+const getFaviconUrl = () => window.appSettings?.favicon_url || '/static/candy-icon.png';
 const withImageFallback = (url) => url || getDefaultImageUrl() || '';
 const withAvatarFallback = (url) => url || getDefaultAvatarUrl() || '';
 const onImgFallback = (type = 'image') => {
@@ -205,6 +206,42 @@ function updateCartCount() {
   const count = cart.reduce((s, i) => s + i.quantity, 0);
   badge.textContent = count;
   badge.style.display = count > 0 ? 'flex' : 'none';
+}
+
+function lockViewportZoom() {
+  const viewport = document.querySelector('meta[name="viewport"]');
+  if (viewport) {
+    viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no');
+  }
+
+  const blockedKeys = new Set(['+', '-', '=', '_']);
+  window.addEventListener('wheel', (event) => {
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+    }
+  }, { passive: false });
+
+  window.addEventListener('keydown', (event) => {
+    if (!(event.ctrlKey || event.metaKey)) return;
+    if (blockedKeys.has(event.key) || event.key === '0') {
+      event.preventDefault();
+    }
+  });
+}
+
+function applyFavicon(url) {
+  const faviconUrl = url || getFaviconUrl();
+  if (!faviconUrl) return;
+  qsa('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').forEach(node => node.remove());
+  [
+    { rel: 'icon', href: faviconUrl, type: 'image/png' },
+    { rel: 'shortcut icon', href: faviconUrl },
+    { rel: 'apple-touch-icon', href: faviconUrl },
+  ].forEach(attrs => {
+    const link = document.createElement('link');
+    Object.entries(attrs).forEach(([key, value]) => link.setAttribute(key, value));
+    document.head.appendChild(link);
+  });
 }
 function addToCart(product, pkg, quantity = 1, fields = {}, coupon = null) {
   const price = pkg.flash_sale ? pkg.flash_sale.sale_price : pkg.price;

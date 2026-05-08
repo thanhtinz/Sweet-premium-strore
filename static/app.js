@@ -286,6 +286,7 @@ async function loadSidebar() {
 async function init() {
   try {
   loadToken();
+  lockViewportZoom();
 
   try {
     const urlParams = new URLSearchParams(location.search);
@@ -319,7 +320,7 @@ async function init() {
     window.appSettings = appSettings;
 
     const logoUrl = appSettings.logo_url || appSettings.site_logo;
-    const faviconUrl = appSettings.favicon_url;
+    const faviconUrl = appSettings.favicon_url || getFaviconUrl();
     const defaultImageUrl = appSettings.default_image_url;
     const defaultAvatarUrl = appSettings.default_avatar_url;
     const siteName = appSettings.site_name || 'ShopKey';
@@ -341,16 +342,7 @@ async function init() {
     setMeta('meta[name="twitter:description"]', 'content', siteDescription);
     setMeta('meta[name="twitter:image"]', 'content', defaultImageUrl || logoUrl || '');
     if (faviconUrl) {
-      qsa('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').forEach(node => node.remove());
-      const favicon = document.createElement('link');
-      favicon.rel = 'icon';
-      favicon.href = faviconUrl;
-      document.head.appendChild(favicon);
-
-      const shortcut = document.createElement('link');
-      shortcut.rel = 'shortcut icon';
-      shortcut.href = faviconUrl;
-      document.head.appendChild(shortcut);
+      applyFavicon(faviconUrl);
     }
     if (defaultImageUrl) window.defaultImageUrl = defaultImageUrl;
     if (defaultAvatarUrl) {
