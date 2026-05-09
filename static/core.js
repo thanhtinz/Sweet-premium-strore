@@ -290,6 +290,8 @@ function openModal(html, title = '') {
   if (titleEl) titleEl.textContent = title;
   content.innerHTML = html;
   overlay.style.display = 'flex';
+  // Inject AI assist buttons in modals
+  if (typeof initAiButtons === 'function') initAiButtons(content);
 }
 function closeModal() {
   if (window.syncRichTextEditors) window.syncRichTextEditors();
@@ -369,3 +371,53 @@ function animateEntrance(container) {
   const empties = $('.empty-state');
   if (empties.length) anime.animate(empties, { opacity: [0, 1], scale: [0.95, 1], duration: 500, ease: 'outExpo', delay: 100 });
 }
+
+// ── Back to Top Button ──────────────────────────────────────
+(function () {
+  const btn = document.createElement('button');
+  btn.className = 'back-to-top';
+  btn.setAttribute('aria-label', 'Lên đầu trang');
+  btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>';
+  document.body.appendChild(btn);
+
+  let visible = false;
+  const getScroller = () => document.querySelector('.main-content') || document.documentElement;
+
+  const toggle = () => {
+    const scrollY = (getScroller()).scrollTop || window.scrollY || 0;
+    const shouldShow = scrollY > 400;
+    if (shouldShow === visible) return;
+    visible = shouldShow;
+    if (typeof anime !== 'undefined' && anime.animate) {
+      anime.animate(btn, {
+        opacity: shouldShow ? [0, 1] : [1, 0],
+        scale: shouldShow ? [0.5, 1] : [1, 0.5],
+        translateY: shouldShow ? [20, 0] : [0, 20],
+        duration: 350, ease: 'outExpo',
+      });
+    } else {
+      btn.style.opacity = shouldShow ? '1' : '0';
+    }
+    btn.style.pointerEvents = shouldShow ? 'auto' : 'none';
+  };
+
+  const scrollEl = getScroller();
+  (scrollEl === document.documentElement ? window : scrollEl)
+    .addEventListener('scroll', toggle, { passive: true });
+  window.addEventListener('scroll', toggle, { passive: true });
+
+  btn.onclick = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    // Also scroll .main-content if it's the scroller
+    const mc = document.querySelector('.main-content');
+    if (mc) mc.scrollTop = 0;
+    if (typeof anime !== 'undefined' && anime.animate) {
+      anime.animate(btn, { scale: [1, 0.8, 1.15, 1], duration: 500, ease: 'outElastic(1, 0.5)' });
+    }
+  };
+
+  btn.style.opacity = '0';
+  btn.style.pointerEvents = 'none';
+})();

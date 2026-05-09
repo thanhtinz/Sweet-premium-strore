@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import io
 import os
 import random
@@ -9,13 +10,13 @@ from datetime import datetime, timedelta, timezone
 import bcrypt
 import pyotp
 import qrcode
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, Header, HTTPException, Request
 from jose import JWTError, jwt
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from db import get_db
-from db.models import AdminUser, User
+from db.models import AdminUser, ApiKey, User
 from db.repositories import SiteConfigRepository
 
 JWT_SECRET = os.environ.get("JWT_SECRET")
@@ -133,6 +134,40 @@ def get_current_user(authorization: str = Header(default="")):
         return {"user_id": user_id, "email": email, "token": token}
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+
+def get_current_user_or_apikey(
+    authorization: str = Header(default=""),
+    x_api_key: str = Header(default="", alias="X-API-Key"),
+    request: Request = None,
+    db: Session = Depends(get_db),
+):
+    """Authenticate via API key (X-API-Key header) or JWT Bearer token."""
+    from api.api_keys import _validate_origin
+    # Try API key first
+    if x_api_key:
+        key_hash = hashlib.sha256(x_api_key.encode()).hexdigest()
+        key_obj = db.query(ApiKey).filter(
+            ApiKey.key_hash == key_hash,
+            ApiKey.is_active == True,
+        ).first()
+        if not key_obj:
+            raise HTTPException(status_code=401, detail="Invalid API key")
+        # Validate origin/domain
+        if request and not _validate_origin(request, key_obj):
+            raise HTTPException(status_code=403, detail="Domain không được phép sử dụng API key này")
+        # Update last_used_at
+        key_obj.last_used_at = datetime.now(timezone.utc)
+        db.commit()
+        user = db.query(User).filter(User.id == int(key_obj.user_id)).first()
+        return {
+            "user_id": key_obj.user_id,
+            "email": user.email if user else "",
+            "auth_method": "api_key",
+            "api_key_id": key_obj.id,
+        }
+    # Fallback to JWT
+    return get_current_user(authorization)
 
 
 def get_current_admin(

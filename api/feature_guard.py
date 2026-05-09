@@ -43,14 +43,22 @@ _FEATURE_LABELS = {
     "announcements": "Thông báo",
     "balance": "Số dư / Nạp tiền",
     "wishlist": "Yêu thích",
+    "api_docs": "Tài liệu API / API Keys",
 }
+
+# Features that default to OFF (must be explicitly enabled)
+_OPT_IN_FEATURES = {"api_docs"}
 
 
 def require_feature(feature_name: str):
     """Returns a FastAPI dependency that raises 403 if feature is disabled."""
     def _guard(db: Session = Depends(get_db)):
         features = _load_features(db)
-        if features.get(feature_name) is False:
+        if feature_name in _OPT_IN_FEATURES:
+            disabled = features.get(feature_name) is not True
+        else:
+            disabled = features.get(feature_name) is False
+        if disabled:
             label = _FEATURE_LABELS.get(feature_name, feature_name)
             raise HTTPException(
                 status_code=403,

@@ -4,7 +4,7 @@ from db import Base, DATABASE_PROVIDER, engine
 from db.models import (  # noqa: F401 — import to register models
     Category, Product, ProductPackage, StockItem,
     PackageField, Order, OrderItem, SiteSetting, AdminUser, User,
-    Announcement, UploadedImage, UserBotLink
+    Announcement, UploadedImage, UserBotLink, ApiKey
 )
 from db.schema_version import LATEST_SCHEMA_VERSION, apply_versioned_patches
 
@@ -119,12 +119,23 @@ def _patch_v2(conn):
     _ensure_indexes(conn, inspect(conn))
 
 
+def _patch_v3(conn):
+    """Add allowed_domains and callback_url to api_keys."""
+    inspector = inspect(conn)
+    if "api_keys" in inspector.get_table_names():
+        _add_missing_columns(conn, inspector, "api_keys", [
+            ("allowed_domains", "allowed_domains TEXT"),
+            ("callback_url", "callback_url TEXT"),
+        ])
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
     with engine.begin() as conn:
         apply_versioned_patches(conn, [
             (1, _patch_v1),
             (2, _patch_v2),
+            (3, _patch_v3),
         ])
-        if LATEST_SCHEMA_VERSION < 2:
+        if LATEST_SCHEMA_VERSION < 3:
             raise RuntimeError("LATEST_SCHEMA_VERSION is behind applied patch definitions")

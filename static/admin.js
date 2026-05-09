@@ -1258,6 +1258,7 @@ async function renderAdminSettings(view) {
     { id: 'captcha', label: 'Captcha', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' },
     { id: 'features', label: 'Chức năng', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>' },
     { id: 'database', label: 'Database', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>' },
+    { id: 'ai', label: 'AI', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l1.09 3.26L16.36 6.4l-2.63 2.09.64 3.51L12 10.24 9.63 12l.64-3.51L7.64 6.4l3.27-1.14z"/><path d="M5 19l1.5-4.5L2 12l4.5-1.5L5 5l1.5 4.5L12 8l-1.5 4.5L12 19l-1.5-4.5L5 19z"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/></svg>' },
   ];
 
   content.innerHTML = `
@@ -1511,6 +1512,7 @@ async function renderAdminSettings(view) {
           ${toggleRow('fe-reviews', 'Đánh giá sản phẩm', 'Đánh giá & nhận xét trên chi tiết sản phẩm', fe.reviews !== false)}
           ${toggleRow('fe-announcements', 'Thông báo', 'Mục thông báo trên trang chủ', fe.announcements !== false)}
           ${toggleRow('fe-balance', 'Số dư / Nạp tiền', 'Hệ thống số dư và nạp tiền', fe.balance !== false)}
+          ${toggleRow('fe-api_docs', 'Tài liệu API / API Keys', 'Cho phép dev tạo API key & xem tài liệu (yêu cầu bật Số dư)', fe.api_docs === true && fe.balance !== false)}
           ${toggleRow('fe-wishlist', 'Yêu thích', 'Tính năng yêu thích sản phẩm', fe.wishlist !== false)}
         </div>
       </div>
@@ -1590,6 +1592,17 @@ async function renderAdminSettings(view) {
         <button type="submit" class="btn btn-primary btn-lg">Lưu cài đặt</button>
       </div>
     </form>
+
+    <!-- ═══ AI Config (outside main form) ═══ -->
+    <div class="settings-section" data-section="ai">
+      <div class="settings-card">
+        <div class="settings-section-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l1.09 3.26L16.36 6.4l-2.63 2.09.64 3.51L12 10.24 9.63 12l.64-3.51L7.64 6.4l3.27-1.14z"/><path d="M5 19l1.5-4.5L2 12l4.5-1.5L5 5l1.5 4.5L12 8l-1.5 4.5L12 19l-1.5-4.5L5 19z"/></svg>
+          Cấu hình AI tự động viết nội dung
+        </div>
+        <div id="ai-config-area">Đang tải...</div>
+      </div>
+    </div>
   `;
 
   // ── Tab switching ──
@@ -1611,6 +1624,18 @@ async function renderAdminSettings(view) {
       const label = e.target.closest('.home-cat-item');
       if (label) label.classList.toggle('selected', e.target.checked);
     });
+  }
+
+  // ── Balance → API Docs dependency ──
+  const feBalanceCb = qs('#fe-balance', content);
+  const feApiDocsCb = qs('#fe-api_docs', content);
+  if (feBalanceCb && feApiDocsCb) {
+    const syncApiDocs = () => {
+      if (!feBalanceCb.checked) { feApiDocsCb.checked = false; feApiDocsCb.disabled = true; }
+      else { feApiDocsCb.disabled = false; }
+    };
+    syncApiDocs();
+    feBalanceCb.addEventListener('change', syncApiDocs);
   }
 
   // ── Reset button ──
@@ -1788,6 +1813,7 @@ async function renderAdminSettings(view) {
         reviews: chk('fe-reviews'),
         announcements: chk('fe-announcements'),
         balance: chk('fe-balance'),
+        api_docs: chk('fe-balance') && chk('fe-api_docs'),
         wishlist: chk('fe-wishlist'),
       },
     };
@@ -1800,6 +1826,103 @@ async function renderAdminSettings(view) {
       toast(err.message, 'error');
     }
   };
+
+  // ── AI Config Panel ──
+  (async () => {
+    const area = qs('#ai-config-area', content);
+    if (!area) return;
+    try {
+      const cfg = await apiFetch('/admin/ai/config');
+      const providers = cfg.providers || {};
+      const currentProvider = cfg.provider || '';
+      const currentModel = cfg.model || '';
+      const masked = cfg.api_key_masked || '';
+
+      area.innerHTML = `
+        <div class="form-group">
+          <label class="form-label" for="ai-provider">Provider</label>
+          <select class="form-select" id="ai-provider">
+            <option value="">— Chọn provider —</option>
+            ${Object.entries(providers).map(([pid, p]) =>
+              `<option value="${pid}" ${pid === currentProvider ? 'selected' : ''}>${p.name}</option>`
+            ).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ai-model">Model</label>
+          <select class="form-select" id="ai-model">
+            <option value="">— Chọn model —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ai-apikey">API Key</label>
+          <input class="form-input" id="ai-apikey" type="password" placeholder="${masked || 'Nhập API key của provider'}" />
+          ${masked ? `<div class="form-hint">Key hiện tại: ${masked}</div>` : ''}
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ai-baseurl">Custom Base URL (tuỳ chọn)</label>
+          <input class="form-input" id="ai-baseurl" type="text" value="${cfg.custom_base_url || ''}" placeholder="Để trống để dùng URL mặc định" />
+        </div>
+        <div class="settings-row" style="gap:8px;margin-top:12px">
+          <button type="button" class="btn btn-primary" id="btn-ai-save">Lưu cấu hình AI</button>
+          <button type="button" class="btn btn-ghost" id="btn-ai-test">Test kết nối</button>
+          <span id="ai-test-result" class="form-hint" style="margin-left:8px"></span>
+        </div>
+      `;
+
+      // Populate models dropdown
+      const populateModels = (pid) => {
+        const sel = qs('#ai-model', content);
+        const p = providers[pid];
+        if (!p || !sel) return;
+        sel.innerHTML = p.models.map(m =>
+          `<option value="${m}" ${m === currentModel || m === p.default_model ? 'selected' : ''}>${m}</option>`
+        ).join('');
+      };
+      if (currentProvider) populateModels(currentProvider);
+
+      qs('#ai-provider', content).onchange = (e) => populateModels(e.target.value);
+
+      // Save
+      qs('#btn-ai-save', content).onclick = async () => {
+        const provider = val('ai-provider');
+        if (!provider) { toast('Chọn provider trước', 'error'); return; }
+        const body = {
+          provider,
+          model: val('ai-model') || null,
+          api_key: qs('#ai-apikey', content).value || null,
+          custom_base_url: val('ai-baseurl') || null,
+        };
+        try {
+          const res = await apiFetch('/admin/ai/config', { method: 'PUT', body: JSON.stringify(body) });
+          toast('Đã lưu cấu hình AI', 'success');
+          if (res.api_key_masked) {
+            const hint = qs('#ai-apikey', content)?.parentElement?.querySelector('.form-hint');
+            if (hint) hint.textContent = 'Key hiện tại: ' + res.api_key_masked;
+          }
+        } catch (err) { toast(err.message, 'error'); }
+      };
+
+      // Test
+      qs('#btn-ai-test', content).onclick = async () => {
+        const resultEl = qs('#ai-test-result', content);
+        resultEl.textContent = 'Đang kiểm tra...';
+        try {
+          const res = await apiFetch('/admin/ai/test', { method: 'POST' });
+          resultEl.textContent = '✓ ' + (res.response || 'Kết nối thành công');
+          resultEl.style.color = 'var(--success)';
+          toast('AI hoạt động bình thường', 'success');
+        } catch (err) {
+          resultEl.textContent = '✗ ' + err.message;
+          resultEl.style.color = 'var(--danger)';
+          toast(err.message, 'error');
+        }
+      };
+    } catch (err) {
+      area.innerHTML = `<div class="form-hint" style="color:var(--danger)">Lỗi tải cấu hình AI: ${err.message}</div>`;
+    }
+  })();
+
   } catch (err) {
     content.innerHTML = `<div class="empty-state"><h3>Lỗi tải cài đặt</h3><p class="text-muted">${err.message}</p></div>`;
   }
@@ -3395,5 +3518,69 @@ async function renderAdminBalance(view) {
     });
   } catch (err) {
     content.innerHTML = `<div class="empty-state"><h3>Lỗi tải dữ liệu</h3><p class="text-muted">${err.message}</p></div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ADMIN API KEYS
+// ═══════════════════════════════════════════════════════════════
+async function renderAdminApiKeys(view) {
+  if (!view) return; const content = view;
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+
+  try {
+    const keys = await apiFetch('/api-keys/admin/all');
+
+    content.innerHTML = `
+      ${cuiPageHeader('Quản lý API Keys', `${keys.length} key đã tạo`)}
+      <div class="table-responsive">
+        <table class="table">
+          <thead><tr>
+            <th>User</th><th>Tên key</th><th>Prefix</th><th>Domain</th><th>Callback</th><th>Trạng thái</th><th>Tạo lúc</th><th>Dùng lần cuối</th><th></th>
+          </tr></thead>
+          <tbody id="admin-apikeys-body">
+            ${keys.length ? keys.map(k => `<tr data-kid="${k.id}">
+              <td><span style="font-size:12px;">${esc(k.user_email)}</span><br><span class="text-muted" style="font-size:11px;">ID: ${esc(k.user_id)}</span></td>
+              <td style="font-weight:600;">${esc(k.name)}</td>
+              <td><code style="font-size:12px;">${esc(k.key_prefix)}</code></td>
+              <td style="font-size:12px;">${k.allowed_domains.length ? esc(k.allowed_domains.join(', ')) : '<em class="text-muted">Không giới hạn</em>'}</td>
+              <td style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${k.callback_url ? esc(k.callback_url) : '—'}</td>
+              <td>${k.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-gray">Revoked</span>'}</td>
+              <td style="font-size:12px;">${k.created_at ? new Date(k.created_at).toLocaleDateString('vi') : '—'}</td>
+              <td style="font-size:12px;">${k.last_used_at ? new Date(k.last_used_at).toLocaleDateString('vi') : '—'}</td>
+              <td>
+                <button class="btn btn-ghost btn-sm" data-toggle-key="${k.id}" style="font-size:12px;">${k.is_active ? 'Tắt' : 'Bật'}</button>
+                <button class="btn btn-ghost btn-sm" data-del-key="${k.id}" style="color:var(--danger);font-size:12px;">Xoá</button>
+              </td>
+            </tr>`).join('') : '<tr><td colspan="9" class="text-center text-muted py-16">Chưa có API key nào</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // Toggle active
+    qsa('[data-toggle-key]', content).forEach(btn => {
+      btn.onclick = async () => {
+        try {
+          await apiFetch('/api-keys/admin/' + btn.dataset.toggleKey + '/toggle', { method: 'PUT' });
+          toast('Đã cập nhật', 'success');
+          renderAdminApiKeys(view);
+        } catch (err) { toast(err.message, 'error'); }
+      };
+    });
+
+    // Delete
+    qsa('[data-del-key]', content).forEach(btn => {
+      btn.onclick = async () => {
+        if (!confirm('Xoá vĩnh viễn key này?')) return;
+        try {
+          await apiFetch('/api-keys/admin/' + btn.dataset.delKey, { method: 'DELETE' });
+          toast('Đã xoá', 'success');
+          renderAdminApiKeys(view);
+        } catch (err) { toast(err.message, 'error'); }
+      };
+    });
+  } catch (err) {
+    content.innerHTML = `<div class="empty-state"><h3>Lỗi</h3><p class="text-muted">${err.message}</p></div>`;
   }
 }

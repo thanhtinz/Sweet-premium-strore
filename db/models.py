@@ -474,3 +474,20 @@ class Wishlist(Base):
     created_at = Column(DateTime(timezone=True), default=now_utc)
 
     __table_args__ = (UniqueConstraint('user_id', 'product_id', name='uq_wishlist_user_product'),)
+
+
+# ── API Keys ──────────────────────────────────────────
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String(255), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    key_prefix = Column(String(12), nullable=False)       # first 8 chars for display
+    key_hash = Column(String(64), nullable=False, unique=True)  # SHA-256 hex
+    allowed_domains = Column(Text, nullable=True)          # comma-separated domains
+    callback_url = Column(Text, nullable=True)             # OAuth-style callback URL
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+    last_used_at = Column(DateTime(timezone=True), nullable=True)

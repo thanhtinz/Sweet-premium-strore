@@ -36,9 +36,11 @@ const routes = {
   '/admin/bot-config': renderAdminBotConfig,
   '/admin/payments': renderAdminPayments,
   '/admin/balance': renderAdminBalance,
+  '/admin/api-keys': renderAdminApiKeys,
   '/blog': renderBlogList,
   '/blog/:slug': renderBlogPost,
   '/profile': renderProfile,
+  '/api-docs': renderApiDocs,
   '/affiliate': renderUserAffiliates,
   '/support': renderSupportHome,
   '/support/tickets': renderUserTickets,
@@ -191,15 +193,24 @@ async function navigate() {
     '/affiliate': 'affiliate',
     '/support': 'support', '/support/': 'support',
     '/wishlist': 'wishlist',
+    '/api-docs': 'api_docs',
   };
   const featureLabels = {
     blog: 'Blog', offers: 'Ưu đãi / Gift Code', affiliate: 'Affiliate / Giới thiệu',
     support: 'Hỗ trợ', wishlist: 'Yêu thích', balance: 'Số dư / Nạp tiền',
     flash_sales: 'Flash Sale', reviews: 'Đánh giá sản phẩm', announcements: 'Thông báo',
+    api_docs: 'Tài liệu API',
   };
   const path = hash.replace(/^#/, '').split('?')[0] || '/';
   const matchedFeature = Object.entries(featureRouteMap).find(([r]) => path === r || path.startsWith(r + '/'))?.[1];
-  if (matchedFeature && appSettings.features?.[matchedFeature] === false) {
+  // Features that default to OFF (must be explicitly enabled)
+  const optInFeatures = new Set(['api_docs']);
+  const featureDisabled = matchedFeature && (
+    optInFeatures.has(matchedFeature)
+      ? appSettings.features?.[matchedFeature] !== true
+      : appSettings.features?.[matchedFeature] === false
+  );
+  if (featureDisabled) {
     const label = featureLabels[matchedFeature] || matchedFeature;
     view.innerHTML = `<div class="empty-state" style="padding:60px 20px;text-align:center;">
       <div class="empty-state-icon"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.25;color:var(--text-muted)"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
@@ -213,6 +224,8 @@ async function navigate() {
   try {
     await Promise.resolve(route.handler(view, route.params));
     animateEntrance(view);
+    // Inject AI assist buttons on admin pages
+    if (path.startsWith('/admin') && typeof initAiButtons === 'function') initAiButtons(view);
   } catch (e) {
     console.error('Router execution error:', e);
     view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>Lỗi tải trang</h3><p class="text-muted">${e.message}</p></div>`;
@@ -249,14 +262,21 @@ async function loadSidebar() {
         { href: '#/admin/support-pages', icon: '<i class="fa-solid fa-file-lines"></i>', text: 'Trang thông tin' },
         { href: '#/admin/announcements', icon: '<i class="fa-solid fa-bullhorn"></i>', text: 'Thông báo' },
         { href: '#/admin/oauth-settings', icon: '<i class="fa-brands fa-github"></i>', text: 'Đăng nhập MXH' },
+        { href: '#/admin/api-keys', icon: '<i class="fa-solid fa-key"></i>', text: 'API Keys', feature: 'api_docs' },
         { href: '#/admin/settings', icon: '<i class="fa-solid fa-gear"></i>', text: 'Cài đặt chung' },
         { divider: '' },
         { href: '#/', icon: '<i class="fa-solid fa-arrow-left"></i>', text: 'Về trang chủ' }
       ];
 
-      const visibleLinks = currentUser?.role === 'staff'
+      const visibleLinks = (currentUser?.role === 'staff'
         ? links.filter(l => l.divider !== undefined || STAFF_ALLOWED_ADMIN_ROUTES.has((l.href || '').replace(/^#/, '')) || l.href === '#/')
-        : links;
+        : links
+      ).filter(l => {
+        if (!l.feature) return true;
+        // api_docs is opt-in (default OFF)
+        if (l.feature === 'api_docs') return appSettings.features?.api_docs === true;
+        return appSettings.features?.[l.feature] !== false;
+      });
 
       visibleLinks.forEach(l => {
         if (l.divider !== undefined) {
@@ -322,6 +342,13 @@ async function loadSidebar() {
     blogItem.href = '/blog';
     blogItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-newspaper"></i></div><span>Blog</span>';
     if (appSettings.features?.blog !== false) nav.appendChild(blogItem);
+
+    if (appSettings.features?.api_docs === true) {
+      const apiItem = el('a', 'nav-item' + (location.hash === '#/api-docs' ? ' active' : ''));
+      apiItem.href = '#/api-docs';
+      apiItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-code"></i></div><span>Tài liệu API</span>';
+      nav.appendChild(apiItem);
+    }
 
     if (currentUser) {
       if (appSettings.features?.affiliate !== false) {
