@@ -3543,8 +3543,8 @@ async function renderAdminApiKeys(view) {
 
     content.innerHTML = `
       ${cuiPageHeader('Quản lý API Keys', `${keys.length} key đã tạo`)}
-      <div class="table-responsive">
-        <table class="table">
+      <div class="table-wrap">
+        <table class="table" style="min-width: 800px;">
           <thead><tr>
             <th>User</th><th>Tên key</th><th>Prefix</th><th>Domain</th><th>Callback</th><th>Trạng thái</th><th>Tạo lúc</th><th>Dùng lần cuối</th><th></th>
           </tr></thead>
