@@ -75,7 +75,10 @@ def get_uploaded_image(image_id: int, db: Session = Depends(get_db)):
         headers={
             "Cache-Control": "public, max-age=86400",
             "X-Content-Type-Options": "nosniff",
-            "Content-Disposition": "inline",
+            "Content-Disposition": f'inline; filename="{row.filename or f"image-{image_id}"}"',
+            "Content-Length": str(len(row.data)),
+            "Accept-Ranges": "bytes",
+            "Access-Control-Allow-Origin": "*",
         },
     )
 
