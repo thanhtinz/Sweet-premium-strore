@@ -1630,12 +1630,17 @@ async function renderAdminSettings(view) {
   const feBalanceCb = qs('#fe-balance', content);
   const feApiDocsCb = qs('#fe-api_docs', content);
   if (feBalanceCb && feApiDocsCb) {
-    const syncApiDocs = () => {
-      if (!feBalanceCb.checked) { feApiDocsCb.checked = false; feApiDocsCb.disabled = true; }
-      else { feApiDocsCb.disabled = false; }
-    };
-    syncApiDocs();
-    feBalanceCb.addEventListener('change', syncApiDocs);
+    feApiDocsCb.addEventListener('change', (e) => {
+      if (e.target.checked && !feBalanceCb.checked) {
+        feBalanceCb.checked = true;
+        toast('Đã tự động bật Số dư vì Tài liệu API yêu cầu tính năng này', 'info');
+      }
+    });
+    feBalanceCb.addEventListener('change', (e) => {
+      if (!e.target.checked && feApiDocsCb.checked) {
+        feApiDocsCb.checked = false;
+      }
+    });
   }
 
   // ── Reset button ──
@@ -1822,6 +1827,11 @@ async function renderAdminSettings(view) {
       await apiFetch('/admin/settings/unified', { method: 'PUT', body: JSON.stringify(payload) });
       await apiFetch('/admin/settings/database', { method: 'PUT', body: JSON.stringify(collectDatabasePayload()) });
       toast('Đã lưu cài đặt', 'success');
+      // Tải lại setting mới và update giao diện lập tức
+      appSettings = await apiFetch('/admin/settings/public').catch(() => ({}));
+      appSettings.features = appSettings.features || {};
+      window.appSettings = appSettings;
+      if (typeof loadSidebar === 'function') loadSidebar();
     } catch (err) {
       toast(err.message, 'error');
     }
