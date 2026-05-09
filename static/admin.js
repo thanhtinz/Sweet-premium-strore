@@ -1288,9 +1288,21 @@ async function renderAdminSettings(view) {
           ${field('g-title', 'Tiêu đề trang', g.title, { placeholder: 'Tên website của bạn' })}
           ${field('g-description', 'Mô tả trang', g.description, { placeholder: 'Mô tả ngắn gọn về website' })}
           ${field('g-site-description', 'Mô tả chân trang (Footer)', g.site_description, { type: 'textarea', rows: 3, placeholder: 'Mô tả hiển thị ở chân trang, ví dụ: Chúng tôi tự hào cung cấp...' })}
+          ${field('g-seo-title', 'SEO title mặc định', g.seo_title, { placeholder: 'Tên hiển thị trên tab trình duyệt và chia sẻ mặc định' })}
+          ${field('g-seo-description', 'SEO description mặc định', g.seo_description, { type: 'textarea', rows: 3, placeholder: 'Mô tả mặc định cho meta description và social preview' })}
+          ${field('g-seo-keywords', 'SEO keywords', g.seo_keywords || g.keywords, { placeholder: 'shop, digital, key, game' })}
+          ${field('g-seo-author', 'SEO author', g.seo_author || g.author, { placeholder: 'Tên thương hiệu hoặc tác giả' })}
+          ${field('g-site-url', 'URL website chuẩn', g.site_url, { placeholder: 'https://example.com' })}
+          ${field('g-twitter-card', 'Twitter card', g.twitter_card || 'summary_large_image', {
+            type: 'select',
+            options: [
+              { value: 'summary_large_image', label: 'summary_large_image' },
+              { value: 'summary', label: 'summary' },
+            ]
+          })}
           ${field('g-copyright', 'Copyright Text', g.copyright_text, { placeholder: 'Copyright © 2024 ShopKey. All rights reserved.' })}
-          ${field('g-keywords', 'Từ khóa (Keywords)', g.keywords, { placeholder: 'shop, digital, key, game' })}
-          ${field('g-author', 'Tác giả (Author)', g.author, { placeholder: 'Tên tác giả' })}
+          ${field('g-keywords', 'Từ khóa (legacy)', g.keywords, { placeholder: 'shop, digital, key, game' })}
+          ${field('g-author', 'Tác giả (legacy)', g.author, { placeholder: 'Tên tác giả' })}
           ${field('g-timezone', 'Múi giờ (Timezone)', g.timezone, {
             type: 'select',
             options: [
@@ -1405,6 +1417,16 @@ async function renderAdminSettings(view) {
             </div>
             <div class="settings-image-field">
               <div class="image-field-row">
+                ${field('im-seo', 'SEO / Social Image URL', im.seo_image_url || im.default_image_url, { placeholder: 'https://example.com/seo-share.png' })}
+                ${imageUploadControl('im-seo', 'im-seo-upload', 'Upload', 'im-seo-preview')}
+              </div>
+              <div class="settings-image-preview-wrap">
+                <div class="settings-image-preview-label">Xem trước ảnh SEO / chia sẻ</div>
+                <div class="settings-image-preview" id="im-seo-preview">${(im.seo_image_url || im.default_image_url) ? `<img src="${esc(im.seo_image_url || im.default_image_url)}" alt="SEO image preview" />` : '<span>Chưa có ảnh</span>'}</div>
+              </div>
+            </div>
+            <div class="settings-image-field">
+              <div class="image-field-row">
                 ${field('im-avatar', 'Default Avatar URL', im.default_avatar_url, { placeholder: 'https://example.com/avatar.png' })}
                 ${imageUploadControl('im-avatar', 'im-avatar-upload', 'Upload', 'im-avatar-preview')}
               </div>
@@ -1414,8 +1436,6 @@ async function renderAdminSettings(view) {
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
       <!-- ═══ Security ═══ -->
       <div class="settings-section" data-section="security">
@@ -1580,6 +1600,7 @@ async function renderAdminSettings(view) {
   bindImagePreview('im-logo', 'im-logo-preview', 'Chưa có logo');
   bindImagePreview('im-favicon', 'im-favicon-preview', 'Chưa có favicon', 'favicon');
   bindImagePreview('im-default', 'im-default-preview', 'Chưa có ảnh mặc định');
+  bindImagePreview('im-seo', 'im-seo-preview', 'Chưa có ảnh SEO / chia sẻ');
   bindImagePreview('im-avatar', 'im-avatar-preview', 'Chưa có avatar', 'avatar');
   bindImageUploads(content);
 
@@ -1597,6 +1618,12 @@ async function renderAdminSettings(view) {
         copyright_text: val('g-copyright'),
         keywords: val('g-keywords'),
         author: val('g-author'),
+        seo_title: val('g-seo-title'),
+        seo_description: val('g-seo-description'),
+        seo_keywords: val('g-seo-keywords'),
+        seo_author: val('g-seo-author'),
+        site_url: val('g-site-url'),
+        twitter_card: val('g-twitter-card'),
         timezone: val('g-timezone'),
         contact_email: val('g-contact-email'),
         contact_phone: val('g-contact-phone'),
@@ -1622,6 +1649,7 @@ async function renderAdminSettings(view) {
         logo_url: val('im-logo'),
         favicon_url: val('im-favicon'),
         default_image_url: val('im-default'),
+        seo_image_url: val('im-seo'),
         default_avatar_url: val('im-avatar'),
       },
       settings_security: {

@@ -62,11 +62,11 @@ def load_public_settings(db) -> dict:
                 result["site_description"] = data["site_description"]
             if data.get("copyright_text"):
                 result["copyright_text"] = data["copyright_text"]
-            for field in ["currency_name", "currency_icon", "tax_rate", "contact_email", "contact_phone", "contact_hours", "social_fb", "social_tele", "social_discord"]:
+            for field in ["currency_name", "currency_icon", "tax_rate", "contact_email", "contact_phone", "contact_hours", "social_fb", "social_tele", "social_discord", "seo_title", "seo_description", "seo_keywords", "seo_author", "site_url", "twitter_card", "keywords", "author"]:
                 if field in data and data[field] is not None:
                     result[field] = data[field]
         elif row.key == "settings_images":
-            for field in ["logo_url", "favicon_url", "default_image_url", "default_avatar_url"]:
+            for field in ["logo_url", "favicon_url", "default_image_url", "default_avatar_url", "seo_image_url"]:
                 if data.get(field):
                     result[field] = data[field]
         elif row.key == "settings_features":
@@ -87,19 +87,19 @@ def absolute_url(url: str, request: Request) -> str:
 
 def build_share_product_html(product: Product, settings: dict, request: Request, ref: str | None = None) -> str:
     site_name = settings.get("site_name") or "ShopKey"
-    site_description = settings.get("site_description") or "Mua tài khoản, key, gift card và các sản phẩm số uy tín"
-    title = f"{product.name} | {site_name}"
+    site_description = settings.get("seo_description") or settings.get("site_description") or "Mua tài khoản, key, gift card và các sản phẩm số uy tín"
+    title = settings.get("seo_title") or f"{product.name} | {site_name}"
     raw_desc = product.description or product.notes or site_description
     description = " ".join(str(raw_desc).replace("<", " ").replace(">", " ").split())[:220]
-    # Social previews must use the admin-configured image, not an arbitrary product/page screenshot.
-    share_image = settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or ""
+    share_image = settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or ""
     image_url = absolute_url(share_image, request)
     favicon_url = absolute_url(settings.get("favicon_url") or settings.get("logo_url") or settings.get("site_logo") or "", request)
+    canonical_base = (settings.get("site_url") or str(request.base_url)).rstrip("/") + "/"
     target_hash = f"#/product/{product.slug}"
     if ref:
         target_hash += f"?ref={escape(ref)}"
-    target_url = f"{request.base_url}{target_hash}".replace("//#", "/#")
-    redirect_url = f"{request.base_url}#/product/{product.slug}"
+    target_url = f"{canonical_base}{target_hash.lstrip('#/')}" if settings.get("site_url") else f"{request.base_url}{target_hash}".replace("//#", "/#")
+    redirect_url = f"{canonical_base}{target_hash.lstrip('#/')}" if settings.get("site_url") else f"{request.base_url}#/product/{product.slug}"
     if ref:
         redirect_url += f"?ref={escape(ref)}"
     return f"""<!DOCTYPE html>
@@ -109,13 +109,16 @@ def build_share_product_html(product: Product, settings: dict, request: Request,
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />
   <title>{escape(title)}</title>
   <meta name=\"description\" content=\"{escape(description)}\" />
+  {f'<meta name=\"keywords\" content=\"{escape(settings.get("seo_keywords") or settings.get("keywords") or "")}\" />' if (settings.get("seo_keywords") or settings.get("keywords")) else ''}
+  {f'<meta name=\"author\" content=\"{escape(settings.get("seo_author") or settings.get("author") or site_name)}\" />' if (settings.get("seo_author") or settings.get("author") or site_name) else ''}
+  <link rel=\"canonical\" href=\"{escape(target_url)}\" />
   <meta property=\"og:type\" content=\"product\" />
   <meta property=\"og:title\" content=\"{escape(title)}\" />
   <meta property=\"og:description\" content=\"{escape(description)}\" />
   <meta property=\"og:url\" content=\"{escape(target_url)}\" />
   <meta property=\"og:site_name\" content=\"{escape(site_name)}\" />
   <meta property=\"og:image\" content=\"{escape(image_url)}\" />
-  <meta name=\"twitter:card\" content=\"summary_large_image\" />
+  <meta name=\"twitter:card\" content=\"{escape(settings.get('twitter_card') or 'summary_large_image')}\" />
   <meta name=\"twitter:title\" content=\"{escape(title)}\" />
   <meta name=\"twitter:description\" content=\"{escape(description)}\" />
   <meta name=\"twitter:image\" content=\"{escape(image_url)}\" />
@@ -131,19 +134,26 @@ def build_share_product_html(product: Product, settings: dict, request: Request,
 
 def build_blog_meta(post: BlogPost | None, settings: dict, request: Request) -> dict:
     site_name = settings.get("site_name") or "ShopKey"
-    site_description = settings.get("site_description") or "Cập nhật tin tức, hướng dẫn và mẹo hay mỗi ngày"
+    site_description = settings.get("seo_description") or settings.get("site_description") or "Cập nhật tin tức, hướng dẫn và mẹo hay mỗi ngày"
     logo_url = absolute_url(settings.get("logo_url") or settings.get("site_logo") or "", request)
     favicon_url = absolute_url(settings.get("favicon_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request)
+    twitter_card = settings.get("twitter_card") or "summary_large_image"
+    seo_author = settings.get("seo_author") or settings.get("author") or site_name
+    seo_keywords = settings.get("seo_keywords") or settings.get("keywords") or site_name
+    canonical_url = str(request.url)
+    if settings.get("site_url"):
+        base = settings.get("site_url").rstrip("/")
+        canonical_url = f"{base}{request.url.path}"
 
     if post:
-        title = post.meta_title or post.title or f"Blog | {site_name}"
+        title = post.meta_title or post.title or settings.get("seo_title") or f"Blog | {site_name}"
         raw_desc = post.meta_description or post.excerpt or site_description
         description = " ".join(str(raw_desc).replace("<", " ").replace(">", " ").split())[:220]
-        image_url = absolute_url(post.thumbnail_url or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request)
+        image_url = absolute_url(post.thumbnail_url or settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request)
     else:
-        title = f"Blog | {site_name}"
+        title = settings.get("seo_title") or f"Blog | {site_name}"
         description = site_description
-        image_url = absolute_url(settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request)
+        image_url = absolute_url(settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request)
 
     return {
         "site_name": site_name,
@@ -152,8 +162,11 @@ def build_blog_meta(post: BlogPost | None, settings: dict, request: Request) -> 
         "image_url": image_url,
         "favicon_url": favicon_url,
         "logo_url": logo_url,
-        "canonical_url": str(request.url),
+        "canonical_url": canonical_url,
         "copyright_text": settings.get("copyright_text") or f"Copyright © 2026 {site_name}. All rights reserved.",
+        "twitter_card": twitter_card,
+        "seo_author": seo_author,
+        "seo_keywords": seo_keywords,
     }
 
 

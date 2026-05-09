@@ -29,16 +29,25 @@ async function blogFetch(path) {
   return res.json();
 }
 
-function blogMeta(title, description, image) {
+function blogMeta(title, description, image, extras = {}) {
   if (title) document.title = title;
   const setMeta = (selector, attr, value) => {
     const node = document.querySelector(selector);
     if (node && value) node.setAttribute(attr, value);
   };
+  const keywords = extras.keywords || blogBoot.seoKeywords || blogBoot.siteKeywords || '';
+  const author = extras.author || blogBoot.seoAuthor || blogBoot.siteAuthor || blogBoot.siteName || '';
+  const canonicalUrl = extras.canonicalUrl || blogBoot.canonicalUrl || window.location.href;
+  const twitterCard = extras.twitterCard || blogBoot.twitterCard || 'summary_large_image';
   setMeta('meta[name="description"]', 'content', description);
+  setMeta('meta[name="keywords"]', 'content', keywords);
+  setMeta('meta[name="author"]', 'content', author);
+  setMeta('link[rel="canonical"]', 'href', canonicalUrl);
   setMeta('meta[property="og:title"]', 'content', title);
   setMeta('meta[property="og:description"]', 'content', description);
   setMeta('meta[property="og:image"]', 'content', image);
+  setMeta('meta[property="og:url"]', 'content', canonicalUrl);
+  setMeta('meta[name="twitter:card"]', 'content', twitterCard);
   setMeta('meta[name="twitter:title"]', 'content', title);
   setMeta('meta[name="twitter:description"]', 'content', description);
   setMeta('meta[name="twitter:image"]', 'content', image);

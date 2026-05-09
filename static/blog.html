@@ -5,13 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{{ title }}</title>
   <meta name="description" content="{{ description }}" />
+  {% if seo_keywords %}<meta name="keywords" content="{{ seo_keywords }}" />{% endif %}
+  {% if seo_author %}<meta name="author" content="{{ seo_author }}" />{% endif %}
+  <link rel="canonical" href="{{ canonical_url }}" />
   <meta property="og:type" content="article" />
   <meta property="og:title" content="{{ title }}" />
   <meta property="og:description" content="{{ description }}" />
   <meta property="og:image" content="{{ image_url }}" />
   <meta property="og:url" content="{{ canonical_url }}" />
   <meta property="og:site_name" content="{{ site_name }}" />
-  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:card" content="{{ twitter_card or 'summary_large_image' }}" />
   <meta name="twitter:title" content="{{ title }}" />
   <meta name="twitter:description" content="{{ description }}" />
   <meta name="twitter:image" content="{{ image_url }}" />
@@ -33,6 +36,11 @@
     window.__BLOG_BOOTSTRAP__ = {
       siteName: {{ site_name|tojson }},
       siteDescription: {{ description|tojson }},
+      siteKeywords: {{ (seo_keywords or '')|tojson }},
+      seoKeywords: {{ (seo_keywords or '')|tojson }},
+      siteAuthor: {{ (seo_author or '')|tojson }},
+      seoAuthor: {{ (seo_author or '')|tojson }},
+      twitterCard: {{ (twitter_card or 'summary_large_image')|tojson }},
       logoUrl: {{ logo_url|tojson }},
       faviconUrl: {{ favicon_url|tojson }},
       canonicalUrl: {{ canonical_url|tojson }},
