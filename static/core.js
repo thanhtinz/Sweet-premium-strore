@@ -159,7 +159,7 @@ function updateAuthUI() {
     if (!userAvatar) return;
     if (currentUser) {
       const name = currentUser.display_name || currentUser.email?.split('@')[0] || 'User';
-      const avatarUrl = withAvatarFallback(currentUser.avatar_url);
+      const avatarUrl = currentUser.avatar_url || getDefaultAvatarUrl();
       if (avatarUrl) {
         userAvatar.parentElement?.classList.add('has-image');
         userAvatar.innerHTML = `<img src="${avatarUrl}" alt="" onerror="${onImgFallback('avatar')}" style="width:100%;height:100%;border-radius:10px;object-fit:cover" />`;

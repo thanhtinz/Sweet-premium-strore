@@ -17,14 +17,7 @@ def get_db():
 
 @router.get("/settings", dependencies=[Depends(get_current_admin)])
 def get_bot_config(db: Session = Depends(get_db)):
-    config = db.query(SiteConfig).filter_by(key="bot_smtp_config").first()
-    if not config:
-        return {}
-    try:
-        data = json.loads(config.value)
-    except:
-        return {}
-    data["bot_commands"] = [
+    default_commands = [
         {"command": "/start", "description": "Chào mừng và hướng dẫn liên kết"},
         {"command": "/help", "description": "Xem danh sách lệnh"},
         {"command": "/link CODE", "description": "Liên kết tài khoản"},
@@ -34,6 +27,24 @@ def get_bot_config(db: Session = Depends(get_db)):
         {"command": "/support", "description": "Xem hướng dẫn hỗ trợ"},
         {"command": "/unlink", "description": "Gỡ liên kết bot"},
     ]
+    config = db.query(SiteConfig).filter_by(key="bot_smtp_config").first()
+    if not config:
+        return {
+            "bot_commands": default_commands,
+            "link_storage": "DB table user_bot_links",
+            "discord_mode": "single_user_dm_bot",
+            "telegram_mode": "split_admin_user",
+        }
+    try:
+        data = json.loads(config.value)
+    except:
+        return {
+            "bot_commands": default_commands,
+            "link_storage": "DB table user_bot_links",
+            "discord_mode": "single_user_dm_bot",
+            "telegram_mode": "split_admin_user",
+        }
+    data["bot_commands"] = default_commands
     data["link_storage"] = "DB table user_bot_links"
     data["discord_mode"] = "single_user_dm_bot"
     data["telegram_mode"] = "split_admin_user"

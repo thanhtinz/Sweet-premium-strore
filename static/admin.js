@@ -2536,7 +2536,17 @@ async function renderAdminBotConfig(view) {
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
     const config = await apiFetch('/admin/bot-config/settings');
-    const commands = Array.isArray(config.bot_commands) ? config.bot_commands : [];
+    const defaultCommands = [
+      { command: '/start', description: 'Chào mừng và hướng dẫn liên kết' },
+      { command: '/help', description: 'Xem danh sách lệnh' },
+      { command: '/link CODE', description: 'Liên kết tài khoản' },
+      { command: '/status', description: 'Xem trạng thái liên kết' },
+      { command: '/account', description: 'Xem thông tin tài khoản' },
+      { command: '/orders', description: 'Xem đơn hàng gần đây' },
+      { command: '/support', description: 'Xem hướng dẫn hỗ trợ' },
+      { command: '/unlink', description: 'Gỡ liên kết bot' },
+    ];
+    const commands = Array.isArray(config.bot_commands) && config.bot_commands.length ? config.bot_commands : defaultCommands;
     content.innerHTML = `
       <div class="page-header">
         <div>
@@ -2552,7 +2562,7 @@ async function renderAdminBotConfig(view) {
               <div class="bot-admin-section-icon"><i class="fa-brands fa-telegram"></i></div>
               <div>
                 <h3>Telegram</h3>
-                <p>Tách riêng bot admin và bot người dùng.</p>
+                <p>2 bot riêng cho admin và người dùng.</p>
               </div>
             </div>
             <div class="bot-admin-grid two-col">
@@ -2589,7 +2599,7 @@ async function renderAdminBotConfig(view) {
               <div class="bot-admin-section-icon"><i class="fa-brands fa-discord"></i></div>
               <div>
                 <h3>Discord</h3>
-                <p>Bot Discord dành cho người dùng, hoạt động qua tin nhắn riêng.</p>
+                <p>Bot người dùng qua tin nhắn riêng.</p>
               </div>
             </div>
             <div class="bot-admin-grid two-col">
