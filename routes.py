@@ -309,8 +309,9 @@ def create_app(static_dir: str) -> FastAPI:
                 "seo_author": settings.get("seo_author") or settings.get("author") or (settings.get("site_name") or "ShopKey"),
                 "twitter_card": settings.get("twitter_card") or "summary_large_image",
                 "canonical_url": f"{canonical_base}{request.url.path}",
-                "seo_image_url": settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "",
-                "default_image_url": settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "",
+                "favicon_url": absolute_url(settings.get("favicon_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request),
+                "seo_image_url": absolute_url(settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "", request),
+                "default_image_url": absolute_url(settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "", request),
             },
         )
 
