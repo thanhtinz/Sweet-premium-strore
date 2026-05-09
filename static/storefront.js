@@ -10,7 +10,7 @@ async function renderHome(view) {
     apiFetch('/banners/').catch(() => []),
     apiFetch('/flash-sales/active').catch(() => []),
     apiFetch('/products/featured?limit=12').catch(() => []),
-    appSettings.features?.announcements !== false
+    appSettings.features && appSettings.features.announcements !== false
       ? apiFetch('/announcements/').catch(() => ({ items: [] }))
       : Promise.resolve({ items: [] })
   ]);

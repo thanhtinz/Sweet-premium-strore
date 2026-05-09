@@ -93,6 +93,7 @@ function updateHeaderMode(hash, isAdmin) {
   const adminActions = qs('#header-admin-actions');
   const title = qs('#admin-header-title');
   const subtitle = qs('#admin-header-subtitle');
+  const hamburger = qs('#hamburger');
   if (!header) return;
 
   header.classList.toggle('admin-mode', isAdmin);
@@ -100,6 +101,7 @@ function updateHeaderMode(hash, isAdmin) {
   if (storeActions) storeActions.style.display = isAdmin ? 'none' : 'flex';
   if (admin) admin.style.display = isAdmin ? 'flex' : 'none';
   if (adminActions) adminActions.style.display = isAdmin ? 'flex' : 'none';
+  if (hamburger) hamburger.style.display = window.innerWidth <= 1024 ? 'flex' : 'none';
 
   if (isAdmin) {
     const path = hash.replace(/^#/, '').split('?')[0] || '/admin';
@@ -328,28 +330,38 @@ async function init() {
 
   try {
     appSettings = await apiFetch('/admin/settings/public').catch(() => ({}));
+    appSettings.features = appSettings.features || {};
     window.appSettings = appSettings;
 
     const logoUrl = appSettings.logo_url || appSettings.site_logo;
     const faviconUrl = appSettings.favicon_url || getFaviconUrl();
-    const defaultImageUrl = appSettings.default_image_url;
+    const defaultImageUrl = appSettings.seo_image_url || appSettings.default_image_url;
     const defaultAvatarUrl = appSettings.default_avatar_url;
     const siteName = appSettings.site_name || 'ShopKey';
-    const siteDescription = appSettings.site_description || 'Mua tài khoản, key, gift card và các sản phẩm số uy tín';
-    if (appSettings.site_name) {
-      document.title = appSettings.site_name;
+    const siteDescription = appSettings.seo_description || appSettings.site_description || 'Mua tài khoản, key, gift card và các sản phẩm số uy tín';
+    const seoTitle = appSettings.seo_title || appSettings.site_name || 'ShopKey';
+    const seoKeywords = appSettings.seo_keywords || appSettings.keywords || '';
+    const seoAuthor = appSettings.seo_author || appSettings.author || '';
+    const twitterCard = appSettings.twitter_card || 'summary_large_image';
+    const canonicalUrl = (appSettings.site_url ? appSettings.site_url.replace(/\/$/, '') + location.pathname : location.origin + location.pathname);
+    if (seoTitle) {
+      document.title = seoTitle;
     }
     const setMeta = (selector, attr, value) => {
       const node = document.querySelector(selector);
       if (node && value) node.setAttribute(attr, value);
     };
     setMeta('meta[name="description"]', 'content', siteDescription);
-    setMeta('meta[property="og:title"]', 'content', siteName);
+    setMeta('meta[name="keywords"]', 'content', seoKeywords);
+    setMeta('meta[name="author"]', 'content', seoAuthor);
+    setMeta('link[rel="canonical"]', 'href', canonicalUrl);
+    setMeta('meta[property="og:title"]', 'content', seoTitle);
     setMeta('meta[property="og:description"]', 'content', siteDescription);
     setMeta('meta[property="og:site_name"]', 'content', siteName);
-    setMeta('meta[property="og:url"]', 'content', location.origin + location.pathname);
+    setMeta('meta[property="og:url"]', 'content', canonicalUrl);
     setMeta('meta[property="og:image"]', 'content', defaultImageUrl || logoUrl || '');
-    setMeta('meta[name="twitter:title"]', 'content', siteName);
+    setMeta('meta[name="twitter:card"]', 'content', twitterCard);
+    setMeta('meta[name="twitter:title"]', 'content', seoTitle);
     setMeta('meta[name="twitter:description"]', 'content', siteDescription);
     setMeta('meta[name="twitter:image"]', 'content', defaultImageUrl || logoUrl || '');
     if (faviconUrl) {
@@ -421,6 +433,7 @@ async function init() {
 
   qs('#hamburger')?.addEventListener('click', toggleSidebar);
   qs('#sidebar-overlay')?.addEventListener('click', closeSidebar);
+  window.addEventListener('resize', () => updateHeaderMode(location.hash || '#/', location.hash.startsWith('#/admin')));
 
   qs('#modal-close')?.addEventListener('click', closeModal);
   qs('#modal-overlay')?.addEventListener('click', (e) => { if (e.target === qs('#modal-overlay')) closeModal(); });
