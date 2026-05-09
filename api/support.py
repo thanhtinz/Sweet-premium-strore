@@ -9,7 +9,7 @@ from db import SessionLocal
 from db.models import (
     SupportTicket, TicketMessage, SupportPage, SiteConfig, Order, User, AdminUser
 )
-from api.auth import get_current_user, get_current_admin
+from api.auth import get_current_user, get_current_admin, get_current_staff_or_admin
 from api.sanitize import sanitize_html, sanitize_text
 import json
 
@@ -23,7 +23,8 @@ def get_db():
         db.close()
 
 def _is_admin(user_id: str, db: Session) -> bool:
-    return db.query(AdminUser).filter(AdminUser.user_id == str(user_id)).first() is not None
+    admin = db.query(AdminUser).filter(AdminUser.user_id == str(user_id)).first()
+    return admin is not None and admin.role in ("admin", "staff", "superadmin")
 
 # ─── SITE CONFIG ──────────────────────────────────────
 
@@ -222,7 +223,7 @@ async def add_ticket_message(
     db.refresh(message)
     return message
 
-@router.put("/tickets/{ticket_id}/status", dependencies=[Depends(get_current_admin)])
+@router.put("/tickets/{ticket_id}/status", dependencies=[Depends(get_current_staff_or_admin)])
 async def update_ticket_status(ticket_id: int, status: str, db: Session = Depends(get_db)):
     """Admin: Update ticket status"""
     ticket = db.query(SupportTicket).filter_by(id=ticket_id).first()
@@ -237,7 +238,7 @@ async def update_ticket_status(ticket_id: int, status: str, db: Session = Depend
     db.commit()
     return {"success": True, "status": status}
 
-@router.put("/tickets/{ticket_id}/assign", dependencies=[Depends(get_current_admin)])
+@router.put("/tickets/{ticket_id}/assign", dependencies=[Depends(get_current_staff_or_admin)])
 async def assign_ticket(ticket_id: int, admin_id: str, db: Session = Depends(get_db)):
     """Admin: Assign ticket to admin"""
     ticket = db.query(SupportTicket).filter_by(id=ticket_id).first()

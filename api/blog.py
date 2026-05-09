@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from db import get_db
 from db.models import BlogCategory, BlogPost
-from api.auth import get_current_admin
+from api.auth import get_current_admin, get_current_staff_or_admin
 
 router = APIRouter(prefix="/blog", tags=["blog"])
 
@@ -131,7 +131,7 @@ def get_blog_post(slug: str, db: Session = Depends(get_db)):
 
 @router.get("/admin/categories")
 def admin_list_blog_categories(
-    _admin=Depends(get_current_admin), db: Session = Depends(get_db)
+    _admin=Depends(get_current_staff_or_admin), db: Session = Depends(get_db)
 ):
     cats = db.query(BlogCategory).order_by(BlogCategory.sort_order, BlogCategory.id).all()
     return [
@@ -147,7 +147,7 @@ def admin_list_blog_categories(
 @router.post("/admin/categories")
 def admin_create_blog_category(
     data: BlogCategoryIn,
-    _admin=Depends(get_current_admin),
+    _admin=Depends(get_current_staff_or_admin),
     db: Session = Depends(get_db),
 ):
     slug = data.slug or _slugify(data.name)
@@ -166,7 +166,7 @@ def admin_create_blog_category(
 @router.put("/admin/categories/{cat_id}")
 def admin_update_blog_category(
     cat_id: int, data: BlogCategoryIn,
-    _admin=Depends(get_current_admin), db: Session = Depends(get_db),
+    _admin=Depends(get_current_staff_or_admin), db: Session = Depends(get_db),
 ):
     cat = db.query(BlogCategory).get(cat_id)
     if not cat:
@@ -181,9 +181,9 @@ def admin_update_blog_category(
 
 
 @router.delete("/admin/categories/{cat_id}")
-@router.post("/admin/categories/{cat_id}/delete", dependencies=[Depends(get_current_admin)])
+@router.post("/admin/categories/{cat_id}/delete", dependencies=[Depends(get_current_staff_or_admin)])
 def admin_delete_blog_category(
-    cat_id: int, _admin=Depends(get_current_admin), db: Session = Depends(get_db),
+    cat_id: int, _admin=Depends(get_current_staff_or_admin), db: Session = Depends(get_db),
 ):
     cat = db.query(BlogCategory).get(cat_id)
     if not cat:
@@ -201,7 +201,7 @@ def admin_delete_blog_category(
 def admin_list_blog_posts(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    _admin=Depends(get_current_admin),
+    _admin=Depends(get_current_staff_or_admin),
     db: Session = Depends(get_db),
 ):
     total = db.query(func.count(BlogPost.id)).scalar()
@@ -222,7 +222,7 @@ def admin_list_blog_posts(
 
 @router.get("/admin/posts/{post_id}")
 def admin_get_blog_post(
-    post_id: int, _admin=Depends(get_current_admin), db: Session = Depends(get_db),
+    post_id: int, _admin=Depends(get_current_staff_or_admin), db: Session = Depends(get_db),
 ):
     post = db.query(BlogPost).get(post_id)
     if not post:
@@ -233,7 +233,7 @@ def admin_get_blog_post(
 @router.post("/admin/posts")
 def admin_create_blog_post(
     data: BlogPostIn,
-    admin=Depends(get_current_admin),
+    admin=Depends(get_current_staff_or_admin),
     db: Session = Depends(get_db),
 ):
     slug = data.slug or _slugify(data.title)
@@ -268,7 +268,7 @@ def admin_create_blog_post(
 @router.put("/admin/posts/{post_id}")
 def admin_update_blog_post(
     post_id: int, data: BlogPostIn,
-    _admin=Depends(get_current_admin), db: Session = Depends(get_db),
+    _admin=Depends(get_current_staff_or_admin), db: Session = Depends(get_db),
 ):
     post = db.query(BlogPost).get(post_id)
     if not post:
@@ -296,9 +296,9 @@ def admin_update_blog_post(
 
 
 @router.delete("/admin/posts/{post_id}")
-@router.post("/admin/posts/{post_id}/delete", dependencies=[Depends(get_current_admin)])
+@router.post("/admin/posts/{post_id}/delete", dependencies=[Depends(get_current_staff_or_admin)])
 def admin_delete_blog_post(
-    post_id: int, _admin=Depends(get_current_admin), db: Session = Depends(get_db),
+    post_id: int, _admin=Depends(get_current_staff_or_admin), db: Session = Depends(get_db),
 ):
     post = db.query(BlogPost).get(post_id)
     if not post:

@@ -62,12 +62,13 @@ function parseRoute(hash) {
 }
 
 let currentNavMode = null;
+const STAFF_ALLOWED_ADMIN_ROUTES = new Set(['/admin', '/admin/orders', '/admin/blog', '/admin/tickets', '/admin/announcements']);
 
 const adminHeaderMeta = {
   '/admin': { title: 'Dashboard', subtitle: 'Tổng quan vận hành cửa hàng' },
   '/admin/orders': { title: 'Đơn hàng', subtitle: 'Theo dõi và xử lý đơn mua hàng' },
   '/admin/payments': { title: 'Thanh toán', subtitle: 'Kiểm tra giao dịch và cấu hình thanh toán' },
-  '/admin/balance': { title: 'Số dư', subtitle: 'Quản lý biến động số dư người dùng' },
+  '/admin/balance': { title: 'Quản lý user', subtitle: 'Quản lý tài khoản, vai trò và số dư người dùng' },
   '/admin/categories': { title: 'Danh mục', subtitle: 'Tổ chức nhóm sản phẩm và điều hướng' },
   '/admin/products': { title: 'Sản phẩm', subtitle: 'Quản lý sản phẩm, gói bán và nội dung hiển thị' },
   '/admin/stock': { title: 'Kho hàng', subtitle: 'Theo dõi tồn kho và dữ liệu giao tự động' },
@@ -140,6 +141,12 @@ async function navigate() {
     return;
   }
 
+  const adminPath = hash.replace(/^#/, '').split('?')[0] || '/admin';
+  if (isAdmin && currentUser?.role === 'staff' && !STAFF_ALLOWED_ADMIN_ROUTES.has(adminPath)) {
+    view.innerHTML = '<div class="empty-state" style="padding:60px 20px;"><div class="empty-state-icon"><i class="fa-solid fa-lock"></i></div><h3>Không có quyền truy cập</h3><p class="text-muted">Tài khoản nhân viên không được phép vào khu vực này.</p></div>';
+    return;
+  }
+
   const newNavMode = isAdmin ? 'admin' : 'store';
   if (currentNavMode !== newNavMode) {
     currentNavMode = newNavMode;
@@ -182,7 +189,7 @@ async function loadSidebar() {
         { href: '#/admin', icon: '<i class="fa-solid fa-chart-pie"></i>', text: 'Dashboard' },
         { href: '#/admin/orders', icon: '<i class="fa-solid fa-receipt"></i>', text: 'Đơn hàng' },
         { href: '#/admin/payments', icon: '<i class="fa-solid fa-credit-card"></i>', text: 'Thanh toán' },
-        { href: '#/admin/balance', icon: '<i class="fa-solid fa-wallet"></i>', text: 'Số dư' },
+        { href: '#/admin/balance', icon: '<i class="fa-solid fa-users"></i>', text: 'Quản lý user' },
         { divider: 'Sản phẩm' },
         { href: '#/admin/categories', icon: '<i class="fa-solid fa-folder-tree"></i>', text: 'Danh mục' },
         { href: '#/admin/products', icon: '<i class="fa-solid fa-bag-shopping"></i>', text: 'Sản phẩm' },
@@ -204,7 +211,11 @@ async function loadSidebar() {
         { href: '#/', icon: '<i class="fa-solid fa-arrow-left"></i>', text: 'Về trang chủ' }
       ];
 
-      links.forEach(l => {
+      const visibleLinks = currentUser?.role === 'staff'
+        ? links.filter(l => l.divider !== undefined || STAFF_ALLOWED_ADMIN_ROUTES.has((l.href || '').replace(/^#/, '')) || l.href === '#/')
+        : links;
+
+      visibleLinks.forEach(l => {
         if (l.divider !== undefined) {
           if (l.divider !== '') {
             nav.appendChild(el('div', 'sidebar-divider'));

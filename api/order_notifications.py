@@ -4,7 +4,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from db.models import SiteConfig
+from api.bot_links import resolve_platform_target
 
 
 ORDER_STATUS_LABELS = {
@@ -16,24 +16,12 @@ ORDER_STATUS_LABELS = {
 }
 
 
-def _load_bot_config(db: Session) -> dict:
-    row = db.query(SiteConfig).filter_by(key="bot_smtp_config").first()
-    if not row or not row.value:
-        return {}
-    try:
-        return json.loads(row.value)
-    except Exception:
-        return {}
-
-
 def _resolve_user_telegram_chat_id(db: Session, user_id: str) -> Optional[str]:
-    cfg = _load_bot_config(db)
-    mappings = cfg.get("telegram_user_links") or cfg.get("telegram_user_map") or {}
-    if isinstance(mappings, dict):
-        chat_id = mappings.get(str(user_id)) or mappings.get(user_id)
-        if chat_id:
-            return str(chat_id)
-    return None
+    return resolve_platform_target(db, user_id, "telegram")
+
+
+def _resolve_user_discord_target(db: Session, user_id: str) -> Optional[str]:
+    return resolve_platform_target(db, user_id, "discord")
 
 
 def _format_amount(amount) -> str:
@@ -60,6 +48,11 @@ def notify_order_status_change(
         from bot.telegram_bot import send_telegram_message
     except Exception:
         send_telegram_message = None
+
+    try:
+        from bot.discord_bot import send_discord_message
+    except Exception:
+        send_discord_message = None
 
     status_label = ORDER_STATUS_LABELS.get(order.status, order.status)
     prev_label = ORDER_STATUS_LABELS.get(previous_status, previous_status) if previous_status else None
@@ -93,3 +86,11 @@ def notify_order_status_change(
             *[line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") for line in lines],
         ])
         send_telegram_message(telegram_message, chat_id=chat_id)
+
+    discord_target = _resolve_user_discord_target(db, order.user_id)
+    if discord_target and send_discord_message:
+        discord_message = "\n".join([
+            f"**{subject}**",
+            *lines,
+        ])
+        send_discord_message(discord_message, channel_id=discord_target)

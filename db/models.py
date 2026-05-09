@@ -3,6 +3,7 @@ from sqlalchemy import (
     Column, Integer, String, Text, Boolean, Numeric, DateTime,
     ForeignKey, JSON, UniqueConstraint, LargeBinary
 )
+from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from db import Base
 
@@ -216,6 +217,28 @@ class AdminUser(Base):
     email = Column(String(255), unique=True, nullable=False)
     role = Column(String(50), default="admin")  # admin | superadmin
     created_at = Column(DateTime(timezone=True), default=now_utc)
+
+
+class UserBotLink(Base):
+    __tablename__ = "user_bot_links"
+    __table_args__ = (
+        UniqueConstraint("platform", "platform_user_id", name="uq_user_bot_links_platform_user"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String(255), nullable=True, index=True)
+    platform = Column(String(20), nullable=False, index=True)  # telegram | discord
+    platform_user_id = Column(String(255), nullable=False, index=True)
+    platform_username = Column(String(255), nullable=True)
+    dm_channel_id = Column(String(255), nullable=True)
+    link_code = Column(String(64), nullable=True, unique=True, index=True)
+    link_code_expires_at = Column(DateTime(timezone=True), nullable=True)
+    is_verified = Column(Boolean, default=False)
+    metadata_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+    updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
+    linked_at = Column(DateTime(timezone=True), nullable=True)
+    last_seen_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class BalanceTransaction(Base):

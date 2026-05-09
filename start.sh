@@ -24,6 +24,18 @@ else
   echo "[+$(elapsed)ms] uv sync skipped (lockfile unchanged)"
 fi
 
+cleanup() {
+  if [ -n "$BOT_PID" ] && kill -0 "$BOT_PID" 2>/dev/null; then
+    kill "$BOT_PID" 2>/dev/null || true
+    wait "$BOT_PID" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT INT TERM
+
+echo "[+$(elapsed)ms] Starting bot runner"
+uv run python bot/run_bots.py &
+BOT_PID=$!
+
 echo "[+$(elapsed)ms] Starting dev server on http://0.0.0.0:${APP_PORT}"
-exec uv run uvicorn app:asgi --host 0.0.0.0 --port ${APP_PORT} --reload \
+uv run uvicorn app:asgi --host 0.0.0.0 --port ${APP_PORT} --reload \
   --reload-exclude ".venv" --reload-exclude ".git" --reload-exclude "__pycache__" --reload-exclude "*.pyc"

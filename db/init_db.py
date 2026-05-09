@@ -3,7 +3,7 @@ from db import Base, engine
 from db.models import (  # noqa: F401 — import to register models
     Category, Product, ProductPackage, StockItem,
     PackageField, Order, OrderItem, SiteSetting, AdminUser, User,
-    Announcement, UploadedImage
+    Announcement, UploadedImage, UserBotLink
 )
 
 
@@ -14,6 +14,18 @@ def init_db():
         conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12, 2)"))
         conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(12, 2)"))
         conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code VARCHAR(100)"))
+        conn.execute(text("ALTER TABLE user_bot_links ADD COLUMN IF NOT EXISTS platform_username VARCHAR(255)"))
+        conn.execute(text("ALTER TABLE user_bot_links ADD COLUMN IF NOT EXISTS dm_channel_id VARCHAR(255)"))
+        conn.execute(text("ALTER TABLE user_bot_links ADD COLUMN IF NOT EXISTS link_code VARCHAR(64)"))
+        conn.execute(text("ALTER TABLE user_bot_links ADD COLUMN IF NOT EXISTS link_code_expires_at TIMESTAMP WITH TIME ZONE"))
+        conn.execute(text("ALTER TABLE user_bot_links ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE"))
+        conn.execute(text("ALTER TABLE user_bot_links ADD COLUMN IF NOT EXISTS metadata_json JSON"))
+        conn.execute(text("ALTER TABLE user_bot_links ADD COLUMN IF NOT EXISTS linked_at TIMESTAMP WITH TIME ZONE"))
+        conn.execute(text("ALTER TABLE user_bot_links ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP WITH TIME ZONE"))
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_user_bot_links_platform_user ON user_bot_links(platform, platform_user_id)"))
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_user_bot_links_link_code ON user_bot_links(link_code) WHERE link_code IS NOT NULL"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_bot_links_user_platform ON user_bot_links(user_id, platform)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_bot_links_platform_verified ON user_bot_links(platform, is_verified)"))
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS order_items (
                 id SERIAL PRIMARY KEY,

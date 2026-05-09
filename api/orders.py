@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
 
-from api.auth import get_current_admin, get_current_user
+from api.auth import get_current_admin, get_current_staff_or_admin, get_current_user
 from api.order_notifications import notify_order_status_change
 from db import get_db
 from db.models import BalanceTransaction, Order, OrderItem, ProductPackage, StockItem, User
@@ -337,7 +337,7 @@ def create_order(
 
 # ── Admin endpoints ────────────────────────────────────────────────────────────
 
-@router.get("/admin/all", dependencies=[Depends(get_current_admin)])
+@router.get("/admin/all", dependencies=[Depends(get_current_staff_or_admin)])
 def admin_list_orders(
     status: Optional[str] = None,
     page: int = 1,

@@ -29,6 +29,7 @@ from api.search import router as search_router
 from api.reviews import router as reviews_router
 from api.support import router as support_router
 from api.bot_config import router as bot_router
+from api.bot_links_routes import router as bot_links_router
 from api.oauth import router as oauth_router
 from api.announcements import router as announcements_router
 from api.balance import router as balance_router
@@ -193,6 +194,7 @@ def create_app(static_dir: str) -> FastAPI:
     api.include_router(reviews_router)
     api.include_router(support_router)
     api.include_router(bot_router)
+    api.include_router(bot_links_router)
     api.include_router(oauth_router)
     api.include_router(announcements_router)
     api.include_router(balance_router)

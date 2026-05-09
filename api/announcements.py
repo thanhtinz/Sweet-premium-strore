@@ -12,7 +12,7 @@ from api.sanitize import sanitize_html, sanitize_text
 
 from db import get_db
 from db.models import Announcement
-from api.auth import get_current_admin
+from api.auth import get_current_admin, get_current_staff_or_admin
 
 router = APIRouter(prefix="/announcements", tags=["announcements"])
 
@@ -73,7 +73,7 @@ def list_announcements(
 
 @router.get("/admin/all")
 def admin_list_announcements(
-    _admin=Depends(get_current_admin),
+    _admin=Depends(get_current_staff_or_admin),
     db: Session = Depends(get_db),
 ):
     """Admin: list all announcements (including inactive)."""
@@ -88,7 +88,7 @@ def admin_list_announcements(
 @router.post("/admin/", status_code=201)
 def admin_create_announcement(
     data: AnnouncementIn,
-    _admin=Depends(get_current_admin),
+    _admin=Depends(get_current_staff_or_admin),
     db: Session = Depends(get_db),
 ):
     ann = Announcement(
@@ -108,7 +108,7 @@ def admin_create_announcement(
 def admin_update_announcement(
     ann_id: int,
     data: AnnouncementIn,
-    _admin=Depends(get_current_admin),
+    _admin=Depends(get_current_staff_or_admin),
     db: Session = Depends(get_db),
 ):
     ann = db.query(Announcement).get(ann_id)
@@ -125,10 +125,10 @@ def admin_update_announcement(
 
 
 @router.delete("/admin/{ann_id}")
-@router.post("/admin/{ann_id}/delete", dependencies=[Depends(get_current_admin)])
+@router.post("/admin/{ann_id}/delete", dependencies=[Depends(get_current_staff_or_admin)])
 def admin_delete_announcement(
     ann_id: int,
-    _admin=Depends(get_current_admin),
+    _admin=Depends(get_current_staff_or_admin),
     db: Session = Depends(get_db),
 ):
     ann = db.query(Announcement).get(ann_id)

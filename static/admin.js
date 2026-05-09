@@ -2928,7 +2928,7 @@ async function renderAdminBalance(view) {
 
   try {
     const [usersData, txnData, auditData, withdrawData] = await Promise.all([
-      apiFetch('/balance/admin/users?limit=100'),
+      apiFetch('/auth/admin/users'),
       apiFetch('/balance/admin/transactions?limit=30'),
       apiFetch('/balance/admin/audit').catch(() => ({ ok: true, mismatches: [] })),
       apiFetch('/balance/admin/withdrawals?status=pending'),
@@ -2938,8 +2938,11 @@ async function renderAdminBalance(view) {
 
     content.innerHTML = `
       <div class="page-header">
-        <div class="page-title">Quản lý số dư</div>
-        ${!auditData.ok ? `<span class="badge" style="background:#ef4444;color:#fff;">⚠ ${auditData.mismatches.length} bất thường</span>` : '<span class="badge" style="background:#10b981;color:#fff;">✓ Hệ thống OK</span>'}
+        <div class="page-title">Quản lý user</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          ${!auditData.ok ? `<span class="badge" style="background:#ef4444;color:#fff;">⚠ ${auditData.mismatches.length} bất thường</span>` : '<span class="badge" style="background:#10b981;color:#fff;">✓ Hệ thống OK</span>'}
+          <button class="btn btn-primary btn-sm" id="admin-create-user-btn">Thêm user</button>
+        </div>
       </div>
 
       <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
@@ -2952,15 +2955,24 @@ async function renderAdminBalance(view) {
 
       <div id="balance-tab-users" style="${activeTab !== 'users' ? 'display:none' : ''}">
         <div class="table-wrap"><table>
-          <thead><tr><th>ID</th><th>Email</th><th>Tên</th><th>Số dư</th><th></th></tr></thead>
+          <thead><tr><th>ID</th><th>Email</th><th>Tên</th><th>Role</th><th>Số dư</th><th>Trạng thái</th><th></th></tr></thead>
           <tbody>
             ${usersData.items.map(u => `
               <tr>
                 <td>${u.id}</td>
                 <td class="text-sm">${u.email}</td>
                 <td class="text-sm">${u.display_name || '—'}</td>
+                <td class="text-sm">${u.role || 'user'}</td>
                 <td class="fw-700" style="color:#10b981">${fmt(u.balance)}</td>
-                <td><button class="tbl-btn tbl-view" data-adjust-user="${u.id}" data-adjust-email="${u.email}" data-adjust-bal="${u.balance}">Điều chỉnh</button></td>
+                <td class="text-sm">${u.is_active ? 'Hoạt động' : 'Khóa'}</td>
+                <td>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">
+                    <button class="tbl-btn tbl-view" data-edit-user='${JSON.stringify(u).replace(/'/g, '&apos;')}'>Sửa</button>
+                    <button class="tbl-btn tbl-view" data-adjust-user="${u.id}" data-adjust-email="${u.email}" data-adjust-bal="${u.balance}">Số dư</button>
+                    <button class="tbl-btn tbl-view" data-reset-user="${u.id}">Reset MK</button>
+                    <button class="tbl-btn" style="color:#ef4444;" data-delete-user="${u.id}">Xóa</button>
+                  </div>
+                </td>
               </tr>
             `).join('')}
           </tbody>
@@ -3012,6 +3024,95 @@ async function renderAdminBalance(view) {
         `}
       </div>
     `;
+
+    // Create user
+    qs('#admin-create-user-btn', content).onclick = () => {
+      openModal(`
+        <h3 class="modal-title mb-16">Thêm user</h3>
+        <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="new-user-email" /></div>
+        <div class="form-group"><label class="form-label">Tên hiển thị</label><input type="text" class="form-input" id="new-user-name" /></div>
+        <div class="form-group"><label class="form-label">Role</label><select class="form-input" id="new-user-role"><option value="">user</option><option value="staff">staff</option><option value="admin">admin</option></select></div>
+        <div id="new-user-err" class="form-error mb-12" style="display:none"></div>
+        <button class="btn btn-primary btn-full" id="new-user-submit">Tạo user</button>
+      `);
+      qs('#new-user-submit').onclick = async () => {
+        try {
+          await apiFetch('/auth/admin/users', {
+            method: 'POST',
+            body: JSON.stringify({
+              email: qs('#new-user-email').value.trim(),
+              display_name: qs('#new-user-name').value.trim(),
+              role: qs('#new-user-role').value
+            })
+          });
+          closeModal();
+          toast('Đã tạo user', 'success');
+          renderAdminBalance(view);
+        } catch (err) {
+          const elErr = qs('#new-user-err');
+          elErr.textContent = err.message;
+          elErr.style.display = 'block';
+        }
+      };
+    };
+
+    qsa('[data-edit-user]', content).forEach(btn => {
+      btn.onclick = () => {
+        const user = JSON.parse(btn.dataset.editUser.replace(/&apos;/g, "'"));
+        openModal(`
+          <h3 class="modal-title mb-16">Chỉnh sửa user</h3>
+          <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="edit-user-email" value="${esc(user.email || '')}" /></div>
+          <div class="form-group"><label class="form-label">Tên hiển thị</label><input type="text" class="form-input" id="edit-user-name" value="${esc(user.display_name || '')}" /></div>
+          <div class="form-group"><label class="form-label">Avatar URL</label><input type="text" class="form-input" id="edit-user-avatar" value="${esc(user.avatar_url || '')}" /></div>
+          <div class="form-group"><label class="form-label">Role</label><select class="form-input" id="edit-user-role"><option value="" ${!user.role ? 'selected' : ''}>user</option><option value="staff" ${user.role === 'staff' ? 'selected' : ''}>staff</option><option value="admin" ${user.role === 'admin' ? 'selected' : ''}>admin</option></select></div>
+          <div class="form-group"><label class="form-label"><input type="checkbox" id="edit-user-active" ${user.is_active ? 'checked' : ''} /> Tài khoản hoạt động</label></div>
+          <div id="edit-user-err" class="form-error mb-12" style="display:none"></div>
+          <button class="btn btn-primary btn-full" id="edit-user-submit">Lưu thay đổi</button>
+        `);
+        qs('#edit-user-submit').onclick = async () => {
+          try {
+            await apiFetch(`/auth/admin/users/${user.id}`, {
+              method: 'PUT',
+              body: JSON.stringify({
+                email: qs('#edit-user-email').value.trim(),
+                display_name: qs('#edit-user-name').value.trim(),
+                avatar_url: qs('#edit-user-avatar').value.trim(),
+                role: qs('#edit-user-role').value,
+                is_active: qs('#edit-user-active').checked,
+              })
+            });
+            closeModal();
+            toast('Đã cập nhật user', 'success');
+            renderAdminBalance(view);
+          } catch (err) {
+            const elErr = qs('#edit-user-err');
+            elErr.textContent = err.message;
+            elErr.style.display = 'block';
+          }
+        };
+      };
+    });
+
+    qsa('[data-reset-user]', content).forEach(btn => {
+      btn.onclick = async () => {
+        if (!confirm('Reset mật khẩu user này và gửi mật khẩu mới qua email?')) return;
+        try {
+          await apiFetch(`/auth/admin/users/${btn.dataset.resetUser}/reset-password`, { method: 'POST' });
+          toast('Đã reset mật khẩu và gửi email', 'success');
+        } catch (err) { toast(err.message, 'error'); }
+      };
+    });
+
+    qsa('[data-delete-user]', content).forEach(btn => {
+      btn.onclick = async () => {
+        if (!confirm('Xóa user này?')) return;
+        try {
+          await apiFetch(`/auth/admin/users/${btn.dataset.deleteUser}`, { method: 'DELETE' });
+          toast('Đã xóa user', 'success');
+          renderAdminBalance(view);
+        } catch (err) { toast(err.message, 'error'); }
+      };
+    });
 
     // Tab switching
     const tabs = ['users', 'txn', 'withdraw'];

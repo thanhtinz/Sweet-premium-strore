@@ -1,7 +1,11 @@
 import smtplib
+import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from .config import SMTP_SERVER, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM_EMAIL
+
+logger = logging.getLogger(__name__)
+
 
 def send_email(to_email: str, subject: str, body: str, is_html: bool = False):
     if not all([SMTP_SERVER, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM_EMAIL]):
@@ -21,6 +25,6 @@ def send_email(to_email: str, subject: str, body: str, is_html: bool = False):
         server.send_message(msg)
         server.quit()
         return True
-    except Exception as e:
-        print(f"Email error: {e}")
+    except Exception:
+        logger.exception("Email send failed")
         return False

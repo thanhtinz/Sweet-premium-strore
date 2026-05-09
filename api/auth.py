@@ -17,10 +17,13 @@ import qrcode
 import qrcode.image.svg
 import io
 import base64
+import string
+import random
 from sqlalchemy.orm import Session
 
 from db import get_db
 from db.models import User, AdminUser
+from api.bot_links import link_platform_account
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -81,6 +84,7 @@ def _create_token(user: User) -> str:
 
 
 def _user_dict(user: User, is_admin: bool = False, role: str = None) -> dict:
+    normalized_role = "admin" if role in ("admin", "superadmin") else role
     return {
         "user_id": str(user.id),
         "email": user.email,
@@ -88,10 +92,38 @@ def _user_dict(user: User, is_admin: bool = False, role: str = None) -> dict:
         "avatar_url": user.avatar_url,
         "provider": user.provider,
         "is_admin": is_admin,
-        "role": role,
+        "role": normalized_role,
         "2fa_enabled": bool(user.two_factor_secret),
         "balance": float(user.balance or 0),
     }
+
+
+def _normalize_admin_role(role: str | None) -> str | None:
+    if role in ("superadmin", "admin"):
+        return "admin"
+    if role == "staff":
+        return "staff"
+    return None
+
+
+def _generate_temp_password(length: int = 12) -> str:
+    alphabet = string.ascii_letters + string.digits
+    return "".join(random.choice(alphabet) for _ in range(length))
+
+
+def _send_password_email(to_email: str, password: str, *, subject_prefix: str = "") -> bool:
+    try:
+        from bot.mail import send_email
+    except Exception:
+        send_email = None
+    if not send_email:
+        return False
+    subject = f"{subject_prefix}Mật khẩu mới cho tài khoản của bạn".strip()
+    body = (
+        f"<p>Mật khẩu mới của bạn là: <strong>{password}</strong></p>"
+        f"<p>Hãy đăng nhập và đổi lại mật khẩu ngay sau khi vào hệ thống.</p>"
+    )
+    return bool(send_email(to_email, subject, body, is_html=True))
 
 
 # ── Dependencies ────────────────────────────────────────────
@@ -118,9 +150,22 @@ def get_current_admin(
     admin = db.query(AdminUser).filter(
         AdminUser.user_id == current_user["user_id"]
     ).first()
-    if not admin:
+    if not admin or _normalize_admin_role(admin.role) != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
-    return {**current_user, "role": admin.role}
+    return {**current_user, "role": "admin"}
+
+
+def get_current_staff_or_admin(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    admin = db.query(AdminUser).filter(
+        AdminUser.user_id == current_user["user_id"]
+    ).first()
+    role = _normalize_admin_role(admin.role if admin else None)
+    if role not in ("admin", "staff"):
+        raise HTTPException(status_code=403, detail="Staff or admin access required")
+    return {**current_user, "role": role}
 
 
 # ── Schemas ─────────────────────────────────────────────────
@@ -134,6 +179,10 @@ class LoginBody(BaseModel):
     email: EmailStr
     password: str
     totp_code: str = None
+
+
+class ForgotPasswordBody(BaseModel):
+    email: EmailStr
 
 
 # ── Register / Login ────────────────────────────────────────
@@ -174,7 +223,23 @@ def login(body: LoginBody, db: Session = Depends(get_db)):
             raise HTTPException(401, "Mã xác thực 2 bước không chính xác")
             
     token = _create_token(user)
-    return {"token": token, "user": _user_dict(user)}
+    admin = db.query(AdminUser).filter(AdminUser.user_id == str(user.id)).first()
+    return {"token": token, "user": _user_dict(user, is_admin=admin is not None, role=admin.role if admin else None)}
+
+
+@router.post("/forgot-password")
+def forgot_password(body: ForgotPasswordBody, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == body.email).first()
+    if not user or not user.is_active:
+        return {"ok": True, "message": "Nếu email tồn tại, mật khẩu mới sẽ được gửi qua email."}
+    new_password = _generate_temp_password()
+    user.password_hash = _hash_password(new_password)
+    sent = _send_password_email(user.email, new_password)
+    if not sent:
+        db.rollback()
+        raise HTTPException(500, "Không thể gửi email đặt lại mật khẩu")
+    db.commit()
+    return {"ok": True, "message": "Nếu email tồn tại, mật khẩu mới sẽ được gửi qua email."}
 
 
 @router.get("/me")
@@ -440,6 +505,15 @@ def _social_login_finish(db: Session, provider: str, provider_id: str,
     if not user.is_active:
         return RedirectResponse("/#/login?error=account_disabled")
 
+    if provider == "discord":
+        link_platform_account(
+            db,
+            user_id=str(user.id),
+            platform="discord",
+            platform_user_id=provider_id,
+            verified=True,
+        )
+
     token = _create_token(user)
     # Redirect to frontend with token in hash
     return RedirectResponse(f"/#/auth-callback?token={token}")
@@ -461,11 +535,119 @@ def make_admin(data: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="user_id and email required")
     existing = db.query(AdminUser).filter(AdminUser.user_id == str(user_id)).first()
     if existing:
+        existing.role = "admin"
+        db.commit()
         return {"message": "Already admin", "email": email}
-    admin = AdminUser(user_id=str(user_id), email=email, role="superadmin")
+    admin = AdminUser(user_id=str(user_id), email=email, role="admin")
     db.add(admin)
     db.commit()
     return {"message": "Admin created", "email": email}
+
+
+@router.get("/admin/users", dependencies=[Depends(get_current_admin)])
+def admin_list_users(db: Session = Depends(get_db)):
+    users = db.query(User).order_by(User.created_at.desc()).all()
+    admin_rows = {row.user_id: _normalize_admin_role(row.role) for row in db.query(AdminUser).all()}
+    return {
+        "items": [
+            {
+                "id": user.id,
+                "email": user.email,
+                "display_name": user.display_name,
+                "avatar_url": user.avatar_url,
+                "provider": user.provider,
+                "balance": float(user.balance or 0),
+                "is_active": user.is_active,
+                "role": admin_rows.get(str(user.id)),
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+            }
+            for user in users
+        ]
+    }
+
+
+@router.post("/admin/users", dependencies=[Depends(get_current_admin)])
+def admin_create_user(data: dict, db: Session = Depends(get_db)):
+    email = (data.get("email") or "").strip().lower()
+    if not email:
+        raise HTTPException(400, "Email is required")
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(409, "Email đã được sử dụng")
+    password = data.get("password") or _generate_temp_password()
+    user = User(
+        email=email,
+        password_hash=_hash_password(password),
+        display_name=(data.get("display_name") or email.split("@")[0]).strip(),
+        avatar_url=(data.get("avatar_url") or "").strip() or None,
+        provider="local",
+        is_active=bool(data.get("is_active", True)),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    role = _normalize_admin_role(data.get("role"))
+    if role:
+        db.add(AdminUser(user_id=str(user.id), email=user.email, role=role))
+        db.commit()
+    return {"id": user.id, "email": user.email}
+
+
+@router.put("/admin/users/{user_id}", dependencies=[Depends(get_current_admin)])
+def admin_update_user(user_id: int, data: dict, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+    new_email = (data.get("email") or user.email).strip().lower()
+    existing = db.query(User).filter(User.email == new_email, User.id != user_id).first()
+    if existing:
+        raise HTTPException(409, "Email đã được sử dụng")
+    user.email = new_email
+    user.display_name = data.get("display_name", user.display_name)
+    user.avatar_url = data.get("avatar_url", user.avatar_url)
+    if "is_active" in data:
+        user.is_active = bool(data.get("is_active"))
+    admin_row = db.query(AdminUser).filter(AdminUser.user_id == str(user.id)).first()
+    role = _normalize_admin_role(data.get("role")) if "role" in data else _normalize_admin_role(admin_row.role if admin_row else None)
+    if role:
+        if not admin_row:
+            admin_row = AdminUser(user_id=str(user.id), email=user.email, role=role)
+            db.add(admin_row)
+        admin_row.email = user.email
+        admin_row.role = role
+    elif admin_row:
+        db.delete(admin_row)
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/admin/users/{user_id}", dependencies=[Depends(get_current_admin)])
+def admin_delete_user(user_id: int, current_admin: dict = Depends(get_current_admin), db: Session = Depends(get_db)):
+    if str(user_id) == current_admin["user_id"]:
+        raise HTTPException(400, "Không thể xóa chính tài khoản admin hiện tại")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+    admin_row = db.query(AdminUser).filter(AdminUser.user_id == str(user.id)).first()
+    if admin_row:
+        db.delete(admin_row)
+    db.delete(user)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/admin/users/{user_id}/reset-password", dependencies=[Depends(get_current_admin)])
+def admin_reset_user_password(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+    new_password = _generate_temp_password()
+    user.password_hash = _hash_password(new_password)
+    sent = _send_password_email(user.email, new_password, subject_prefix="[Admin reset] ")
+    if not sent:
+        db.rollback()
+        raise HTTPException(500, "Không thể gửi email mật khẩu mới")
+    db.commit()
+    return {"ok": True, "message": "Đã reset mật khẩu và gửi email cho người dùng"}
 
 
 # ── Auth config (for frontend) ─────────────────────────────

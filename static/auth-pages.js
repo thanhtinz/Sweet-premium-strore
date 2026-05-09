@@ -40,6 +40,7 @@ function renderLogin(view) {
             <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             <input type="password" class="form-input has-icon" id="login-pwd" placeholder="••••••••" required autocomplete="current-password" />
           </div>
+          <div class="text-sm" style="margin-top:8px;"><a href="#" id="forgot-password-link" class="auth-link">Quên mật khẩu?</a></div>
         </div>
         <div class="form-group" id="totp-group" style="display:none;">
           <label class="form-label">Mã xác thực 2 bước (2FA)</label>
@@ -127,6 +128,30 @@ function renderLogin(view) {
       btn.querySelector('.auth-submit-text').textContent = 'Đăng nhập';
       btn.classList.remove('loading');
     }
+  };
+
+  qs('#forgot-password-link', page).onclick = (e) => {
+    e.preventDefault();
+    openModal(`
+      <h3 class="modal-title mb-16">Quên mật khẩu</h3>
+      <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="forgot-email" placeholder="email@example.com" /></div>
+      <div id="forgot-err" class="form-error mb-12" style="display:none"></div>
+      <button class="btn btn-primary btn-full" id="forgot-submit">Gửi mật khẩu mới</button>
+    `);
+    qs('#forgot-submit').onclick = async () => {
+      try {
+        await apiFetch('/auth/forgot-password', {
+          method: 'POST',
+          body: JSON.stringify({ email: qs('#forgot-email').value.trim() })
+        });
+        closeModal();
+        toast('Nếu email tồn tại, mật khẩu mới sẽ được gửi qua email.', 'success');
+      } catch (err) {
+        const elErr = qs('#forgot-err');
+        elErr.textContent = err.message;
+        elErr.style.display = 'block';
+      }
+    };
   };
 }
 
