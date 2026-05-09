@@ -289,8 +289,29 @@ def create_app(static_dir: str) -> FastAPI:
         
         import time
         nocache = str(int(time.time() * 1000))
+        db = SessionLocal()
+        try:
+            settings = load_public_settings(db)
+        finally:
+            db.close()
+        canonical_base = (settings.get("site_url") or str(request.base_url)).rstrip("/")
         return templates.TemplateResponse(
-            request, "index.html", {"css_hash": nocache, "js_hash": nocache}
+            request,
+            "index.html",
+            {
+                "css_hash": nocache,
+                "js_hash": nocache,
+                "site_name": settings.get("site_name") or "ShopKey",
+                "site_description": settings.get("seo_description") or settings.get("site_description") or "Mua tài khoản, key, gift card và các sản phẩm số uy tín",
+                "seo_title": settings.get("seo_title") or settings.get("site_name") or "ShopKey — Sản phẩm số",
+                "seo_description": settings.get("seo_description") or settings.get("site_description") or "Mua tài khoản, key, gift card và các sản phẩm số uy tín",
+                "seo_keywords": settings.get("seo_keywords") or settings.get("keywords") or (settings.get("site_name") or "ShopKey"),
+                "seo_author": settings.get("seo_author") or settings.get("author") or (settings.get("site_name") or "ShopKey"),
+                "twitter_card": settings.get("twitter_card") or "summary_large_image",
+                "canonical_url": f"{canonical_base}{request.url.path}",
+                "seo_image_url": settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "",
+                "default_image_url": settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "",
+            },
         )
 
     return app

@@ -3,18 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-  <title>ShopKey — Sản phẩm số</title>
-  <meta name="description" content="Mua tài khoản, key, gift card và các sản phẩm số uy tín" />
+  <title>{{ seo_title or site_name or 'ShopKey — Sản phẩm số' }}</title>
+  <meta name="description" content="{{ seo_description or site_description or 'Mua tài khoản, key, gift card và các sản phẩm số uy tín' }}" />
+  {% if seo_keywords %}<meta name="keywords" content="{{ seo_keywords }}" />{% endif %}
+  {% if seo_author %}<meta name="author" content="{{ seo_author }}" />{% endif %}
+  <link rel="canonical" href="{{ canonical_url or '' }}" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="ShopKey — Sản phẩm số" />
-  <meta property="og:description" content="Mua tài khoản, key, gift card và các sản phẩm số uy tín" />
-  <meta property="og:image" content="" />
-  <meta property="og:url" content="" />
-  <meta property="og:site_name" content="ShopKey" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="ShopKey — Sản phẩm số" />
-  <meta name="twitter:description" content="Mua tài khoản, key, gift card và các sản phẩm số uy tín" />
-  <meta name="twitter:image" content="" />
+  <meta property="og:title" content="{{ seo_title or site_name or 'ShopKey — Sản phẩm số' }}" />
+  <meta property="og:description" content="{{ seo_description or site_description or 'Mua tài khoản, key, gift card và các sản phẩm số uy tín' }}" />
+  <meta property="og:image" content="{{ seo_image_url or default_image_url or '' }}" />
+  <meta property="og:url" content="{{ canonical_url or '' }}" />
+  <meta property="og:site_name" content="{{ site_name or 'ShopKey' }}" />
+  <meta name="twitter:card" content="{{ twitter_card or 'summary_large_image' }}" />
+  <meta name="twitter:title" content="{{ seo_title or site_name or 'ShopKey — Sản phẩm số' }}" />
+  <meta name="twitter:description" content="{{ seo_description or site_description or 'Mua tài khoản, key, gift card và các sản phẩm số uy tín' }}" />
+  <meta name="twitter:image" content="{{ seo_image_url or default_image_url or '' }}" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
