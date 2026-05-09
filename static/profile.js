@@ -67,38 +67,41 @@ async function renderProfile(view) {
     };
 
     // Security Settings
-    // ── Balance Card ──
-    let balanceData = { balance: 0 };
-    try { balanceData = await apiFetch('/balance'); } catch(e) {}
-    const myBalance = balanceData.balance || 0;
+    // ── Balance Card (only if feature enabled) ──
+    const balanceEnabled = appSettings.features?.balance !== false;
+    let myBalance = 0;
+    if (balanceEnabled) {
+      let balanceData = { balance: 0 };
+      try { balanceData = await apiFetch('/balance'); } catch(e) {}
+      myBalance = balanceData.balance || 0;
 
-    // Check affiliate earnings
-    let affAvailable = 0;
-    try {
-      const affData = await apiFetch('/affiliate/me');
-      affAvailable = Math.max(0, (affData.total_earnings || 0) - (affData.total_paid || 0));
-    } catch(e) {}
+      // Check affiliate earnings
+      let affAvailable = 0;
+      try {
+        const affData = await apiFetch('/affiliate/me');
+        affAvailable = Math.max(0, (affData.total_earnings || 0) - (affData.total_paid || 0));
+      } catch(e) {}
 
-    let historyItems = [];
-    try { const hData = await apiFetch('/balance/history?limit=5'); historyItems = hData.items || []; } catch(e) {}
+      let historyItems = [];
+      try { const hData = await apiFetch('/balance/history?limit=5'); historyItems = hData.items || []; } catch(e) {}
 
-    const balanceCard = el('div', 'info-card');
-    balanceCard.innerHTML = `
-      <div class="info-card-head" style="display:flex;justify-content:space-between;align-items:center;">
-        <div class="info-card-title"><i class="fa-solid fa-wallet"></i> Số dư tài khoản</div>
-        <div style="font-size:24px;font-weight:800;color:#f472b6;">${fmt(myBalance)}</div>
-      </div>
-      <div class="info-card-body">
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button class="btn btn-primary" id="btn-topup"><i class="fa-solid fa-plus"></i> Nạp tiền</button>
-          ${affAvailable >= 1000 ? `<button class="btn btn-outline" id="btn-aff-withdraw"><i class="fa-solid fa-arrow-right-from-bracket"></i> Rút hoa hồng (${fmt(affAvailable)})</button>` : ''}
+      const balanceCard = el('div', 'info-card');
+      balanceCard.innerHTML = `
+        <div class="info-card-head" style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="info-card-title"><i class="fa-solid fa-wallet"></i> Số dư tài khoản</div>
+          <div style="font-size:24px;font-weight:800;color:#f472b6;">${fmt(myBalance)}</div>
         </div>
-      </div>
-    `;
-    view.appendChild(balanceCard);
+        <div class="info-card-body">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn btn-primary" id="btn-topup"><i class="fa-solid fa-plus"></i> Nạp tiền</button>
+            ${affAvailable >= 1000 ? `<button class="btn btn-outline" id="btn-aff-withdraw"><i class="fa-solid fa-arrow-right-from-bracket"></i> Rút hoa hồng (${fmt(affAvailable)})</button>` : ''}
+          </div>
+        </div>
+      `;
+      view.appendChild(balanceCard);
 
-    // Topup modal
-    qs('#btn-topup', balanceCard).onclick = () => {
+      // Topup modal
+      qs('#btn-topup', balanceCard).onclick = () => {
       openModal(`
         <h3 class="modal-title mb-16"><i class="fa-solid fa-plus-circle"></i> Nạp tiền vào tài khoản</h3>
         <div class="form-group">
@@ -146,6 +149,7 @@ async function renderProfile(view) {
         } catch (err) { toast(err.message, 'error'); }
       };
     }
+    } // end if (balanceEnabled)
 
     const securityCard = el('div', 'info-card');
     let pwFormHtml = '';
@@ -206,12 +210,13 @@ async function renderProfile(view) {
 
     let botLinks = null;
     let authCfg = {};
-    try { botLinks = await apiFetch('/bot-links'); } catch (e) {}
+    let botLinksError = '';
+    try { botLinks = await apiFetch('/bot-links'); } catch (e) { botLinksError = e?.message || 'Không tải được dữ liệu bot'; }
     try { authCfg = await apiFetch('/auth/config'); } catch (e) {}
-    if (botLinks) {
-      const discord = botLinks.platforms?.discord || {};
-      const telegram = botLinks.platforms?.telegram || {};
-      const commands = Array.isArray(botLinks.commands) ? botLinks.commands : [];
+    {
+      const discord = botLinks?.platforms?.discord || {};
+      const telegram = botLinks?.platforms?.telegram || {};
+      const commands = Array.isArray(botLinks?.commands) ? botLinks.commands : [];
       const discordOauthEnabled = !!authCfg.discord_enabled;
       const formatBotDate = (value) => value ? fmtDate(value) : '—';
       const formatExpiryText = (value) => value ? `Hết hạn: ${fmtDate(value)}` : 'Chưa có mã đang hoạt động';
@@ -219,43 +224,62 @@ async function renderProfile(view) {
       botCard.innerHTML = `
         <div class="info-card-head"><div class="info-card-title"><i class="fa-solid fa-robot"></i> Liên kết bot hỗ trợ</div></div>
         <div class="info-card-body">
-          <div class="mb-16">
-            <div class="fw-600 mb-8">Discord DM Bot</div>
-            <div class="text-sm text-muted mb-8">${discord.linked ? `Đã liên kết UID: ${esc(discord.platform_user_id || '')}` : 'Chưa liên kết Discord.'}</div>
-            <div class="text-sm text-muted mb-8">${discord.platform_username ? `Username: ${esc(discord.platform_username)}` : ''}${discord.last_seen_at ? `${discord.platform_username ? '<br>' : ''}Hoạt động gần nhất: ${esc(formatBotDate(discord.last_seen_at))}` : ''}${discord.linked_at ? `${(discord.platform_username || discord.last_seen_at) ? '<br>' : ''}Liên kết lúc: ${esc(formatBotDate(discord.linked_at))}` : ''}</div>
-            <div style="padding:12px;background:var(--bg-page);border:1px dashed var(--border-dark);border-radius:var(--radius-xs);margin-bottom:12px;">
-              <div class="fw-600 mb-6">3 cách liên kết Discord</div>
-              <div class="text-sm text-muted">1. Tạo mã rồi DM bot: <code>/link CODE</code></div>
-              <div class="text-sm text-muted">2. Đăng nhập bằng Discord để auto-link</div>
-              <div class="text-sm text-muted">3. Nhập Discord UID thủ công nếu cần fallback</div>
+          ${botLinksError ? `<div class="form-error mb-12" style="display:block">${esc(botLinksError)}</div>` : ''}
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;align-items:start;">
+            <div style="padding:16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-page);">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                <div style="width:40px;height:40px;border-radius:50%;background:#5865F2;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;">
+                  <i class="fa-brands fa-discord"></i>
+                </div>
+                <div class="fw-600">Discord DM Bot</div>
+              </div>
+              <div class="text-sm text-muted mb-8">${discord.linked ? `Đã liên kết UID: ${esc(discord.platform_user_id || '')}` : 'Chưa liên kết Discord.'}</div>
+              <div class="text-sm text-muted mb-8">${discord.platform_username ? `Username: ${esc(discord.platform_username)}` : ''}${discord.last_seen_at ? `${discord.platform_username ? '<br>' : ''}Hoạt động gần nhất: ${esc(formatBotDate(discord.last_seen_at))}` : ''}${discord.linked_at ? `${(discord.platform_username || discord.last_seen_at) ? '<br>' : ''}Liên kết lúc: ${esc(formatBotDate(discord.linked_at))}` : ''}</div>
+              <div style="padding:12px;background:var(--bg-card);border:1px dashed var(--border-dark);border-radius:var(--radius-xs);margin-bottom:12px;">
+                <div class="fw-600 mb-6">3 cách liên kết Discord</div>
+                <div class="text-sm text-muted">1. Tạo mã rồi DM bot: <code>/link CODE</code></div>
+                <div class="text-sm text-muted">2. Đăng nhập bằng Discord để auto-link</div>
+                <div class="text-sm text-muted">3. Nhập Discord UID thủ công nếu cần fallback</div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-outline btn-sm" id="discord-code-btn">Tạo mã /link</button>
+                <button class="btn btn-ghost btn-sm" id="discord-copy-code-btn">Copy mã</button>
+                <button class="btn btn-ghost btn-sm" id="discord-manual-btn">Nhập Discord UID</button>
+                <button class="btn btn-ghost btn-sm" id="discord-status-btn">Xem trạng thái</button>
+                <button class="btn btn-ghost btn-sm" id="discord-unlink-btn">Gỡ liên kết</button>
+                ${botLinks?.discord_invite ? `<a class="btn btn-ghost btn-sm" href="${esc(botLinks.discord_invite)}" target="_blank" rel="noopener">Mở Discord bot</a>` : ''}
+                ${discordOauthEnabled ? `<a class="btn btn-ghost btn-sm" href="/api/auth/discord">Đăng nhập bằng Discord</a>` : ''}
+              </div>
+              <div class="text-sm text-muted mt-8" id="discord-link-code">${discord.link_code ? `Dùng trong DM: /link ${esc(discord.link_code)}` : 'Tạo mã rồi gửi trong DM với bot Discord.'}</div>
+              <div class="text-xs text-muted mt-4" id="discord-link-expiry">${formatExpiryText(discord.link_code_expires_at)}</div>
             </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn btn-outline btn-sm" id="discord-code-btn">Tạo mã /link</button>
-              <button class="btn btn-ghost btn-sm" id="discord-copy-code-btn">Copy mã</button>
-              <button class="btn btn-ghost btn-sm" id="discord-manual-btn">Nhập Discord UID</button>
-              <button class="btn btn-ghost btn-sm" id="discord-status-btn">Xem trạng thái</button>
-              <button class="btn btn-ghost btn-sm" id="discord-unlink-btn">Gỡ liên kết</button>
-              ${botLinks.discord_invite ? `<a class="btn btn-ghost btn-sm" href="${esc(botLinks.discord_invite)}" target="_blank" rel="noopener">Mở Discord bot</a>` : ''}
-              ${discordOauthEnabled ? `<a class="btn btn-ghost btn-sm" href="/api/auth/discord">Đăng nhập bằng Discord</a>` : ''}
+            <div style="padding:16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-page);">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                <div style="width:40px;height:40px;border-radius:50%;background:#229ED9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;">
+                  <i class="fa-brands fa-telegram"></i>
+                </div>
+                <div class="fw-600">Telegram Bot</div>
+              </div>
+              <div class="text-sm text-muted mb-8">${telegram.linked ? `Đã liên kết ID: ${esc(telegram.platform_user_id || '')}` : 'Chưa liên kết Telegram.'}</div>
+              <div class="text-sm text-muted mb-8">${telegram.platform_username ? `Username: ${esc(telegram.platform_username)}` : ''}${telegram.last_seen_at ? `${telegram.platform_username ? '<br>' : ''}Hoạt động gần nhất: ${esc(formatBotDate(telegram.last_seen_at))}` : ''}${telegram.linked_at ? `${(telegram.platform_username || telegram.last_seen_at) ? '<br>' : ''}Liên kết lúc: ${esc(formatBotDate(telegram.linked_at))}` : ''}</div>
+              <div style="padding:12px;background:var(--bg-card);border:1px dashed var(--border-dark);border-radius:var(--radius-xs);margin-bottom:12px;">
+                <div class="fw-600 mb-6">Cách liên kết Telegram</div>
+                <div class="text-sm text-muted">1. Tạo mã rồi mở bot Telegram</div>
+                <div class="text-sm text-muted">2. Gửi lệnh <code>/link CODE</code> trong chat bot</div>
+                <div class="text-sm text-muted">3. Dùng /status để kiểm tra sau khi liên kết</div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-outline btn-sm" id="telegram-code-btn">Tạo mã /link</button>
+                <button class="btn btn-ghost btn-sm" id="telegram-status-btn">Xem trạng thái</button>
+                <button class="btn btn-ghost btn-sm" id="telegram-unlink-btn">Gỡ liên kết</button>
+                ${botLinks?.telegram_bot_username ? `<a class="btn btn-ghost btn-sm" href="https://t.me/${esc(botLinks.telegram_bot_username)}" target="_blank" rel="noopener">Mở bot Telegram</a>` : ''}
+              </div>
+              <div class="text-sm text-muted mt-8" id="telegram-link-code">${telegram.link_code ? `Dùng trong chat bot: /link ${esc(telegram.link_code)}` : 'Tạo mã rồi gửi trong chat bot Telegram.'}</div>
             </div>
-            <div class="text-sm text-muted mt-8" id="discord-link-code">${discord.link_code ? `Dùng trong DM: /link ${esc(discord.link_code)}` : 'Tạo mã rồi gửi trong DM với bot Discord.'}</div>
-            <div class="text-xs text-muted mt-4" id="discord-link-expiry">${formatExpiryText(discord.link_code_expires_at)}</div>
           </div>
-          <div class="mb-16">
-            <div class="fw-600 mb-8">Telegram</div>
-            <div class="text-sm text-muted mb-8">${telegram.linked ? `Đã liên kết ID: ${esc(telegram.platform_user_id || '')}` : 'Chưa liên kết Telegram.'}</div>
-            <div class="text-sm text-muted mb-8">${telegram.platform_username ? `Username: ${esc(telegram.platform_username)}` : ''}${telegram.last_seen_at ? `${telegram.platform_username ? '<br>' : ''}Hoạt động gần nhất: ${esc(telegram.last_seen_at)}` : ''}</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn btn-outline btn-sm" id="telegram-code-btn">Tạo mã /link</button>
-              <button class="btn btn-ghost btn-sm" id="telegram-status-btn">Xem trạng thái</button>
-              <button class="btn btn-ghost btn-sm" id="telegram-unlink-btn">Gỡ liên kết</button>
-              ${botLinks.telegram_bot_username ? `<a class="btn btn-ghost btn-sm" href="https://t.me/${esc(botLinks.telegram_bot_username)}" target="_blank" rel="noopener">Mở bot Telegram</a>` : ''}
-            </div>
-            <div class="text-sm text-muted mt-8" id="telegram-link-code">${telegram.link_code ? `Dùng trong chat bot: /link ${esc(telegram.link_code)}` : ''}</div>
-          </div>
-          <div>
+          <div class="mt-16">
             <div class="fw-600 mb-8">Lệnh hỗ trợ đơn giản</div>
-            <div class="text-sm text-muted">${commands.map(item => `${esc(item.command)} — ${esc(item.description)}`).join('<br>')}</div>
+            <div class="text-sm text-muted">${commands.length ? commands.map(item => `${esc(item.command)} — ${esc(item.description)}`).join('<br>') : 'Chưa tải được danh sách lệnh bot.'}</div>
           </div>
         </div>
       `;
@@ -266,6 +290,10 @@ async function renderProfile(view) {
       };
 
       const createCode = async (platform) => {
+        if (!botLinks) {
+          toast(botLinksError || 'Chưa tải được dữ liệu bot', 'error');
+          return;
+        }
         try {
           const res = await apiFetch(`/bot-links/${platform}/code`, { method: 'POST' });
           toast(`Mã liên kết ${platform} đã tạo`, 'success');
@@ -423,64 +451,7 @@ async function renderProfile(view) {
       toast('Đã đăng xuất', 'info'); location.hash = '/';
     };
 
-    // Bot Linking card
-    // Fetch bot config for links
-    let botCfg = {};
-    try { botCfg = await apiFetch('/admin/bot-config/public').catch(() => ({})); } catch(e) {}
-    const hasTelegram = botCfg.has_telegram || false;
-    const hasDiscord = botCfg.has_discord || false;
-    const discordInvite = botCfg.discord_invite || '';
-    const tgUsername = botCfg.telegram_bot_username || '';
-
-    const botCard = el('div', 'info-card');
-    botCard.innerHTML = `
-      <div class="info-card-head"><div class="info-card-title"><i class="fa-solid fa-robot"></i> Liên kết Bot</div></div>
-      <div class="info-card-body">
-        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-          <div style="flex: 1; min-width: 240px; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-page);">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-              <div style="width: 40px; height: 40px; border-radius: 50%; background: #229ED9; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px;">
-                <i class="fa-brands fa-telegram"></i>
-              </div>
-              <div>
-                <div class="fw-600">Telegram Bot</div>
-                <div class="text-sm text-muted">Nhận thông báo & tra cứu đơn hàng</div>
-              </div>
-            </div>
-            <div style="padding: 12px; background: var(--bg-card); border-radius: var(--radius-xs); border: 1px dashed var(--border-dark); margin-bottom: 12px;">
-              <div class="text-sm text-muted mb-4">1. Bấm nút bên dưới để mở bot</div>
-              <div class="text-sm text-muted">2. Gửi lệnh <code style="background: var(--primary-light); color: var(--primary); padding: 2px 6px; border-radius: 4px; font-weight: 600;">/start ${u.email || ''}</code></div>
-            </div>
-            ${hasTelegram && tgUsername
-              ? `<a href="https://t.me/${tgUsername}?start=${encodeURIComponent(u.email || '')}" target="_blank" class="btn btn-sm" style="background:#229ED9;color:#fff;border:none;text-decoration:none;width:100%;text-align:center;"><i class="fa-brands fa-telegram"></i> Mở Telegram Bot</a>`
-              : (hasTelegram
-                ? `<span class="badge badge-blue"><i class="fa-solid fa-check"></i> Bot đã sẵn sàng — hỏi admin link bot</span>`
-                : `<span class="badge badge-gray"><i class="fa-solid fa-circle-info"></i> Bot chưa được cấu hình</span>`)}
-          </div>
-          <div style="flex: 1; min-width: 240px; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-page);">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
-              <div style="width: 40px; height: 40px; border-radius: 50%; background: #5865F2; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px;">
-                <i class="fa-brands fa-discord"></i>
-              </div>
-              <div>
-                <div class="fw-600">Discord Bot</div>
-                <div class="text-sm text-muted">Hỗ trợ qua Discord server</div>
-              </div>
-            </div>
-            <div style="padding: 12px; background: var(--bg-card); border-radius: var(--radius-xs); border: 1px dashed var(--border-dark); margin-bottom: 12px;">
-              <div class="text-sm text-muted mb-4">1. Bấm nút bên dưới để vào server</div>
-              <div class="text-sm text-muted">2. Dùng lệnh <code style="background: var(--primary-light); color: var(--primary); padding: 2px 6px; border-radius: 4px; font-weight: 600;">/link ${u.email || ''}</code> trong kênh bot</div>
-            </div>
-            ${discordInvite
-              ? `<a href="${discordInvite}" target="_blank" class="btn btn-sm" style="background:#5865F2;color:#fff;border:none;text-decoration:none;width:100%;text-align:center;"><i class="fa-brands fa-discord"></i> Tham gia Discord Server</a>`
-              : (hasDiscord
-                ? `<span class="badge badge-blue"><i class="fa-solid fa-check"></i> Bot đã sẵn sàng — hỏi admin link server</span>`
-                : `<span class="badge badge-gray"><i class="fa-solid fa-circle-info"></i> Bot chưa được cấu hình</span>`)}
-          </div>
-        </div>
-      </div>
-    `;
-    view.appendChild(botCard);
+    // Legacy bot card removed: replaced by detailed Discord DM / Telegram linking card above.
 
     // Order history
     const ordersCard = el('div', 'info-card');

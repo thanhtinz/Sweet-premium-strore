@@ -91,12 +91,13 @@ function updateHeaderMode(hash, isAdmin) {
   const storeActions = qs('#header-store-actions');
   const admin = qs('#header-admin');
   const adminActions = qs('#header-admin-actions');
-  const title = qs('#admin-header-title');
-  const subtitle = qs('#admin-header-subtitle');
+  const bcCurrent = qs('#admin-header-bc-current');
   const hamburger = qs('#hamburger');
   if (!header) return;
 
   header.classList.toggle('admin-mode', isAdmin);
+  document.body.classList.toggle('admin-mode', isAdmin);
+  qs('.main-content')?.classList.toggle('admin-main', isAdmin);
   if (store) store.style.display = isAdmin ? 'none' : '';
   if (storeActions) storeActions.style.display = isAdmin ? 'none' : 'flex';
   if (admin) admin.style.display = isAdmin ? 'flex' : 'none';
@@ -106,8 +107,7 @@ function updateHeaderMode(hash, isAdmin) {
   if (isAdmin) {
     const path = hash.replace(/^#/, '').split('?')[0] || '/admin';
     const meta = adminHeaderMeta[path] || adminHeaderMeta['/admin'];
-    if (title) title.textContent = meta.title;
-    if (subtitle) subtitle.textContent = meta.subtitle;
+    if (bcCurrent) bcCurrent.textContent = meta.title;
   }
 }
 
@@ -134,7 +134,34 @@ async function navigate() {
   view.style.minHeight = '60vh';
 
   if (!route) {
-    view.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div><h3>Không tìm thấy trang</h3><a href="#/" class="btn btn-primary mt-12">Về trang chủ</a></div>';
+    // Full-page 404 — hide header, sidebar, footer
+    const header = qs('.header'); if (header) header.style.display = 'none';
+    const sidebar = qs('.sidebar'); if (sidebar) sidebar.style.display = 'none';
+    const footer = qs('#site-footer'); if (footer) footer.style.display = 'none';
+    const appShell = qs('.app-shell'); if (appShell) appShell.style.marginLeft = '0';
+    view.style.minHeight = '100vh';
+    view.innerHTML = `
+      <div class="page-404">
+        <div class="page-404-inner">
+          <div class="page-404-visual">
+            <span class="page-404-num">404</span>
+            <img src="/static/404-rem.gif" alt="404" class="page-404-gif" />
+          </div>
+          <h1 class="page-404-title">Oops! Lạc đường rồi~</h1>
+          <p class="page-404-desc">Rem đã tìm khắp nơi nhưng không thấy trang này đâu...<br>Có thể trang đã bị xóa hoặc bạn nhập sai đường dẫn.</p>
+          <a href="#/" class="page-404-btn" onclick="location.reload()"><i class="fa-solid fa-house"></i> Về trang chủ</a>
+        </div>
+      </div>`;
+    // anime.js entrance animations
+    if (typeof anime !== 'undefined' && anime.animate) {
+      anime.animate('.page-404-num', { opacity: [0, 1], scale: [0.5, 1], duration: 800, ease: 'outExpo' });
+      anime.animate('.page-404-gif', { opacity: [0, 1], translateY: [40, 0], duration: 900, ease: 'outElastic(1, 0.6)', delay: 200,
+        onComplete: () => { anime.animate('.page-404-gif', { translateY: [-8, 8], duration: 2000, ease: 'inOutSine', loop: true, alternate: true }); }
+      });
+      anime.animate('.page-404-title', { opacity: [0, 1], translateY: [30, 0], duration: 700, ease: 'outExpo', delay: 400 });
+      anime.animate('.page-404-desc', { opacity: [0, 1], translateY: [20, 0], duration: 700, ease: 'outExpo', delay: 550 });
+      anime.animate('.page-404-btn', { opacity: [0, 1], translateY: [20, 0], scale: [0.9, 1], duration: 600, ease: 'outExpo', delay: 700 });
+    }
     return;
   }
 
@@ -165,15 +192,27 @@ async function navigate() {
     '/support': 'support', '/support/': 'support',
     '/wishlist': 'wishlist',
   };
+  const featureLabels = {
+    blog: 'Blog', offers: 'Ưu đãi / Gift Code', affiliate: 'Affiliate / Giới thiệu',
+    support: 'Hỗ trợ', wishlist: 'Yêu thích', balance: 'Số dư / Nạp tiền',
+    flash_sales: 'Flash Sale', reviews: 'Đánh giá sản phẩm', announcements: 'Thông báo',
+  };
   const path = hash.replace(/^#/, '').split('?')[0] || '/';
   const matchedFeature = Object.entries(featureRouteMap).find(([r]) => path === r || path.startsWith(r + '/'))?.[1];
   if (matchedFeature && appSettings.features?.[matchedFeature] === false) {
-    view.innerHTML = '<div class="empty-state" style="padding:60px 20px;"><div class="empty-state-icon"><i class="fa-solid fa-toggle-off" style="font-size:48px;color:var(--text-muted);opacity:0.3;"></i></div><h3>Chức năng tạm ngưng</h3><p class="text-muted">Chức năng này hiện đang tắt. Vui lòng quay lại sau.</p><a href="#/" class="btn btn-primary mt-12">Về trang chủ</a></div>';
+    const label = featureLabels[matchedFeature] || matchedFeature;
+    view.innerHTML = `<div class="empty-state" style="padding:60px 20px;text-align:center;">
+      <div class="empty-state-icon"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.25;color:var(--text-muted)"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+      <h3 style="margin-top:16px;">Tính năng "${esc(label)}" hiện đang tắt</h3>
+      <p class="text-muted" style="max-width:360px;margin:8px auto 0;">Tính năng này tạm thời không khả dụng. Vui lòng quay lại sau hoặc liên hệ quản trị viên nếu cần hỗ trợ.</p>
+      <a href="#/" class="btn btn-primary mt-16">Về trang chủ</a>
+    </div>`;
     return;
   }
 
   try {
     await Promise.resolve(route.handler(view, route.params));
+    animateEntrance(view);
   } catch (e) {
     console.error('Router execution error:', e);
     view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>Lỗi tải trang</h3><p class="text-muted">${e.message}</p></div>`;
@@ -183,10 +222,12 @@ async function navigate() {
 // ── Sidebar ─────────────────────────────────────────────────────
 async function loadSidebar() {
   const nav = qs('#sidebar-nav');
+  const sidebar = qs('#sidebar');
   if (!nav) return;
   nav.innerHTML = '';
   try {
     if (currentNavMode === 'admin') {
+      sidebar?.classList.add('sidebar-dark');
       const links = [
         { href: '#/admin', icon: '<i class="fa-solid fa-chart-pie"></i>', text: 'Dashboard' },
         { href: '#/admin/orders', icon: '<i class="fa-solid fa-receipt"></i>', text: 'Đơn hàng' },
@@ -235,6 +276,7 @@ async function loadSidebar() {
       return;
     }
 
+    sidebar?.classList.remove('sidebar-dark');
     categories = await apiFetch('/categories/');
 
     // ── Trang chủ ──

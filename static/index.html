@@ -65,10 +65,10 @@
         </div>
 
         <div class="header-admin" id="header-admin" style="display:none;">
-          <div class="admin-header-badge"><i class="fa-solid fa-shield-halved"></i> Admin Panel</div>
-          <div class="admin-header-meta">
-            <div class="admin-header-title" id="admin-header-title">Dashboard</div>
-            <div class="admin-header-subtitle" id="admin-header-subtitle">Quản trị hệ thống và vận hành cửa hàng</div>
+          <div class="admin-header-breadcrumb" id="admin-header-breadcrumb">
+            <a href="#/admin">Admin</a>
+            <span class="admin-bc-sep">/</span>
+            <span class="admin-bc-current" id="admin-header-bc-current">Dashboard</span>
           </div>
         </div>
       </div>
@@ -82,7 +82,7 @@
         </div>
 
         <div class="header-admin-actions" id="header-admin-actions" style="display:none;">
-          <a href="#/" class="header-admin-link">
+          <a href="#/" class="header-admin-link" title="Xem storefront">
             <i class="fa-solid fa-store"></i>
             <span>Xem storefront</span>
           </a>
@@ -211,6 +211,7 @@
   </div>
 
   <script src="https://unpkg.com/@neondatabase/neon-auth-js@latest/dist/browser.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/animejs@4.0.1/lib/anime.iife.min.js"></script>
   <script src="/static/core.js?v={{ js_hash }}&build=20260507-1"></script>
   <script src="/static/editor.js?v={{ js_hash }}&build=20260508-1"></script>
   <script src="/static/storefront.js?v={{ js_hash }}&build=20260507-1"></script>

@@ -1817,8 +1817,11 @@ async function renderCheckout(view) {
   const { subtotal, discount, taxRate, taxAmount, grandTotal } = totals;
 
   // ── Step 2: Payment Method Selection ──
+  const balanceOn = appSettings.features?.balance !== false;
   let userBalance = 0;
-  try { const bData = await apiFetch('/balance'); userBalance = bData.balance || 0; } catch(e) {}
+  if (balanceOn) {
+    try { const bData = await apiFetch('/balance'); userBalance = bData.balance || 0; } catch(e) {}
+  }
 
   function renderStep2() {
     view.innerHTML = '';
@@ -1881,7 +1884,7 @@ async function renderCheckout(view) {
           <div class="cart-summary-title"><i class="fa-solid fa-credit-card"></i> Phương thức thanh toán</div>
         </div>
         <div class="card-body">
-          ${userBalance >= grandTotal ? `
+          ${balanceOn && userBalance >= grandTotal ? `
           <div class="payment-option selected" data-method="balance">
             <div class="payment-option-icon pay-icon-balance"><i class="fa-solid fa-wallet"></i></div>
             <div class="payment-option-info">
@@ -1889,7 +1892,7 @@ async function renderCheckout(view) {
               <div class="payment-option-desc">Số dư hiện tại: <strong style="color:#10b981">${fmt(userBalance)}</strong></div>
             </div>
             <div class="payment-option-check active"><i class="fa-solid fa-circle-check"></i></div>
-          </div>` : `
+          </div>` : balanceOn ? `
           <div class="payment-option disabled" data-method="balance">
             <div class="payment-option-icon pay-icon-disabled"><i class="fa-solid fa-wallet"></i></div>
             <div class="payment-option-info">
@@ -1897,14 +1900,14 @@ async function renderCheckout(view) {
               <div class="payment-option-desc">Số dư: <strong style="color:#ef4444">${fmt(userBalance)}</strong> — <a href="#/profile" style="color:var(--primary)">Nạp thêm</a></div>
             </div>
             <div class="payment-option-check"><i class="fa-regular fa-circle"></i></div>
-          </div>`}
-          <div class="payment-option ${userBalance >= grandTotal ? '' : 'selected'}" data-method="payos">
+          </div>` : ''}
+          <div class="payment-option ${!balanceOn || userBalance < grandTotal ? 'selected' : ''}" data-method="payos">
             <div class="payment-option-icon pay-icon-payos"><i class="fa-solid fa-qrcode"></i></div>
             <div class="payment-option-info">
               <div class="payment-option-name">PayOS — QR Ngân hàng</div>
               <div class="payment-option-desc">Chuyển khoản QR, áp dụng mọi ngân hàng VN</div>
             </div>
-            <div class="payment-option-check ${userBalance >= grandTotal ? '' : 'active'}"><i class="${userBalance >= grandTotal ? 'fa-regular fa-circle' : 'fa-solid fa-circle-check'}"></i></div>
+            <div class="payment-option-check ${!balanceOn || userBalance < grandTotal ? 'active' : ''}"><i class="${!balanceOn || userBalance < grandTotal ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle'}"></i></div>
           </div>
         </div>
       </div>
@@ -1967,8 +1970,7 @@ async function renderCheckout(view) {
         if (selectedMethod === 'payos') {
           const link = await apiFetch('/payment/create-link', { method: 'POST', body: JSON.stringify({ order_code: order.order_code }) });
           cart.length = 0; cartCoupon = null; saveCart(); updateCartCount();
-          window.open(link.payment_url, '_blank');
-          renderStep3(order, 'payos', link.payment_url);
+          location.hash = `/orders/${order.order_code}?checkout=payos`;
         } else {
           // Balance payment
           cart.length = 0; cartCoupon = null; saveCart(); updateCartCount();
@@ -2164,8 +2166,13 @@ async function renderOrderDetail(view, { code }) {
   if (!currentUser) return location.hash = '/login';
   view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
+    const query = new URLSearchParams(location.hash.split('?')[1] || '');
+    const showCheckoutShell = query.get('checkout') === 'payos';
     await apiFetch(`/payment/status/${code}`).catch(() => null);
-    const d = await apiFetch(`/orders/my/${code}`);
+    const [d, checkoutData] = await Promise.all([
+      apiFetch(`/orders/my/${code}`),
+      showCheckoutShell ? apiFetch(`/payment/checkout-data/${code}`).catch(() => null) : Promise.resolve(null),
+    ]);
     view.innerHTML = '';
     
     view.innerHTML += `
@@ -2323,11 +2330,132 @@ async function renderOrderDetail(view, { code }) {
     }
 
     const rightCol = el('div');
-    if (d.status === 'pending' || d.status === 'pending_payment') {
+    const payosData = checkoutData?.payos || null;
+    const payosItems = checkoutData?.items || orderItems;
+    const isPayos = d.payment_method === 'payos';
+    const payosPending = (d.status === 'pending' || d.status === 'pending_payment') && isPayos;
+    const payosPaid = d.status === 'paid' || d.status === 'completed';
+    const payosCancelled = d.status === 'cancelled' || d.status === 'expired';
+
+    if (showCheckoutShell && isPayos) {
+      if (payosPaid) {
+        // Success state inside checkout shell
+        rightCol.innerHTML = `
+          <div class="checkout-shell-card mb-16">
+            <div class="checkout-shell-head">
+              <div>
+                <div class="checkout-shell-eyebrow">Thanh toán PayOS</div>
+                <h3>Thanh toán thành công!</h3>
+                <p>Đơn hàng đã được thanh toán và đang xử lý giao hàng.</p>
+              </div>
+              <div class="checkout-shell-status paid"><i class="fa-solid fa-circle-check"></i> PAID</div>
+            </div>
+            <div class="checkout-shell-body">
+              <div class="checkout-shell-summary" style="text-align:center; padding:32px 20px;">
+                <div style="font-size:64px; color:#10b981; margin-bottom:16px;"><i class="fa-solid fa-circle-check"></i></div>
+                <h2 style="margin-bottom:8px; color:var(--text-heading);">Cảm ơn bạn!</h2>
+                <p style="color:var(--text-muted); margin-bottom:24px;">Mã đơn: <strong>${d.order_code}</strong> — Tổng: <strong>${fmt(d.total_amount)}</strong></p>
+                <div style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
+                  <a href="#/" class="btn btn-outline"><i class="fa-solid fa-house"></i> Về trang chủ</a>
+                  <a href="#/orders/${d.order_code}" class="btn btn-primary"><i class="fa-solid fa-receipt"></i> Xem đơn hàng</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (payosCancelled) {
+        // Cancelled/expired state
+        rightCol.innerHTML = `
+          <div class="checkout-shell-card mb-16">
+            <div class="checkout-shell-head">
+              <div>
+                <div class="checkout-shell-eyebrow">Thanh toán PayOS</div>
+                <h3>Thanh toán không thành công</h3>
+                <p>Đơn hàng đã bị huỷ hoặc hết hạn thanh toán.</p>
+              </div>
+              <div class="checkout-shell-status cancelled"><i class="fa-solid fa-circle-xmark"></i> ${d.status.toUpperCase()}</div>
+            </div>
+            <div class="checkout-shell-body">
+              <div class="checkout-shell-summary" style="text-align:center; padding:32px 20px;">
+                <div style="font-size:64px; color:#ef4444; margin-bottom:16px;"><i class="fa-solid fa-circle-xmark"></i></div>
+                <h2 style="margin-bottom:8px; color:var(--text-heading);">Đơn hàng đã huỷ</h2>
+                <p style="color:var(--text-muted); margin-bottom:24px;">Mã đơn: <strong>${d.order_code}</strong></p>
+                <div style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
+                  <a href="#/" class="btn btn-primary"><i class="fa-solid fa-house"></i> Về trang chủ</a>
+                  <a href="#/orders" class="btn btn-outline"><i class="fa-solid fa-list"></i> Đơn hàng</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (payosPending && payosData) {
+        // Pending — show QR/bank info shell
+        const qrBlock = payosData.qr_code
+          ? `<div class="checkout-shell-qr-wrap"><img src="${payosData.qr_code}" alt="QR thanh toán" class="checkout-shell-qr" /></div>`
+          : `<div class="checkout-shell-qr-wrap checkout-shell-qr-placeholder"><i class="fa-solid fa-qrcode"></i><span>QR sẽ hiển thị khi PayOS trả dữ liệu</span></div>`;
+        const bankMeta = [
+          payosData.account_name ? `<div class="checkout-shell-meta-row"><span>Chủ tài khoản</span><strong>${esc(payosData.account_name)}</strong></div>` : '',
+          payosData.account_number ? `<div class="checkout-shell-meta-row"><span>Số tài khoản</span><strong>${esc(payosData.account_number)}</strong></div>` : '',
+          payosData.bin ? `<div class="checkout-shell-meta-row"><span>Mã ngân hàng</span><strong>${esc(String(payosData.bin))}</strong></div>` : '',
+          payosData.description ? `<div class="checkout-shell-meta-row"><span>Nội dung CK</span><strong>${esc(payosData.description)}</strong></div>` : '',
+        ].filter(Boolean).join('');
+
+        rightCol.innerHTML = `
+          <div class="checkout-shell-card mb-16">
+            <div class="checkout-shell-head">
+              <div>
+                <div class="checkout-shell-eyebrow">Thanh toán PayOS</div>
+                <h3>Quét QR hoặc tiếp tục tới PayOS</h3>
+                <p>Giữ nguyên giao diện cửa hàng, chỉ chuyển sang PayOS khi bạn cần hoàn tất trên trang cổng thanh toán.</p>
+              </div>
+              <div class="checkout-shell-status ${d.status}"><i class="fa-solid fa-clock"></i> ${payosData.status || 'PENDING'}</div>
+            </div>
+            <div class="checkout-shell-body">
+              <div class="checkout-shell-summary">
+                <div class="checkout-shell-total">
+                  <span>Tổng cần thanh toán</span>
+                  <strong>${fmt(payosData.amount || d.total_amount || 0)}</strong>
+                </div>
+                <div class="checkout-shell-items">
+                  ${payosItems.map(item => `
+                    <div class="checkout-shell-item">
+                      <div class="checkout-shell-item-name">${esc(item.product_name || 'Sản phẩm')} <span>x${item.quantity || 1}</span></div>
+                      <div class="checkout-shell-item-meta">${esc(item.package_name || 'Gói')}</div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              <div class="checkout-shell-payment">
+                ${qrBlock}
+                <div class="checkout-shell-meta">
+                  ${bankMeta || '<div class="checkout-shell-meta-row"><span>Thông tin</span><strong>Tiếp tục tới PayOS để xem chi tiết thanh toán</strong></div>'}
+                </div>
+                <div class="checkout-shell-actions">
+                  ${payosData.payment_url ? `<a href="${payosData.payment_url}" target="_blank" rel="noopener" class="btn btn-primary btn-full"><i class="fa-solid fa-arrow-up-right-from-square"></i> Tiếp tục tới PayOS</a>` : ''}
+                  <button class="btn btn-ghost btn-full" id="btn-check-status"><i class="fa-solid fa-rotate"></i> Cập nhật trạng thái</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        // Fallback pending without checkout data
+        rightCol.innerHTML = `
+          <div class="card" style="border-color:var(--yellow); background:var(--yellow-light)">
+            <div class="card-body">
+              <h3 style="margin-top:0; color:#b45309">Chưa thanh toán</h3>
+              <p style="color:var(--text-muted); font-size:14px; margin-bottom:16px;">Bạn cần thanh toán đơn hàng này để hệ thống xử lý giao hàng.</p>
+              <button class="btn btn-primary btn-full" onclick="location.hash='/checkout'"><i class="fa-solid fa-credit-card"></i> Thanh toán ngay</button>
+              <button class="btn btn-ghost btn-full mt-8" id="btn-check-status"><i class="fa-solid fa-rotate"></i> Cập nhật trạng thái</button>
+            </div>
+          </div>
+        `;
+      }
+    } else if (d.status === 'pending' || d.status === 'pending_payment') {
       rightCol.innerHTML = `
         <div class="card" style="border-color:var(--yellow); background:var(--yellow-light)">
           <div class="card-body">
-            <h3 style="margin-top:0; color:var(--yellow-dark)">Chưa thanh toán</h3>
+            <h3 style="margin-top:0; color:#b45309">Chưa thanh toán</h3>
             <p style="color:var(--text-muted); font-size:14px; margin-bottom:16px;">Bạn cần thanh toán đơn hàng này để hệ thống xử lý giao hàng.</p>
             <button class="btn btn-primary btn-full" onclick="location.hash='/checkout'"><i class="fa-solid fa-credit-card"></i> Thanh toán ngay</button>
             <button class="btn btn-ghost btn-full mt-8" id="btn-check-status"><i class="fa-solid fa-rotate"></i> Cập nhật trạng thái</button>
@@ -2340,7 +2468,12 @@ async function renderOrderDetail(view, { code }) {
     grid.appendChild(rightCol);
     view.appendChild(grid);
     
-    qs('#btn-check-status', rightCol)?.addEventListener('click', () => renderOrderDetail(view, { code }));
+    qs('#btn-check-status', rightCol)?.addEventListener('click', async () => {
+      const btn = qs('#btn-check-status', rightCol);
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang kiểm tra...'; }
+      await apiFetch(`/payment/status/${code}`).catch(() => null);
+      renderOrderDetail(view, { code });
+    });
   } catch (e) { view.innerHTML = `<div class="empty-state"><h3>${e.message}</h3></div>`; }
 }
 

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 from db import get_db
-from db.models import Order, OrderItem, ProductPackage
+from db.models import Order, OrderItem, ProductPackage, User
 from db.repositories import SiteConfigRepository
 from api.auth import get_current_user
 from api.orders import auto_deliver
@@ -45,6 +45,44 @@ def get_payos_client(db: Session = None):
 
 class CreatePaymentRequest(BaseModel):
     order_code: str
+
+
+def _serialize_order_payment(order: Order):
+    order_items = order.items or []
+    items = []
+    if order_items:
+        for order_item in order_items:
+            package = order_item.package
+            product = package.product if package else None
+            items.append({
+                "product_name": order_item.product_name_snapshot or (product.name if product else "Sản phẩm số"),
+                "package_name": order_item.package_name_snapshot or (package.name if package else "Gói"),
+                "quantity": order_item.quantity or 1,
+                "line_total": float(order_item.line_total or 0),
+                "product_img": order_item.product_img_snapshot or (product.image_url if product else None),
+            })
+    else:
+        package = order.package
+        product = package.product if package else None
+        items.append({
+            "product_name": product.name if product else "Sản phẩm số",
+            "package_name": package.name if package else "Gói",
+            "quantity": order.quantity or 1,
+            "line_total": float(order.total_amount or 0),
+            "product_img": product.image_url if product else None,
+        })
+
+    return {
+        "order_code": order.order_code,
+        "status": order.status,
+        "payment_method": order.payment_method,
+        "payment_link_id": order.payment_link_id,
+        "total_amount": float(order.total_amount or 0),
+        "created_at": order.created_at.isoformat() if order.created_at else None,
+        "user_email": order.user_email,
+        "customer_name": order.user.full_name if getattr(order, "user", None) else None,
+        "items": items,
+    }
 
 
 @router.post("/create-link")
@@ -99,8 +137,8 @@ def create_payment_link(
             amount=int(order.total_amount),
             description=f"Thanh toan {order.order_code}"[:25],
             items=items,
-            returnUrl=f"{base_url}/#/orders/{order.order_code}?paid=1",
-            cancelUrl=f"{base_url}/#/checkout?cancelled=1",
+            returnUrl=f"{base_url}/#/orders/{order.order_code}?checkout=payos&status=paid",
+            cancelUrl=f"{base_url}/#/orders/{order.order_code}?checkout=payos&status=cancelled",
             buyerEmail=order.user_email or "",
         )
 
@@ -114,6 +152,14 @@ def create_payment_link(
             "payment_link_id": result.paymentLinkId,
             "order_code": order.order_code,
             "qr_code": result.qrCode if hasattr(result, "qrCode") else None,
+            "amount": int(order.total_amount or 0),
+            "status": order.status,
+            "expires_at": getattr(result, "expiredAt", None),
+            "bin": getattr(result, "bin", None),
+            "account_number": getattr(result, "accountNumber", None),
+            "account_name": getattr(result, "accountName", None),
+            "description": getattr(result, "description", None) or f"Thanh toan {order.order_code}"[:25],
+            "order": _serialize_order_payment(order),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PayOS error: {str(e)}")
@@ -170,6 +216,60 @@ async def payos_webhook(request: Request, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+@router.get("/checkout-data/{order_code}")
+def get_checkout_data(
+    order_code: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    order = db.query(Order).options(
+        joinedload(Order.user),
+        joinedload(Order.package).joinedload(ProductPackage.product),
+        joinedload(Order.items).joinedload(OrderItem.package).joinedload(ProductPackage.product),
+    ).filter(
+        Order.order_code == order_code,
+        Order.user_id == current_user["user_id"]
+    ).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    payload = _serialize_order_payment(order)
+    payload["payos"] = {
+        "payment_url": None,
+        "payment_link_id": order.payment_link_id,
+        "qr_code": None,
+        "amount": int(order.total_amount or 0),
+        "status": order.status,
+        "expires_at": None,
+        "bin": None,
+        "account_number": None,
+        "account_name": None,
+        "description": f"Thanh toan {order.order_code}"[:25],
+    }
+
+    client_id, _, _, _ = _get_payos_config(db)
+    if order.payment_method == "payos" and order.payment_link_id and client_id:
+        try:
+            payos = get_payos_client(db)
+            info = payos.getPaymentLinkInfomation(orderId=order.id)
+            payload["payos"].update({
+                "payment_url": getattr(info, "checkoutUrl", None),
+                "payment_link_id": getattr(info, "paymentLinkId", None) or order.payment_link_id,
+                "qr_code": getattr(info, "qrCode", None),
+                "amount": getattr(info, "amount", None) or int(order.total_amount or 0),
+                "status": getattr(info, "status", None) or order.status,
+                "expires_at": getattr(info, "expiredAt", None),
+                "bin": getattr(info, "bin", None),
+                "account_number": getattr(info, "accountNumber", None),
+                "account_name": getattr(info, "accountName", None),
+                "description": getattr(info, "description", None) or payload["payos"]["description"],
+            })
+        except Exception:
+            pass
+
+    return payload
+
+
 @router.get("/status/{order_code}")
 def check_payment_status(
     order_code: str,
@@ -203,4 +303,5 @@ def check_payment_status(
         "order_code": order.order_code,
         "status": order.status,
         "delivery_data": order.delivery_data if order.status == "completed" else None,
+        "payment_link_id": order.payment_link_id,
     }

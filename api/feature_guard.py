@@ -33,13 +33,27 @@ def _load_features(db: Session) -> dict:
     return _cache["data"]
 
 
+_FEATURE_LABELS = {
+    "blog": "Blog",
+    "offers": "Ưu đãi / Gift Code",
+    "affiliate": "Affiliate / Giới thiệu",
+    "support": "Hỗ trợ",
+    "flash_sales": "Flash Sale",
+    "reviews": "Đánh giá sản phẩm",
+    "announcements": "Thông báo",
+    "balance": "Số dư / Nạp tiền",
+    "wishlist": "Yêu thích",
+}
+
+
 def require_feature(feature_name: str):
     """Returns a FastAPI dependency that raises 403 if feature is disabled."""
     def _guard(db: Session = Depends(get_db)):
         features = _load_features(db)
         if features.get(feature_name) is False:
+            label = _FEATURE_LABELS.get(feature_name, feature_name)
             raise HTTPException(
                 status_code=403,
-                detail=f"Chức năng '{feature_name}' đang tắt"
+                detail=f"Tính năng \"{label}\" hiện đang tắt. Vui lòng liên hệ quản trị viên nếu cần hỗ trợ."
             )
     return _guard

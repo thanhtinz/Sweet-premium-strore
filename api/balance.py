@@ -33,13 +33,16 @@ from api.balance_shared import (
     _get_client_ip,
     _txn_to_dict,
 )
+from api.feature_guard import require_feature
 from db import get_db
 from db.models import BalanceTransaction, User
 
 router = APIRouter(prefix="/balance", tags=["balance"])
 
+_balance_on = Depends(require_feature("balance"))
 
-@router.get("")
+
+@router.get("", dependencies=[_balance_on])
 def get_balance(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == int(current_user["user_id"])).first()
     if not user:
@@ -47,7 +50,7 @@ def get_balance(current_user: dict = Depends(get_current_user), db: Session = De
     return {"balance": float(user.balance or 0)}
 
 
-@router.get("/history")
+@router.get("/history", dependencies=[_balance_on])
 def get_balance_history(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -64,7 +67,7 @@ def get_balance_history(
     return {"total": total, "page": page, "items": [_txn_to_dict(t) for t in items]}
 
 
-@router.post("/topup")
+@router.post("/topup", dependencies=[_balance_on])
 def create_topup(data: TopupRequest, request: Request, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     if data.amount < MIN_TOPUP or data.amount > MAX_TOPUP:
         raise HTTPException(400, f"Số tiền nạp phải từ {MIN_TOPUP:,}đ đến {MAX_TOPUP:,}đ")
@@ -92,7 +95,7 @@ async def balance_webhook(request: Request, db: Session = Depends(get_db)):
     return process_balance_webhook(db, body)
 
 
-@router.post("/affiliate-withdraw")
+@router.post("/affiliate-withdraw", dependencies=[_balance_on])
 def affiliate_withdraw(data: WithdrawRequest, request: Request, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     uid = int(current_user["user_id"])
     _txn, withdraw_amount = create_affiliate_withdraw_request(db, uid, data.amount, request)

@@ -103,8 +103,9 @@ img { max-width: 100%; display: block; }
   top: 0; left: 0;
   width: var(--sidebar-w);
   height: 100vh;
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.98));
+  border-right: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 18px 0 40px rgba(15, 23, 42, 0.06);
   display: flex;
   flex-direction: column;
   z-index: 200;
@@ -188,9 +189,10 @@ img { max-width: 100%; display: block; }
   color: var(--text-heading);
 }
 .nav-item.active, .sidebar-item.active {
-  background: var(--primary);
+  background: linear-gradient(135deg, #5D5FEF, #7C3AED);
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
+  box-shadow: 0 12px 24px rgba(93, 95, 239, 0.28);
 }
 .nav-item i, .sidebar-item i { width: 18px; text-align: center; }
 .nav-item svg, .sidebar-item svg { flex-shrink: 0; opacity: 0.8; }
@@ -303,25 +305,32 @@ img { max-width: 100%; display: block; }
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  width: 38px;
   height: 38px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-card);
+  justify-content: center;
+  padding: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
   color: var(--text-body);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 15px;
   transition: all var(--transition);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(17, 24, 39, 0.12);
 }
+.header-admin-link span { display: none; }
 
 .header-admin-link:hover {
-  color: var(--text-heading);
+  color: var(--primary);
   border-color: var(--primary);
   background: rgba(93,95,239,0.06);
+  box-shadow: 0 3px 10px rgba(17, 24, 39, 0.16);
 }
 
 .header.admin-mode {
-  background: linear-gradient(180deg, rgba(93,95,239,0.08), rgba(93,95,239,0.02)), var(--bg-header);
+  background: linear-gradient(180deg, rgba(93,95,239,0.12), rgba(255,255,255,0.96)), var(--bg-header);
+  border-bottom-color: rgba(93,95,239,0.12);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
 }
 
 .hamburger-btn {
@@ -655,16 +664,16 @@ img { max-width: 100%; display: block; }
 /* Stat cards */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 18px;
   margin-bottom: 24px;
 }
 .stat-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
-  padding: 20px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 18px;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
+  padding: 22px;
   display: flex;
   align-items: flex-start;
   gap: 16px;
@@ -683,6 +692,7 @@ img { max-width: 100%; display: block; }
 .stat-icon-yellow { background: var(--yellow-bg); }
 .stat-icon-purple { background: var(--primary-light); }
 .stat-icon-red    { background: var(--red-bg); }
+.stat-icon.cyan   { background: #ecfeff; }
 
 .stat-info {}
 .stat-card-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px; }
@@ -1166,10 +1176,10 @@ img { max-width: 100%; display: block; }
 
 /* ─── Tables ─── */
 .table-wrap {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 18px;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
   overflow-x: auto;
 }
 table { width: 100%; border-collapse: collapse; }
@@ -1824,6 +1834,11 @@ tr:hover td { background: #FAFBFC; }
   margin-bottom: 20px;
   flex-wrap: wrap;
   gap: 10px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.92));
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
 }
 .page-header h1, .page-header h2 { font-size: 22px; font-weight: 700; color: var(--text-heading); }
 
@@ -2395,6 +2410,162 @@ tr:hover td { background: #FAFBFC; }
 .payment-option-check { font-size: 22px; color: var(--border); }
 .payment-option-check.active { color: var(--primary); }
 
+.checkout-shell-card {
+  background: linear-gradient(180deg, rgba(93,95,239,0.06), rgba(255,255,255,0.98));
+  border: 1px solid rgba(93,95,239,0.14);
+  border-radius: 20px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+.checkout-shell-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+.checkout-shell-eyebrow {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+.checkout-shell-head h3 {
+  font-size: 24px;
+  line-height: 1.2;
+  color: var(--text-heading);
+  margin-bottom: 8px;
+}
+.checkout-shell-head p {
+  color: var(--text-body);
+  max-width: 420px;
+}
+.checkout-shell-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: fit-content;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.checkout-shell-status.paid,
+.checkout-shell-status.completed {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+.checkout-shell-status.cancelled,
+.checkout-shell-status.expired {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+.checkout-shell-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  padding: 24px;
+}
+.checkout-shell-summary,
+.checkout-shell-payment {
+  background: rgba(255,255,255,0.88);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 18px;
+  padding: 20px;
+}
+.checkout-shell-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.checkout-shell-total span {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.checkout-shell-total strong {
+  font-size: 28px;
+  color: var(--text-heading);
+}
+.checkout-shell-items {
+  display: grid;
+  gap: 12px;
+}
+.checkout-shell-item {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+}
+.checkout-shell-item-name {
+  font-weight: 700;
+  color: var(--text-heading);
+}
+.checkout-shell-item-name span {
+  color: var(--primary);
+}
+.checkout-shell-item-meta {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.checkout-shell-qr-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  padding: 16px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  border: 1px dashed rgba(93,95,239,0.28);
+  margin-bottom: 16px;
+}
+.checkout-shell-qr {
+  width: min(100%, 240px);
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+.checkout-shell-qr-placeholder {
+  flex-direction: column;
+  gap: 10px;
+  color: var(--text-muted);
+}
+.checkout-shell-qr-placeholder i {
+  font-size: 42px;
+  color: var(--primary);
+}
+.checkout-shell-meta {
+  display: grid;
+  gap: 10px;
+}
+.checkout-shell-meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+}
+.checkout-shell-meta-row span {
+  color: var(--text-muted);
+}
+.checkout-shell-meta-row strong {
+  color: var(--text-heading);
+  text-align: right;
+  word-break: break-word;
+}
+.checkout-shell-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
 .cart-summary-card {
   background: var(--bg-card);
   border: 1px solid var(--border-dark);
@@ -2729,15 +2900,13 @@ tr:hover td { background: #FAFBFC; }
 .admin-main {
   flex: 1;
   min-width: 0;
-  padding: 32px 40px;
-  background: var(--bg-page);
+  padding: 1.5rem;
   min-height: 100vh;
 }
 .admin-main .page-title {
-  font-size: 26px;
-  font-weight: 800;
-  color: var(--text-heading);
-  letter-spacing: -0.02em;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #212631;
 }
 
 /* Admin topbar — hidden on desktop, shown on mobile */
@@ -3361,7 +3530,7 @@ a.support-contact-value:hover {
   color: var(--text-heading);
 }
 
-/* ─── Admin Layout Overrides (Modern UI) ─── */
+/* ─── Admin Layout — base widths only (visual styles in CoreUI overrides) ─── */
 #app-view > .page-header,
 #app-view > .stats-grid,
 #app-view > .card,
@@ -3372,7 +3541,6 @@ a.support-contact-value:hover {
 #app-view > .empty-state {
   width: 100%;
 }
-
 #app-view > .card,
 #app-view > .table-wrap,
 #app-view > .settings-card,
@@ -3383,12 +3551,8 @@ a.support-contact-value:hover {
 #app-view .balance-audit-card,
 #app-view .balance-withdraw-card,
 #app-view .balance-history-card {
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.03);
-  border-radius: 16px;
-  background: #ffffff;
+  margin-bottom: 1rem;
 }
-
 #app-view > .support-article-container,
 #app-view > .support-article-container .support-article,
 #app-view > .support-article-container .empty-state {
@@ -3397,185 +3561,31 @@ a.support-contact-value:hover {
   box-shadow: none !important;
   border-radius: 0 !important;
 }
-
 #app-view > .support-article-container .empty-state {
   padding: 12px 0 0 !important;
 }
-
-#app-view > .card,
-#app-view > .table-wrap,
-#app-view > .settings-card,
-#app-view .support-ticket-form-card,
-#app-view .support-ticket-list-card,
-#app-view .payment-config-card,
-#app-view .balance-summary-card,
-#app-view .balance-audit-card,
-#app-view .balance-withdraw-card,
-#app-view .balance-history-card {
-  margin-bottom: 20px;
-}
-
-#app-view > .stats-grid .stat-card,
-#app-view > .card .stat-card,
-#app-view .stats-grid .stat-card {
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.03);
-  border-radius: 16px;
-  background: #ffffff;
-}
-
 #app-view > .page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 20px;
+  margin-bottom: 1.25rem;
 }
-
-#app-view > .page-header .page-title,
-#app-view > .page-header h1,
-#app-view > .page-header h2 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 800;
-  color: var(--text-heading);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-#app-view > .table-wrap table th,
-#app-view .card .table-wrap table th,
-#app-view .table-wrap table th {
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  padding: 16px 20px;
-  border-bottom: 2px solid #f1f5f9;
-}
-
-#app-view > .table-wrap table td,
-#app-view .card .table-wrap table td,
-#app-view .table-wrap table td {
-  padding: 16px 20px;
-  border-top: 1px solid #f1f5f9;
-}
-
-#app-view > .table-wrap table tr:hover td,
-#app-view .card .table-wrap table tr:hover td,
-#app-view .table-wrap table tr:hover td {
-  background: #f8fafc;
-}
-
-#app-view .form-input,
-#app-view .form-select,
-#app-view .form-textarea {
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-}
-
-#app-view .form-input:focus,
-#app-view .form-select:focus,
-#app-view .form-textarea:focus {
-  background: #ffffff;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(93,95,239,0.1);
-}
-
-#app-view .btn,
-#app-view .tbl-btn {
-  border-radius: 10px;
-}
-
-#app-view .tbl-actions {
-  gap: 8px;
-}
-
-#app-view .settings-card {
-  padding: 24px;
-}
-
 #app-view .card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 20px 20px 0;
 }
-
-#app-view .card-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-heading);
-}
-
 #app-view .card > .table-wrap {
-  margin-top: 16px;
+  margin-top: 0;
+}
+#app-view .tbl-actions {
+  gap: 6px;
 }
 
-#app-view .empty-state {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.03);
-  padding: 40px 24px;
-}
-
-.admin-main .card {
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.03);
-  border-radius: 16px;
-  background: #ffffff;
-}
-.admin-main .stat-card {
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.03);
-  border-radius: 16px;
-  background: #ffffff;
-}
-.admin-main .table-wrap {
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.03);
-  border-radius: 16px;
-  background: #ffffff;
-}
-.admin-main table th {
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  padding: 16px 20px;
-  border-bottom: 2px solid #f1f5f9;
-}
-.admin-main table td {
-  padding: 16px 20px;
-  border-top: 1px solid #f1f5f9;
-}
-.admin-main table tr:hover td {
-  background: #f8fafc;
-}
-.admin-main .form-input, 
-.admin-main .form-select, 
-.admin-main .form-textarea {
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-}
-.admin-main .form-input:focus, 
-.admin-main .form-select:focus, 
-.admin-main .form-textarea:focus {
-  background: #ffffff;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(93,95,239,0.1);
-}
-.admin-main .btn {
-  border-radius: 10px;
-}
+/* ── Admin main — styles moved to CoreUI overrides section ── */
 
 /* ─── Responsive ─── */
 @media (max-width: 1024px) {
@@ -3630,7 +3640,7 @@ a.support-contact-value:hover {
   .admin-header-badge { display: none; }
   .admin-header-title { font-size: 16px; }
   .admin-header-subtitle { display: none; }
-  .header-admin-link span { display: none; }
+  .header-admin-link { font-size: 14px; }
   .user-info-text { display: none; }
   .auth-buttons .btn { font-size: 12px; padding: 6px 10px; }
   .product-grid  { grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 10px; }
@@ -6014,10 +6024,12 @@ label.toggle-switch input:focus-visible + .toggle-slider {
 /* ── Admin Settings Tabs ─────────────────────────────────────── */
 .settings-tabs {
   display: flex;
+  flex-wrap: nowrap;
   gap: 2px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 28px;
   overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
@@ -6578,5 +6590,941 @@ label.toggle-switch input:focus-visible + .toggle-slider {
     padding: 12px 14px;
     border-radius: 14px;
   }
+}
+
+/* ═══════════════════════════════════════════════════════
+   CoreUI v5 Design System — Admin Overrides
+   Comprehensive restyle scoped to admin mode only.
+   Does NOT affect storefront (public shop).
+═══════════════════════════════════════════════════════ */
+
+/* ─── CoreUI Design Tokens (admin scope) ─── */
+.sidebar.sidebar-dark ~ .app-shell,
+.sidebar.sidebar-dark ~ .app-shell .admin-main {
+  --cui-body-bg: #f3f4f7;
+  --cui-body-color: #4a566d;
+  --cui-heading-color: #212631;
+  --cui-muted: #6d7d9c;
+  --cui-primary: #5856d6;
+  --cui-secondary: #6b7785;
+  --cui-success: #1b9e3e;
+  --cui-info: #3399ff;
+  --cui-warning: #f9b115;
+  --cui-danger: #e55353;
+  --cui-dark: #212631;
+  --cui-border: rgba(8, 10, 12, 0.175);
+  --cui-border-solid: #dbdfe6;
+  --cui-radius: 8px;
+  --cui-radius-btn: 6px;
+  --cui-radius-input: 6px;
+}
+
+/* ─── 1. Body / Page Background ─── */
+body.admin-mode {
+  background: #f3f4f7 !important;
+}
+.sidebar.sidebar-dark ~ .app-shell .admin-main {
+  background: #f3f4f7 !important;
+}
+
+/* ─── 2. Sidebar — CoreUI Dark ─── */
+.sidebar.sidebar-dark {
+  width: 256px !important;
+  background: #212631 !important;
+  border-right: none !important;
+  box-shadow: none !important;
+}
+.sidebar.sidebar-dark::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+.sidebar.sidebar-dark .sidebar-logo {
+  border-bottom-color: rgba(255,255,255,0.08);
+  min-height: 64px;
+  padding: 12px 16px;
+}
+.sidebar.sidebar-dark .logo-text {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.sidebar.sidebar-dark .logo-icon svg {
+  stroke: #fff;
+}
+.sidebar.sidebar-dark .sidebar-nav {
+  padding: 8px 0;
+}
+.sidebar.sidebar-dark .sidebar-section-title {
+  color: #aab3c5;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 12px 16px 4px;
+  margin-top: 4px;
+}
+.sidebar.sidebar-dark .sidebar-divider {
+  background: rgba(255,255,255,0.08);
+  margin: 4px 16px;
+}
+.sidebar.sidebar-dark .nav-item,
+.sidebar.sidebar-dark .sidebar-item {
+  color: #aab3c5;
+  font-size: 0.875rem;
+  font-weight: 400;
+  border-radius: 0;
+  margin-bottom: 0;
+  padding: 0.75rem 1rem;
+  position: relative;
+  transition: color 0.15s, background 0.15s;
+}
+.sidebar.sidebar-dark .nav-item:hover,
+.sidebar.sidebar-dark .sidebar-item:hover {
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+}
+.sidebar.sidebar-dark .nav-item.active,
+.sidebar.sidebar-dark .sidebar-item.active {
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+  font-weight: 500;
+  border-left: 3px solid #5856d6;
+  box-shadow: none !important;
+  padding-left: calc(1rem - 3px);
+  border-radius: 0;
+}
+.sidebar.sidebar-dark .nav-item i,
+.sidebar.sidebar-dark .sidebar-item i {
+  color: #aab3c5;
+  width: 20px;
+  text-align: center;
+  font-size: 0.875rem;
+}
+.sidebar.sidebar-dark .nav-item:hover i,
+.sidebar.sidebar-dark .sidebar-item:hover i {
+  color: #fff;
+}
+.sidebar.sidebar-dark .nav-item.active i,
+.sidebar.sidebar-dark .sidebar-item.active i {
+  color: #fff;
+}
+.sidebar.sidebar-dark .nav-item svg,
+.sidebar.sidebar-dark .sidebar-item svg {
+  opacity: 0.6;
+}
+.sidebar.sidebar-dark .nav-item:hover svg,
+.sidebar.sidebar-dark .sidebar-item:hover svg {
+  opacity: 0.85;
+}
+.sidebar.sidebar-dark .nav-item.active svg,
+.sidebar.sidebar-dark .sidebar-item.active svg {
+  opacity: 1;
+}
+/* Adjust app-shell margin for 256px sidebar */
+.sidebar.sidebar-dark ~ .app-shell {
+  margin-left: 256px !important;
+}
+
+/* ─── 3. Header — CoreUI Clean White ─── */
+.header.admin-mode {
+  background: #fff !important;
+  border-bottom: 1px solid #dbdfe6 !important;
+  box-shadow: none !important;
+  height: 64px;
+}
+
+/* Admin header breadcrumb */
+.admin-header-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  color: #6d7d9c;
+}
+.admin-header-breadcrumb a {
+  color: #5856d6;
+  text-decoration: none;
+  font-weight: 500;
+}
+.admin-header-breadcrumb a:hover {
+  text-decoration: underline;
+}
+.admin-bc-sep {
+  color: #aab3c5;
+  font-size: 0.8125rem;
+}
+.admin-bc-current {
+  color: #4a566d;
+  font-weight: 600;
+}
+
+/* ─── 4. Typography — CoreUI Palette ─── */
+.sidebar.sidebar-dark ~ .app-shell .admin-main {
+  color: #4a566d;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.sidebar.sidebar-dark ~ .app-shell .admin-main h1,
+.sidebar.sidebar-dark ~ .app-shell .admin-main h2,
+.sidebar.sidebar-dark ~ .app-shell .admin-main h3,
+.sidebar.sidebar-dark ~ .app-shell .admin-main h4,
+.sidebar.sidebar-dark ~ .app-shell .admin-main h5,
+.sidebar.sidebar-dark ~ .app-shell .admin-main h6,
+.sidebar.sidebar-dark ~ .app-shell .admin-main .page-title,
+.sidebar.sidebar-dark ~ .app-shell .admin-main .cui-page-title {
+  color: #212631;
+  font-weight: 600;
+}
+.sidebar.sidebar-dark ~ .app-shell .admin-main .page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.sidebar.sidebar-dark ~ .app-shell .admin-main .text-muted,
+.sidebar.sidebar-dark ~ .app-shell .admin-main .stat-card-label,
+.sidebar.sidebar-dark ~ .app-shell .admin-main .stat-card-sub {
+  color: #6d7d9c !important;
+}
+.sidebar.sidebar-dark ~ .app-shell .admin-main .stat-card-value {
+  color: #212631 !important;
+}
+
+/* ─── 5. Cards — CoreUI Flat ─── */
+.sidebar.sidebar-dark ~ .app-shell #app-view > .card,
+.sidebar.sidebar-dark ~ .app-shell #app-view .settings-card,
+.sidebar.sidebar-dark ~ .app-shell #app-view .support-ticket-form-card,
+.sidebar.sidebar-dark ~ .app-shell #app-view .support-ticket-list-card,
+.sidebar.sidebar-dark ~ .app-shell #app-view .payment-config-card,
+.sidebar.sidebar-dark ~ .app-shell #app-view .balance-summary-card,
+.sidebar.sidebar-dark ~ .app-shell #app-view .balance-audit-card,
+.sidebar.sidebar-dark ~ .app-shell #app-view .balance-withdraw-card,
+.sidebar.sidebar-dark ~ .app-shell #app-view .balance-history-card,
+.sidebar.sidebar-dark ~ .app-shell #app-view .bot-admin-section-card,
+.sidebar.sidebar-dark ~ .app-shell #app-view .oauth-card,
+.admin-main .card,
+.admin-main .stat-card {
+  background: #fff !important;
+  border: 1px solid rgba(8, 10, 12, 0.175) !important;
+  border-radius: 0.375rem !important;
+  box-shadow: none !important;
+}
+/* Stat card left-border accent */
+.admin-main .stat-card,
+.sidebar.sidebar-dark ~ .app-shell #app-view .stats-grid .stat-card {
+  border-left: 3px solid #5856d6 !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .stats-grid .stat-card:has(.stat-icon.blue),
+.admin-main .stat-card:has(.stat-icon.blue) {
+  border-left-color: #3399ff !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .stats-grid .stat-card:has(.stat-icon.green),
+.admin-main .stat-card:has(.stat-icon.green) {
+  border-left-color: #1b9e3e !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .stats-grid .stat-card:has(.stat-icon.yellow),
+.admin-main .stat-card:has(.stat-icon.yellow) {
+  border-left-color: #f9b115 !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .stats-grid .stat-card:has(.stat-icon.purple),
+.admin-main .stat-card:has(.stat-icon.purple) {
+  border-left-color: #5856d6 !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .stats-grid .stat-card:has(.stat-icon.red),
+.admin-main .stat-card:has(.stat-icon.red) {
+  border-left-color: #e55353 !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .stats-grid .stat-card:has(.stat-icon.cyan),
+.admin-main .stat-card:has(.stat-icon.cyan) {
+  border-left-color: #3399ff !important;
+}
+/* Card header */
+.sidebar.sidebar-dark ~ .app-shell #app-view .card-header,
+.admin-main .card-header {
+  background: rgba(8, 10, 12, 0.03) !important;
+  border-bottom: 1px solid rgba(8, 10, 12, 0.175) !important;
+  border-radius: calc(0.375rem - 1px) calc(0.375rem - 1px) 0 0 !important;
+  padding: 0.5rem 1rem;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .card-title,
+.admin-main .card-title {
+  color: #212631;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .card-body,
+.admin-main .card-body {
+  padding: 1rem;
+}
+/* Card section title */
+.sidebar.sidebar-dark ~ .app-shell #app-view .card-section-title {
+  margin: 0 0 16px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #212631;
+}
+
+/* ─── 6. Tables — CoreUI Clean ─── */
+.sidebar.sidebar-dark ~ .app-shell #app-view > .table-wrap,
+.sidebar.sidebar-dark ~ .app-shell #app-view .card .table-wrap,
+.admin-main .table-wrap {
+  background: #fff !important;
+  border: 1px solid rgba(8, 10, 12, 0.175) !important;
+  border-radius: 0.375rem !important;
+  box-shadow: none !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view > .table-wrap table thead,
+.sidebar.sidebar-dark ~ .app-shell #app-view .card .table-wrap table thead,
+.sidebar.sidebar-dark ~ .app-shell #app-view .table-wrap table thead,
+.admin-main table thead {
+  background: transparent !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view > .table-wrap table th,
+.sidebar.sidebar-dark ~ .app-shell #app-view .card .table-wrap table th,
+.sidebar.sidebar-dark ~ .app-shell #app-view .table-wrap table th,
+.admin-main table th {
+  background: transparent !important;
+  color: #6d7d9c !important;
+  border-bottom: 1px solid #dbdfe6 !important;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 0.5rem;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view > .table-wrap table td,
+.sidebar.sidebar-dark ~ .app-shell #app-view .card .table-wrap table td,
+.sidebar.sidebar-dark ~ .app-shell #app-view .table-wrap table td,
+.admin-main table td {
+  padding: 0.5rem;
+  border-top: 1px solid #e7eaee;
+  color: #4a566d;
+  font-size: 0.875rem;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view > .table-wrap table tr:hover td,
+.sidebar.sidebar-dark ~ .app-shell #app-view .card .table-wrap table tr:hover td,
+.sidebar.sidebar-dark ~ .app-shell #app-view .table-wrap table tr:hover td,
+.admin-main table tr:hover td {
+  background: rgba(243, 244, 247, 0.5);
+}
+
+/* ─── 7. Page Header — CoreUI Flat ─── */
+.sidebar.sidebar-dark ~ .app-shell #app-view > .page-header {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0;
+  margin-bottom: 1.5rem;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view > .page-header .page-title,
+.sidebar.sidebar-dark ~ .app-shell #app-view > .page-header h1,
+.sidebar.sidebar-dark ~ .app-shell #app-view > .page-header h2 {
+  color: #212631 !important;
+  font-weight: 700;
+}
+
+/* ─── 8. Forms — CoreUI Bootstrap-like ─── */
+.sidebar.sidebar-dark ~ .app-shell #app-view .form-input,
+.sidebar.sidebar-dark ~ .app-shell #app-view .form-select,
+.sidebar.sidebar-dark ~ .app-shell #app-view .form-textarea,
+.admin-main .form-input,
+.admin-main .form-select,
+.admin-main .form-textarea {
+  border-radius: 6px !important;
+  border: 1px solid #dbdfe6 !important;
+  background: #fff !important;
+  color: #4a566d;
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .form-input:focus,
+.sidebar.sidebar-dark ~ .app-shell #app-view .form-select:focus,
+.sidebar.sidebar-dark ~ .app-shell #app-view .form-textarea:focus,
+.admin-main .form-input:focus,
+.admin-main .form-select:focus,
+.admin-main .form-textarea:focus {
+  background: #fff !important;
+  border-color: #5856d6 !important;
+  box-shadow: 0 0 0 0.25rem rgba(88, 86, 214, 0.25) !important;
+  color: #212631;
+  outline: none;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .form-input::placeholder,
+.admin-main .form-input::placeholder {
+  color: #aab3c5;
+}
+/* Form labels */
+.sidebar.sidebar-dark ~ .app-shell #app-view .form-label,
+.admin-main .form-label,
+.sidebar.sidebar-dark ~ .app-shell #app-view .form-group label,
+.admin-main .form-group label {
+  color: #4a566d;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.375rem;
+}
+
+/* ─── 9. Buttons — CoreUI ─── */
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn,
+.sidebar.sidebar-dark ~ .app-shell #app-view .tbl-btn,
+.admin-main .btn {
+  border-radius: 6px !important;
+  font-weight: 500;
+  font-size: 0.875rem;
+  padding: 0.375rem 1rem;
+  transition: color 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+/* Primary */
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-primary,
+.admin-main .btn-primary {
+  background: #5856d6 !important;
+  border-color: #5856d6 !important;
+  color: #fff !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-primary:hover,
+.admin-main .btn-primary:hover {
+  background: #4c4bd0 !important;
+  border-color: #4c4bd0 !important;
+  box-shadow: none !important;
+}
+/* Danger / Red */
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-red,
+.admin-main .btn-red {
+  background: #e55353 !important;
+  border-color: #e55353 !important;
+  color: #fff !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-red:hover,
+.admin-main .btn-red:hover {
+  background: #d44545 !important;
+}
+/* Success / Green */
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-success,
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-green,
+.admin-main .btn-success,
+.admin-main .btn-green {
+  background: #1b9e3e !important;
+  border-color: #1b9e3e !important;
+  color: #fff !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-success:hover,
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-green:hover,
+.admin-main .btn-success:hover,
+.admin-main .btn-green:hover {
+  background: #178f37 !important;
+}
+/* Warning */
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-warning,
+.admin-main .btn-warning {
+  background: #f9b115 !important;
+  border-color: #f9b115 !important;
+  color: #212631 !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-warning:hover,
+.admin-main .btn-warning:hover {
+  background: #e5a413 !important;
+}
+/* Info */
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-info,
+.admin-main .btn-info {
+  background: #3399ff !important;
+  border-color: #3399ff !important;
+  color: #fff !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-info:hover,
+.admin-main .btn-info:hover {
+  background: #2088f0 !important;
+}
+/* Purple */
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-purple,
+.admin-main .btn-purple {
+  background: #5856d6 !important;
+  border-color: #5856d6 !important;
+  color: #fff !important;
+  cursor: pointer;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-purple:hover,
+.admin-main .btn-purple:hover {
+  background: #4c4bd0 !important;
+}
+/* Outline danger */
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-outline-danger,
+.admin-main .btn-outline-danger {
+  background: transparent !important;
+  border: 1px solid #e55353 !important;
+  color: #e55353 !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-outline-danger:hover,
+.admin-main .btn-outline-danger:hover {
+  background: #e55353 !important;
+  color: #fff !important;
+}
+/* Ghost / secondary */
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-ghost,
+.admin-main .btn-ghost {
+  background: transparent;
+  border: 1px solid #dbdfe6;
+  color: #4a566d;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-ghost:hover,
+.admin-main .btn-ghost:hover {
+  background: #f3f4f7;
+  border-color: #cfd4de;
+  color: #212631;
+}
+/* Small */
+.sidebar.sidebar-dark ~ .app-shell #app-view .btn-sm,
+.admin-main .btn-sm {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
+/* ─── 9b. Filter Pills — CoreUI ─── */
+.sidebar.sidebar-dark ~ .app-shell #app-view .filter-pills,
+.admin-main .filter-pills {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .filter-pill,
+.admin-main .filter-pill {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid #dbdfe6;
+  background: transparent;
+  color: #4a566d;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .filter-pill:hover,
+.admin-main .filter-pill:hover {
+  background: #f3f4f7;
+  border-color: #cfd4de;
+  color: #212631;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .filter-pill.active,
+.admin-main .filter-pill.active {
+  background: #5856d6;
+  border-color: #5856d6;
+  color: #fff;
+}
+
+/* ─── 10. Badges — CoreUI ─── */
+.sidebar.sidebar-dark ~ .app-shell #app-view .badge,
+.admin-main .badge {
+  border-radius: 0.375rem;
+  font-size: 0.75em;
+  font-weight: 500;
+  padding: 0.25em 0.6em;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .badge-green,
+.admin-main .badge-green {
+  background: rgba(27, 158, 62, 0.12);
+  color: #1b9e3e;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .badge-red,
+.admin-main .badge-red {
+  background: rgba(229, 83, 83, 0.12);
+  color: #e55353;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .badge-yellow,
+.admin-main .badge-yellow {
+  background: rgba(249, 177, 21, 0.12);
+  color: #b8820e;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .badge-blue,
+.admin-main .badge-blue {
+  background: rgba(51, 153, 255, 0.12);
+  color: #2979d6;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .badge-gray,
+.admin-main .badge-gray {
+  background: #f3f4f7;
+  color: #6d7d9c;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .badge-purple,
+.admin-main .badge-purple {
+  background: rgba(88, 86, 214, 0.12);
+  color: #5856d6;
+}
+
+/* ─── 11. Empty State ─── */
+.sidebar.sidebar-dark ~ .app-shell #app-view .empty-state {
+  background: #fff !important;
+  border: 1px solid rgba(8, 10, 12, 0.175) !important;
+  border-radius: 0.375rem !important;
+  box-shadow: none !important;
+}
+
+/* ─── 12. Bot Config — CoreUI Flat ─── */
+.sidebar.sidebar-dark ~ .app-shell #app-view .bot-admin-section-card {
+  background: #fff !important;
+  border: 1px solid rgba(8, 10, 12, 0.175) !important;
+  border-radius: 0.375rem !important;
+  box-shadow: none !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .bot-admin-section-card::before { display: none; }
+.sidebar.sidebar-dark ~ .app-shell #app-view .bot-admin-section-icon {
+  border-radius: 0.375rem;
+  box-shadow: none;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .bot-admin-section-icon {
+  border-radius: 0.375rem !important;
+  box-shadow: none !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .bot-admin-section-head.telegram .bot-admin-section-icon {
+  background: #0284C7;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .bot-admin-section-head.discord .bot-admin-section-icon {
+  background: #5865F2;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .bot-admin-section-head.smtp .bot-admin-section-icon {
+  background: #EA580C;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .bot-admin-section-head.neutral .bot-admin-section-icon {
+  background: #6b7785;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .bot-admin-section-card .form-input,
+.sidebar.sidebar-dark ~ .app-shell #app-view .bot-admin-section-card .form-textarea {
+  background: #fff !important;
+  border: 1px solid #dbdfe6 !important;
+  box-shadow: none !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .bot-admin-section-card .form-input:focus,
+.sidebar.sidebar-dark ~ .app-shell #app-view .bot-admin-section-card .form-textarea:focus {
+  border-color: #5856d6 !important;
+  box-shadow: 0 0 0 0.25rem rgba(88, 86, 214, 0.25) !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .bot-admin-command-item {
+  background: #fff;
+  border: 1px solid rgba(8, 10, 12, 0.175);
+  border-radius: 0.375rem;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .bot-admin-savebtn {
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .bot-admin-savebtn:hover {
+  box-shadow: none !important;
+}
+
+/* ─── 13. OAuth Settings — CoreUI Flat ─── */
+.sidebar.sidebar-dark ~ .app-shell #app-view .oauth-card {
+  border-radius: 0.375rem !important;
+  box-shadow: none !important;
+  border: 1px solid rgba(8, 10, 12, 0.175) !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .oauth-card:hover {
+  box-shadow: none !important;
+  border-color: #5856d6 !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .oauth-header {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(8, 10, 12, 0.175) !important;
+}
+
+/* ─── 14. Settings — CoreUI Flat ─── */
+.sidebar.sidebar-dark ~ .app-shell #app-view .settings-image-preview {
+  border-radius: 0.375rem;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .settings-image-preview img {
+  border-radius: 6px;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .settings-tabs {
+  border-bottom: 2px solid #dbdfe6;
+  margin-bottom: 1.25rem;
+  gap: 0;
+  background: transparent;
+  padding: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .settings-tab {
+  border-radius: 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6d7d9c;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .settings-tab:hover {
+  color: #212631;
+  background: transparent;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .settings-tab.active {
+  border-bottom-color: #5856d6;
+  color: #5856d6;
+  background: transparent;
+  font-weight: 600;
+}
+
+/* ─── 15. Alert Card ─── */
+.sidebar.sidebar-dark ~ .app-shell #app-view .cui-alert-warn {
+  background: #fffbeb;
+  border: 1px solid rgba(8, 10, 12, 0.175);
+  border-left: 3px solid #f9b115;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* ─── 16. Nested table-wrap inside card — no double border ─── */
+.sidebar.sidebar-dark ~ .app-shell #app-view .card > .table-wrap,
+.admin-main .card > .table-wrap {
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* ─── 17. Balance inline-color helpers ─── */
+.sidebar.sidebar-dark ~ .app-shell #app-view .text-success-600 { color: #1b9e3e !important; }
+.sidebar.sidebar-dark ~ .app-shell #app-view .text-danger-600 { color: #e55353 !important; }
+.sidebar.sidebar-dark ~ .app-shell #app-view .text-warn-600 { color: #f9b115 !important; }
+
+/* ─── 18. Page Header (CoreUI layout) ─── */
+.cui-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+.cui-page-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cui-page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #212631;
+  line-height: 1.3;
+}
+.cui-page-subtitle {
+  font-size: 0.875rem;
+  color: #6d7d9c;
+  font-weight: 400;
+}
+.cui-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ─── 19. Stock Detail Page Layout ─── */
+.sidebar.sidebar-dark ~ .app-shell #app-view .cui-page-actions-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .stock-detail-layout {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .stock-filter-card {
+  flex: 1;
+  min-width: 260px;
+  max-width: 300px;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .stock-filter-card .card-body {
+  padding: 1.25rem;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .stock-filter-btns {
+  display: flex;
+  gap: 8px;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .stock-filter-btns .btn { flex: 1; }
+.sidebar.sidebar-dark ~ .app-shell #app-view .stock-table-card {
+  flex: 3;
+  min-width: 400px;
+  overflow: hidden;
+  padding: 0;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .stock-table-card > .table-wrap {
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .stock-data-cell {
+  display: block;
+  background: #f3f4f7;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 0.8125rem;
+  word-break: break-all;
+  border: 1px solid #dbdfe6;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .stock-pagination {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #dbdfe6;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+.sidebar.sidebar-dark ~ .app-shell #app-view .stock-page-info {
+  padding: 0 0.75rem;
+  font-weight: 600;
+  color: #4a566d;
+}
+@media (max-width: 768px) {
+  .sidebar.sidebar-dark ~ .app-shell #app-view .stock-filter-card { max-width: 100%; min-width: 100%; }
+  .sidebar.sidebar-dark ~ .app-shell #app-view .stock-table-card { min-width: 100%; }
+}
+
+/* ─── 20. Admin Content Spacing ─── */
+.sidebar.sidebar-dark ~ .app-shell .admin-main {
+  padding: 1.5rem;
+}
+
+/* ─── 21. Stat Card Icon — CoreUI subtle ─── */
+.admin-main .stat-icon,
+.sidebar.sidebar-dark ~ .app-shell #app-view .stat-icon {
+  border-radius: 0.375rem;
+}
+
+/* ─── 22. Dropdowns in admin ─── */
+.admin-main .dropdown-menu {
+  border: 1px solid rgba(8, 10, 12, 0.175);
+  border-radius: 0.375rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+/* ─── 23. Pagination — CoreUI clean ─── */
+.admin-main .pagination .page-link,
+.sidebar.sidebar-dark ~ .app-shell #app-view .pagination .page-link {
+  border-radius: 6px;
+  border: 1px solid #dbdfe6;
+  color: #5856d6;
+  margin: 0 2px;
+}
+.admin-main .pagination .page-link:hover,
+.sidebar.sidebar-dark ~ .app-shell #app-view .pagination .page-link:hover {
+  background: #f3f4f7;
+}
+.admin-main .pagination .active .page-link,
+.sidebar.sidebar-dark ~ .app-shell #app-view .pagination .active .page-link {
+  background: #5856d6;
+  border-color: #5856d6;
+  color: #fff;
+}
+
+/* ─── 24. Admin-mode responsive fixes ─── */
+@media (max-width: 1024px) {
+  .sidebar.sidebar-dark ~ .app-shell {
+    margin-left: 0 !important;
+  }
+}
+@media (max-width: 768px) {
+  .sidebar.sidebar-dark ~ .app-shell .admin-main {
+    padding: 1rem !important;
+  }
+}
+@media (max-width: 480px) {
+  .sidebar.sidebar-dark ~ .app-shell .admin-main {
+    padding: 0.75rem !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   404 Page — Full-screen takeover
+═══════════════════════════════════════════════════════ */
+.page-404 {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fdf6ec;
+  overflow: hidden;
+}
+.page-404-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 20px;
+  max-width: 520px;
+}
+.page-404-visual {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+.page-404-num {
+  font-size: clamp(160px, 28vw, 280px);
+  font-weight: 900;
+  color: #f0e4d0;
+  line-height: 1;
+  letter-spacing: -8px;
+  user-select: none;
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+}
+.page-404-gif {
+  position: absolute;
+  z-index: 2;
+  width: clamp(140px, 22vw, 220px);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 24px rgba(0,0,0,0.1));
+  opacity: 0;
+}
+.page-404-title {
+  font-size: clamp(24px, 4vw, 36px);
+  font-weight: 800;
+  color: #3d3529;
+  margin: 0 0 12px;
+  letter-spacing: -0.5px;
+  opacity: 0;
+}
+.page-404-desc {
+  font-size: clamp(14px, 2vw, 16px);
+  color: #8c7e6a;
+  line-height: 1.6;
+  margin: 0 0 32px;
+  opacity: 0;
+}
+.page-404-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 36px;
+  background: #c97b5d;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.2s;
+  box-shadow: 0 4px 16px rgba(201,123,93,0.3);
+  opacity: 0;
+}
+.page-404-btn:hover {
+  background: #b56a4e;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(201,123,93,0.4);
+}
+@media (max-width: 480px) {
+  .page-404-num { letter-spacing: -4px; }
+  .page-404-btn { padding: 12px 28px; font-size: 15px; }
 }
 

@@ -12,10 +12,7 @@ async function renderAdminOAuthSettings(view) {
     
     const html = `
       <div class="settings-wrapper">
-        <div class="settings-header">
-          <h1>Cấu hình OAuth & Đăng nhập</h1>
-          <p>Cấu hình các nền tảng mạng xã hội để người dùng có thể đăng nhập</p>
-        </div>
+        ${cuiPageHeader('Cấu hình OAuth & Đăng nhập', 'Cấu hình các nền tảng mạng xã hội để người dùng có thể đăng nhập')}
 
         <div class="settings-grid">
           ${renderOAuthProvider(config, 'google', 'Google', '#4285F4')}

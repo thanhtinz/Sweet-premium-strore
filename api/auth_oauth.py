@@ -10,7 +10,7 @@ from api.auth_shared import _create_token, _get_oauth_config
 from db import get_db
 from db.models import User
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(tags=["auth"])
 
 
 @router.get("/google")

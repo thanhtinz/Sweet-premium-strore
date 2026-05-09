@@ -331,3 +331,41 @@ function toggleSidebar() {
   const ov = qs('#sidebar-overlay');
   if (sb) { sb.classList.toggle('open'); ov?.classList.toggle('open'); }
 }
+
+// ── anime.js page entrance helper ──
+function animateEntrance(container) {
+  if (typeof anime === 'undefined' || !anime.animate) return;
+  const $ = (sel) => container ? container.querySelectorAll(sel) : [];
+
+  // Hero / page header
+  const heroes = $('.products-hero, .page-header, .cui-page-header, .blog-hero');
+  if (heroes.length) anime.animate(heroes, { opacity: [0, 1], translateY: [20, 0], duration: 500, ease: 'outExpo' });
+
+  // Stat cards — stagger
+  const stats = $('.stat-card');
+  if (stats.length) anime.animate(stats, { opacity: [0, 1], translateY: [24, 0], scale: [0.96, 1], duration: 500, ease: 'outExpo', delay: anime.stagger(60, { start: 80 }) });
+
+  // Cards
+  const cards = $('.card, .info-card, .settings-card, .product-card, .bot-admin-section-card, .oauth-card');
+  if (cards.length) anime.animate(cards, { opacity: [0, 1], translateY: [20, 0], duration: 500, ease: 'outExpo', delay: anime.stagger(50, { start: 100 }) });
+
+  // Tables
+  const tables = $(':scope > .table-wrap, .card > .table-wrap');
+  if (tables.length) anime.animate(tables, { opacity: [0, 1], duration: 400, ease: 'outExpo', delay: 150 });
+
+  // Tabs
+  const tabs = $('.settings-tabs, .filter-pills');
+  if (tabs.length) anime.animate(tabs, { opacity: [0, 1], translateX: [-12, 0], duration: 400, ease: 'outExpo', delay: 80 });
+
+  // Buttons in page header
+  const headerBtns = $('.cui-page-actions .btn');
+  if (headerBtns.length) anime.animate(headerBtns, { opacity: [0, 1], scale: [0.9, 1], duration: 400, ease: 'outExpo', delay: anime.stagger(40, { start: 200 }) });
+
+  // Auth forms
+  const authCards = $('.auth-card');
+  if (authCards.length) anime.animate(authCards, { opacity: [0, 1], translateY: [30, 0], scale: [0.97, 1], duration: 600, ease: 'outExpo' });
+
+  // Empty states
+  const empties = $('.empty-state');
+  if (empties.length) anime.animate(empties, { opacity: [0, 1], scale: [0.95, 1], duration: 500, ease: 'outExpo', delay: 100 });
+}

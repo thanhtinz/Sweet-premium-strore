@@ -43,7 +43,7 @@ async function renderBlogList(view) {
       view.appendChild(chips);
     }
 
-    view.appendChild(el('div', 'page-header', `<div class="page-title">Blog</div><div class="page-subtitle">${total} bài viết</div>`));
+    view.appendChild(el('div', '', cuiPageHeader('Blog', `${total} bài viết`)));
 
     if (!items.length) {
       view.appendChild(el('div', 'empty-state', '<div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div><h3>Chưa có bài viết nào</h3>'));
@@ -131,16 +131,14 @@ async function renderAdminBlog(view) {
       return;
     }
     content.innerHTML = `
-      <div class="page-header">
-        <div class="page-title">Blog</div>
-      </div>
-      <div class="admin-tabs mb-16">
-        <button class="admin-tab${activeTab === 'posts' ? ' active' : ''}" data-tab="posts">Bài viết</button>
-        <button class="admin-tab${activeTab === 'categories' ? ' active' : ''}" data-tab="categories">Danh mục</button>
+      ${cuiPageHeader('Blog', 'Biên tập bài viết và danh mục nội dung')}
+      <div class="settings-tabs" role="tablist">
+        <button class="settings-tab${activeTab === 'posts' ? ' active' : ''}" data-tab="posts" role="tab" aria-selected="${activeTab === 'posts'}">Bài viết</button>
+        <button class="settings-tab${activeTab === 'categories' ? ' active' : ''}" data-tab="categories" role="tab" aria-selected="${activeTab === 'categories'}">Danh mục</button>
       </div>
       <div id="admin-blog-content"></div>
     `;
-    qsa('.admin-tab', content).forEach(btn => {
+    qsa('.settings-tab', content).forEach(btn => {
       btn.onclick = () => { activeTab = btn.dataset.tab; render(); };
     });
     if (activeTab === 'posts') await renderPostsTab();
@@ -276,10 +274,7 @@ async function renderAdminBlog(view) {
     const isPubVal = post?.is_published ? true : false;
 
     content.innerHTML = `
-      <div class="page-header">
-        <div class="page-title">${post ? 'Sửa bài viết' : 'Thêm bài viết'}</div>
-        <button class="btn btn-ghost btn-sm" id="blog-back">${ico.arrowLeft} Quay lại</button>
-      </div>
+      ${cuiPageHeader(post ? 'Sửa bài viết' : 'Thêm bài viết', '', `<button class="btn btn-ghost btn-sm" id="blog-back">${ico.arrowLeft} Quay lại</button>`)}
       <div class="blog-post-form">
         <div class="form-group">
           <label class="form-label">Tiêu đề <span class="req">*</span></label>

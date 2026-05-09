@@ -8,6 +8,17 @@ function renderAdminShell(wrap) {
   // no-op - layout is now handled globally
 }
 
+// CoreUI-style page header helper
+function cuiPageHeader(title, subtitle, actionsHtml = '') {
+  return `<div class="cui-page-header">
+    <div class="cui-page-header-left">
+      <div class="cui-page-title">${title}</div>
+      ${subtitle ? `<div class="cui-page-subtitle">${subtitle}</div>` : ''}
+    </div>
+    ${actionsHtml ? `<div class="cui-page-actions">${actionsHtml}</div>` : ''}
+  </div>`;
+}
+
 async function uploadAdminImage(file, { input = null, preview = null } = {}) {
   if (!file) return null;
   const fd = new FormData();
@@ -91,7 +102,7 @@ async function renderAdmin(view) {
     const data = await apiFetch('/admin/dashboard');
     const s = data.stats;
     content.innerHTML = `
-      <div class="page-header"><div class="page-title">Dashboard</div></div>
+      ${cuiPageHeader('Dashboard', 'Tổng quan vận hành cửa hàng')}
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon purple"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><div class="stat-info"><div class="stat-label">Tổng đơn</div><div class="stat-value">${s.total_orders}</div></div></div>
         <div class="stat-card"><div class="stat-icon yellow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="stat-info"><div class="stat-label">Chờ xử lý</div><div class="stat-value">${s.pending_orders}</div></div></div>
@@ -101,7 +112,7 @@ async function renderAdmin(view) {
         <div class="stat-card"><div class="stat-icon purple"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="stat-info"><div class="stat-label">Doanh thu</div><div class="stat-value">${fmt(s.total_revenue)}</div></div></div>
       </div>
       <div class="card"><div class="card-header"><div class="card-title">Đơn hàng gần đây</div></div>
-      <div class="table-wrap" style="border:none;box-shadow:none;border-radius:0">
+      <div class="table-wrap">
         <table><thead><tr><th>Mã đơn</th><th>Khách hàng</th><th>Sản phẩm</th><th>Số tiền</th><th>Trạng thái</th><th>Ngày tạo</th></tr></thead>
         <tbody>${data.recent_orders.map(o => `<tr><td class="td-mono">${o.order_code}</td><td>${o.user_email || '—'}</td><td>${o.product_name || '—'}</td><td class="text-primary">${fmt(o.total_amount)}</td><td>${statusBadge(o.status)}</td><td class="text-sm text-muted">${fmtDate(o.created_at)}</td></tr>`).join('')}</tbody>
         </table></div></div>
@@ -151,7 +162,7 @@ async function renderAdminCategories(view) {
       return row;
     }).join('');
     content.innerHTML = `
-      <div class="page-header"><h1 class="page-title"><i class="fa-solid fa-folder-tree"></i> Danh mục</h1><button class="btn btn-primary" id="btn-add-cat"><i class="fa-solid fa-plus"></i> Thêm danh mục</button></div>
+      ${cuiPageHeader('Danh mục', 'Tổ chức nhóm sản phẩm và điều hướng', '<button class="btn btn-primary" id="btn-add-cat"><i class="fa-solid fa-plus"></i> Thêm danh mục</button>')}
       <div class="table-wrap"><table>
         <thead><tr><th>ID</th><th>Tên</th><th>Slug</th><th>Trạng thái</th><th>Thứ tự</th><th></th></tr></thead>
         <tbody>${renderRows(tree)}</tbody>
@@ -249,7 +260,7 @@ async function renderAdminProducts(view) {
     const [products, cats] = await Promise.all([apiFetch('/products/admin/all'), apiFetch('/categories/all')]);
     currentProducts = products; currentCats = cats;
     content.innerHTML = `
-      <div class="page-header"><div class="page-title">Sản phẩm</div><button class="btn btn-primary" id="btn-add-prod">+ Thêm</button></div>
+      ${cuiPageHeader('Sản phẩm', 'Quản lý sản phẩm, gói bán và nội dung hiển thị', '<button class="btn btn-primary" id="btn-add-prod"><i class="fa-solid fa-plus"></i> Thêm</button>')}
       <div class="table-wrap"><table>
         <thead><tr><th>Tên</th><th>Danh mục</th><th>Gói</th><th>Giá từ</th><th>Nổi bật</th><th>TT</th><th></th></tr></thead>
         <tbody>${products.map(p => `<tr><td class="td-bold">${p.name}</td><td class="text-muted">${p.category_name || '—'}</td><td>${(p.packages||[]).length}</td><td class="text-primary">${p.min_price ? fmt(p.min_price) : '—'}</td><td>${p.is_featured ? ico.starFill : '—'}</td><td>${p.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit="${p.id}">Sửa</button><button class="tbl-btn tbl-view" data-pkg="${p.id}" data-pname="${encodeURIComponent(p.name)}">Gói</button><button class="tbl-btn tbl-delete" data-del="${p.id}">Xóa</button></div></td></tr>`).join('')}</tbody>
@@ -852,7 +863,7 @@ async function renderAdminOrders(view) {
       return `<div class="tbl-actions">${buttons.join('')}</div>`;
     };
     content.innerHTML = `
-      <div class="flex gap-6 mb-16 flex-wrap">${['', 'pending', 'paid', 'processing', 'completed', 'cancelled'].map(s => `<button class="btn btn-sm ${status === s ? 'btn-primary' : 'btn-ghost'}" data-filter="${s}">${s || 'Tất cả'}</button>`).join('')}</div>
+      <div class="filter-pills">${['', 'pending', 'paid', 'processing', 'completed', 'cancelled'].map(s => `<button class="filter-pill ${status === s ? 'active' : ''}" data-filter="${s}">${s || 'Tất cả'}</button>`).join('')}</div>
       <div class="table-wrap"><table>
         <thead><tr><th>Mã đơn</th><th>Khách</th><th>SP</th><th>Tiền</th><th>PTTT</th><th>TT</th><th>Ngày</th><th></th></tr></thead>
         <tbody>${data.items.map(o => `<tr><td class="td-mono">${o.order_code}</td><td class="text-sm">${esc(o.user_email) || '—'}</td><td class="text-sm">${adminOrderSummary(o)}</td><td class="text-primary">${fmt(o.total_amount)}</td><td class="text-sm">${o.payment_method || 'payos'}</td><td>${statusBadge(o.status)}</td><td class="text-sm text-muted">${fmtDate(o.created_at)}</td><td>${actionButtons(o)}</td></tr>`).join('')}</tbody>
@@ -938,16 +949,15 @@ async function renderAdminStock(view) {
   try {
     const products = await apiFetch('/products/admin/all');
     const autoProducts = products.filter(p => p.packages?.some(pkg => pkg.delivery_type === 'auto'));
-    const managedProducts = products.filter(p => p.packages?.some(pkg => pkg.is_stock_managed));
     
     let html = `
-      <div class="page-header"><div class="page-title">Kho hàng</div></div>
+      ${cuiPageHeader('Kho hàng', 'Theo dõi tồn kho và dữ liệu giao tự động')}
       
-      <div class="card mb-16 p-16">
-        <h3 style="margin-top:0; margin-bottom:16px; font-size:16px;">Gói tự động (Giao tự động / Random)</h3>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Gói giao tự động</div></div>
         <div class="table-wrap">
-          <table>
-            <thead><tr><th>ID</th><th>Sản phẩm</th><th>Tên gói</th><th>Trong kho</th><th>Thao tác</th></tr></thead>
+          <table class="table">
+            <thead><tr><th>ID</th><th>Sản phẩm</th><th>Tên gói</th><th>Trong kho</th><th></th></tr></thead>
             <tbody>
     `;
     
@@ -960,43 +970,13 @@ async function renderAdminStock(view) {
               <td class="fw-600">${esc(p.name)}</td>
               <td><span class="badge badge-blue">${esc(pk.name)}</span></td>
               <td><span class="badge ${pk.stock_count > 0 ? 'badge-green' : 'badge-red'}">${pk.stock_count}</span></td>
-              <td><button class="btn btn-sm btn-primary" data-viewstock="${pk.id}" data-pkgname="${encodeURIComponent(p.name + ' - ' + pk.name)}">Xem kho hàng</button></td>
+              <td><button class="btn btn-sm btn-primary" data-viewstock="${pk.id}" data-pkgname="${encodeURIComponent(p.name + ' - ' + pk.name)}">Quản lý kho</button></td>
             </tr>
           `;
         });
       });
     } else {
-      html += `<tr><td colspan="5" class="text-center text-muted">Chưa có gói tự động.</td></tr>`;
-    }
-    html += `</tbody></table></div></div>`;
-    
-    html += `
-      <div class="card p-16">
-        <h3 style="margin-top:0; margin-bottom:16px; font-size:16px;">Gói quản lý tồn kho thủ công</h3>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>ID</th><th>Sản phẩm</th><th>Tên gói</th><th>Số lượng tồn</th><th>Thao tác</th></tr></thead>
-            <tbody>
-    `;
-    
-    if (managedProducts.length) {
-      managedProducts.forEach(p => {
-        p.packages.filter(pk => pk.is_stock_managed).forEach(pk => {
-          const qty = pk.stock_quantity || 0;
-          const bCls = qty <= 0 ? 'badge-red' : qty <= 5 ? 'badge-yellow' : 'badge-green';
-          html += `
-            <tr>
-              <td class="text-muted">#${pk.id}</td>
-              <td class="fw-600">${esc(p.name)}</td>
-              <td><span class="badge badge-gray">${esc(pk.name)}</span></td>
-              <td><span class="badge ${bCls}">${qty}</span></td>
-              <td><button class="btn btn-sm btn-outline" data-editstockpkg="${pk.id}" data-pkgname="${encodeURIComponent(p.name + ' - ' + pk.name)}" data-qty="${qty}">Sửa số lượng</button></td>
-            </tr>
-          `;
-        });
-      });
-    } else {
-      html += `<tr><td colspan="5" class="text-center text-muted">Chưa có gói quản lý kho.</td></tr>`;
+      html += `<tr><td colspan="5" class="text-center text-muted">Chưa có gói giao tự động nào. Tạo gói với kiểu giao hàng "Tự động" trong trang Sản phẩm.</td></tr>`;
     }
     html += `</tbody></table></div></div>`;
     
@@ -1007,11 +987,6 @@ async function renderAdminStock(view) {
       if (viewBtn) {
         showStockDetail(parseInt(viewBtn.dataset.viewstock), decodeURIComponent(viewBtn.dataset.pkgname), view);
         return;
-      }
-
-      const editBtn = e.target.closest('[data-editstockpkg]');
-      if (editBtn) {
-        showManagedStockDetail(parseInt(editBtn.dataset.editstockpkg), decodeURIComponent(editBtn.dataset.pkgname), parseInt(editBtn.dataset.qty));
       }
     };
   } catch (err) {
@@ -1054,40 +1029,51 @@ async function showStockDetail(pkgId, pkgName, view) {
     const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     content.innerHTML = `
-      <div style="margin-bottom: 24px;">
-        <h2 style="margin:0 0 16px 0; font-size:22px; color:var(--text-heading); display:flex; align-items:center; gap:8px;">
-          <i class="fa-solid fa-server"></i> Quản lý kho hàng <span style="color:#ef4444;">${esc(pkgName)}</span>
-        </h2>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn" id="btn-add-bulk" style="background:#10b981; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-weight:600; font-size:14px;"><i class="fa-solid fa-arrow-right-to-bracket"></i> Nhập hàng loạt</button>
-          <label class="btn" style="background:#8b5cf6; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-weight:600; font-size:14px; cursor:pointer; margin:0;">
-            <i class="fa-solid fa-file-csv"></i> Nhập từ CSV
-            <input type="file" id="file-csv" accept=".csv" style="display:none;">
-          </label>
-          <label class="btn" style="background:#3b82f6; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-weight:600; font-size:14px; cursor:pointer; margin:0;">
-            <i class="fa-solid fa-file-lines"></i> Nhập từ TXT
-            <input type="file" id="file-txt" accept=".txt" style="display:none;">
-          </label>
-          <button class="btn" id="btn-export" style="background:#f59e0b; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-weight:600; font-size:14px;"><i class="fa-solid fa-file-export"></i> Xuất kho hàng</button>
-          <button class="btn" id="btn-delete-all" style="background:transparent; border:1px solid #ef4444; color:#ef4444; padding:8px 16px; border-radius:6px; font-weight:600; font-size:14px;"><i class="fa-solid fa-trash-can"></i> Xóa toàn bộ</button>
-          <button class="btn" id="btn-back" style="background:#06b6d4; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-weight:600; font-size:14px;"><i class="fa-solid fa-arrow-left"></i> Quay lại</button>
-        </div>
+      ${cuiPageHeader('Quản lý kho hàng <span class="text-danger-600">' + esc(pkgName) + '</span>', '', `
+        <button class="btn btn-sm btn-ghost" id="btn-back"><i class="fa-solid fa-arrow-left"></i> Quay lại</button>
+      `)}
+      <div class="cui-page-actions-bar">
+        <button class="btn btn-sm btn-success" id="btn-add-bulk"><i class="fa-solid fa-arrow-right-to-bracket"></i> Nhập hàng loạt</button>
+        <label class="btn btn-sm btn-purple">
+          <i class="fa-solid fa-file-csv"></i> Nhập từ CSV
+          <input type="file" id="file-csv" accept=".csv" style="display:none;">
+        </label>
+        <label class="btn btn-sm btn-info">
+          <i class="fa-solid fa-file-lines"></i> Nhập từ TXT
+          <input type="file" id="file-txt" accept=".txt" style="display:none;">
+        </label>
+        <button class="btn btn-sm btn-warning" id="btn-export"><i class="fa-solid fa-file-export"></i> Xuất kho hàng</button>
+        <button class="btn btn-sm btn-outline-danger" id="btn-delete-all"><i class="fa-solid fa-trash-can"></i> Xóa toàn bộ</button>
       </div>
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;">
-        <div class="card" style="padding:20px; display:flex; align-items:center; gap:16px;"><div style="width:50px; height:50px; border-radius:50%; background:#d1fae5; color:#10b981; display:flex; align-items:center; justify-content:center; font-size:24px;"><i class="fa-solid fa-boxes-stacked"></i></div><div><div style="color:var(--text-muted); font-size:14px; font-weight:600;">Tổng số lượng</div><div style="font-size:28px; font-weight:800; color:var(--text-heading);">${totalStats}</div></div></div>
-        <div class="card" style="padding:20px; display:flex; align-items:center; gap:16px;"><div style="width:50px; height:50px; border-radius:50%; background:#dbeafe; color:#3b82f6; display:flex; align-items:center; justify-content:center; font-size:24px;"><i class="fa-solid fa-check"></i></div><div><div style="color:var(--text-muted); font-size:14px; font-weight:600;">Còn hàng</div><div style="font-size:28px; font-weight:800; color:#3b82f6;">${availableStats}</div></div></div>
-        <div class="card" style="padding:20px; display:flex; align-items:center; gap:16px;"><div style="width:50px; height:50px; border-radius:50%; background:#fee2e2; color:#ef4444; display:flex; align-items:center; justify-content:center; font-size:24px;"><i class="fa-solid fa-xmark"></i></div><div><div style="color:var(--text-muted); font-size:14px; font-weight:600;">Đã bán</div><div style="font-size:28px; font-weight:800; color:#ef4444;">${soldStats}</div></div></div>
+      <div class="stats-grid mb-16">
+        <div class="stat-card"><div class="stat-icon green"><i class="fa-solid fa-boxes-stacked"></i></div><div class="stat-info"><div class="stat-label">Tổng số lượng</div><div class="stat-value">${totalStats}</div></div></div>
+        <div class="stat-card"><div class="stat-icon blue"><i class="fa-solid fa-check"></i></div><div class="stat-info"><div class="stat-label">Còn hàng</div><div class="stat-value">${availableStats}</div></div></div>
+        <div class="stat-card"><div class="stat-icon red"><i class="fa-solid fa-xmark"></i></div><div class="stat-info"><div class="stat-label">Đã bán</div><div class="stat-value">${soldStats}</div></div></div>
       </div>
-      <div style="display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap;">
-        <div class="card" style="padding:24px; flex:1; min-width:280px; max-width:320px;">
-          <div style="margin-bottom:20px;"><label style="display:block; font-weight:700; font-size:14px; color:var(--text-heading); margin-bottom:8px;">Tìm kiếm</label><input type="text" class="form-input" id="f-stock-search" placeholder="Nhập giá trị kho hàng..." value="${esc(searchQuery)}" style="border-radius:8px; padding:10px 14px;"></div>
-          <div style="margin-bottom:20px;"><label style="display:block; font-weight:700; font-size:14px; color:var(--text-heading); margin-bottom:8px;">Trạng thái</label><select class="form-select" id="f-stock-status" style="border-radius:8px; padding:10px 14px;"><option value="all" ${currentStatus==='all'?'selected':''}>Tất cả</option><option value="available" ${currentStatus==='available'?'selected':''}>Còn hàng</option><option value="sold" ${currentStatus==='sold'?'selected':''}>Đã bán</option></select></div>
-          <div style="margin-bottom:24px;"><label style="display:block; font-weight:700; font-size:14px; color:var(--text-heading); margin-bottom:8px;">Số lượng/trang</label><select class="form-select" id="f-stock-limit" style="border-radius:8px; padding:10px 14px;"><option value="20" ${itemsPerPage===20?'selected':''}>20</option><option value="50" ${itemsPerPage===50?'selected':''}>50</option><option value="100" ${itemsPerPage===100?'selected':''}>100</option></select></div>
-          <div style="display:flex; gap:12px;"><button class="btn" id="btn-stock-filter" style="background:#7c3aed; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:600; font-size:14px; flex:1;"><i class="fa-solid fa-filter"></i> Lọc</button><button class="btn" id="btn-stock-reset" style="background:#22d3ee; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:600; font-size:14px; flex:1;"><i class="fa-solid fa-xmark"></i> Bỏ lọc</button></div>
+      <div class="stock-detail-layout">
+        <div class="card stock-filter-card">
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">Tìm kiếm</label>
+              <input type="text" class="form-input" id="f-stock-search" placeholder="Nhập giá trị kho hàng..." value="${esc(searchQuery)}">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Trạng thái</label>
+              <select class="form-select" id="f-stock-status"><option value="all" ${currentStatus==='all'?'selected':''}>Tất cả</option><option value="available" ${currentStatus==='available'?'selected':''}>Còn hàng</option><option value="sold" ${currentStatus==='sold'?'selected':''}>Đã bán</option></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Số lượng/trang</label>
+              <select class="form-select" id="f-stock-limit"><option value="20" ${itemsPerPage===20?'selected':''}>20</option><option value="50" ${itemsPerPage===50?'selected':''}>50</option><option value="100" ${itemsPerPage===100?'selected':''}>100</option></select>
+            </div>
+            <div class="stock-filter-btns">
+              <button class="btn btn-sm btn-primary" id="btn-stock-filter"><i class="fa-solid fa-filter"></i> Lọc</button>
+              <button class="btn btn-sm btn-ghost" id="btn-stock-reset"><i class="fa-solid fa-xmark"></i> Bỏ lọc</button>
+            </div>
+          </div>
         </div>
-        <div class="card" style="flex:3; min-width:400px; padding:0; overflow:hidden;">
-          <div class="table-wrap"><table style="margin:0;"><thead style="background:#f8fafc;"><tr><th style="width:40px;"><input type="checkbox" id="cb-all-stock"></th><th style="width:80px;">ID</th><th>Giá trị kho hàng</th><th style="width:120px;">Trạng thái</th><th style="width:160px;">Ngày tạo</th></tr></thead><tbody>${paginated.length ? paginated.map(i => `<tr><td><input type="checkbox" class="cb-stock" value="${i.id}"></td><td style="color:#ec4899; font-weight:600;">${i.id}</td><td><div style="background:#f1f5f9; padding:8px 12px; border-radius:8px; font-family:monospace; font-size:14px; word-break:break-all; border:1px solid var(--border);">${esc(i.data)}</div></td><td>${i.is_sold ? `<span class="badge badge-red" style="border-radius:20px; padding:4px 10px;"><i class="fa-solid fa-xmark"></i> Đã bán</span>` : `<span class="badge badge-green" style="border-radius:20px; padding:4px 10px;"><i class="fa-solid fa-check"></i> Còn hàng</span>`}</td><td class="text-muted text-sm">${fmtDate(i.created_at)}</td></tr>`).join('') : '<tr><td colspan="5" class="text-center text-muted" style="padding:40px;">Không tìm thấy dữ liệu phù hợp.</td></tr>'}</tbody></table></div>
-          ${totalPages > 1 ? `<div style="padding:16px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px;"><button class="btn btn-sm btn-outline" id="btn-prev" ${currentPage === 1 ? 'disabled' : ''}>Trước</button><span style="display:flex; align-items:center; padding:0 12px; font-weight:600;">${currentPage} / ${totalPages}</span><button class="btn btn-sm btn-outline" id="btn-next" ${currentPage === totalPages ? 'disabled' : ''}>Sau</button></div>` : ''}
+        <div class="card stock-table-card">
+          <div class="table-wrap"><table><thead><tr><th style="width:40px;"><input type="checkbox" id="cb-all-stock"></th><th style="width:80px;">ID</th><th>Giá trị kho hàng</th><th style="width:120px;">Trạng thái</th><th style="width:160px;">Ngày tạo</th></tr></thead><tbody>${paginated.length ? paginated.map(i => `<tr><td><input type="checkbox" class="cb-stock" value="${i.id}"></td><td class="fw-700 text-danger-600">${i.id}</td><td><code class="stock-data-cell">${esc(i.data)}</code></td><td>${i.is_sold ? '<span class="badge badge-red">Đã bán</span>' : '<span class="badge badge-green">Còn hàng</span>'}</td><td class="text-muted text-sm">${fmtDate(i.created_at)}</td></tr>`).join('') : '<tr><td colspan="5" class="text-center text-muted" style="padding:40px;">Không tìm thấy dữ liệu phù hợp.</td></tr>'}</tbody></table></div>
+          ${totalPages > 1 ? `<div class="stock-pagination"><button class="btn btn-sm btn-outline" id="btn-prev" ${currentPage === 1 ? 'disabled' : ''}>Trước</button><span class="stock-page-info">${currentPage} / ${totalPages}</span><button class="btn btn-sm btn-outline" id="btn-next" ${currentPage === totalPages ? 'disabled' : ''}>Sau</button></div>` : ''}
         </div>
       </div>
     `;
@@ -1275,7 +1261,7 @@ async function renderAdminSettings(view) {
   ];
 
   content.innerHTML = `
-    <div class="page-header"><div class="page-title">Cài đặt hệ thống</div></div>
+    ${cuiPageHeader('Cài đặt hệ thống', 'Thiết lập hệ thống, giao diện và tính năng')}
     <div class="settings-tabs" role="tablist">
       ${tabs.map((t, i) => `<button class="settings-tab ${i === 0 ? 'active' : ''}" data-tab="${t.id}" role="tab" aria-selected="${i === 0}">${t.icon} ${t.label}</button>`).join('')}
     </div>
@@ -1862,10 +1848,7 @@ async function renderAdminBanners(view) {
       const banners = await apiFetch('/banners/admin/list');
       currentBanners = banners;
       content.innerHTML = `
-        <div class="page-header">
-          <div class="page-title">Quản lý Banners</div>
-          <button class="btn btn-primary" id="btn-add-banner">+ Thêm banner</button>
-        </div>
+        ${cuiPageHeader('Quản lý Banners', 'Điều phối banner và điểm nhấn marketing', '<button class="btn btn-primary" id="btn-add-banner"><i class="fa-solid fa-plus"></i> Thêm banner</button>')}
         <div class="card">
           <div class="table-wrap"><table>
             <thead><tr><th>Ảnh</th><th>Tiêu đề</th><th>Loại</th><th>Link</th><th>Thứ tự</th><th>Trạng thái</th><th></th></tr></thead>
@@ -2037,7 +2020,7 @@ async function renderAdminFlashSales(view) {
       const sales = await apiFetch('/flash-sales/admin/list');
       currentSales = sales;
       content.innerHTML = `
-        <div class="page-header"><div class="page-title">Flash Sales</div><button class="btn btn-primary" id="btn-add-fs">+ Thêm Flash Sale</button></div>
+        ${cuiPageHeader('Flash Sales', 'Thiết lập chiến dịch giảm giá nhanh', '<button class="btn btn-primary" id="btn-add-fs"><i class="fa-solid fa-plus"></i> Thêm Flash Sale</button>')}
         <div class="card"><div class="table-wrap"><table>
           <thead><tr><th>Sản phẩm</th><th>Gói</th><th>Giá gốc</th><th>Giá sale</th><th>Giới hạn</th><th>Đã bán</th><th>Bắt đầu</th><th>Kết thúc</th><th>Trạng thái</th><th></th></tr></thead>
           <tbody>${sales.length ? sales.map(s => `<tr>
@@ -2137,7 +2120,7 @@ async function renderAdminGiftCodes(view) {
       const codes = await apiFetch('/gift-codes/admin/list');
       currentCodes = codes;
       content.innerHTML = `
-        <div class="page-header"><div class="page-title">Gift Codes</div><button class="btn btn-primary" id="btn-add-gc">+ Thêm mã</button></div>
+        ${cuiPageHeader('Gift Codes', 'Quản lý gift code và phân phối ưu đãi', '<button class="btn btn-primary" id="btn-add-gc"><i class="fa-solid fa-plus"></i> Thêm mã</button>')}
         <div class="card"><div class="table-wrap"><table>
           <thead><tr><th>Mã</th><th>Loại</th><th>Giá trị</th><th>Đơn tối thiểu</th><th>Giảm tối đa</th><th>Đã dùng/Giới hạn</th><th>Hết hạn</th><th>Trạng thái</th><th>Ưu đãi</th><th></th></tr></thead>
           <tbody>${codes.length ? codes.map(c => `<tr>
@@ -2218,7 +2201,7 @@ async function renderAdminAffiliates(view) {
   const refresh = async () => {
     const affiliates = await apiFetch('/affiliate/admin/list');
     content.innerHTML = `
-      <div class="page-header"><div class="page-title">Affiliates</div></div>
+      ${cuiPageHeader('Affiliates', 'Theo dõi cộng tác viên và hoa hồng')}
       <div class="card"><div class="table-wrap"><table>
         <thead><tr><th>Email</th><th>Mã giới thiệu</th><th>Hoa hồng (%)</th><th>Tổng thu</th><th>Đã trả</th><th>Trạng thái</th><th></th></tr></thead>
         <tbody>${affiliates.length ? affiliates.map(a => `<tr>
@@ -2327,10 +2310,7 @@ async function renderAdminSupportPages(view) {
       const pages = await apiFetch('/support/pages');
       currentPages = pages;
       const html = `
-        <div class="page-header">
-          <div class="page-title">Quản lý trang hỗ trợ</div>
-          <button class="btn btn-primary" id="btn-add-page">+ Thêm trang</button>
-        </div>
+        ${cuiPageHeader('Quản lý trang hỗ trợ', 'Quản lý FAQ, chính sách và nội dung hỗ trợ', '<button class="btn btn-primary" id="btn-add-page"><i class="fa-solid fa-plus"></i> Thêm trang</button>')}
         <div class="table-wrap">
           <table>
             <thead>
@@ -2467,10 +2447,7 @@ async function renderAdminTickets(view) {
     try {
       const tickets = await apiFetch('/support/tickets?user_id=admin');
       const html = `
-        <div class="page-header">
-          <div class="page-title">Quản lý yêu cầu hỗ trợ</div>
-          <div class="text-muted text-sm">${tickets.length} ticket</div>
-        </div>
+        ${cuiPageHeader('Quản lý yêu cầu hỗ trợ', `Xử lý ticket và phản hồi khách hàng · ${tickets.length} ticket`)}
         <div class="table-wrap">
           <table>
             <thead>
@@ -2514,12 +2491,12 @@ async function renderAdminTicketDetail(content, ticketId) {
     const messages = data.messages || [];
 
     content.innerHTML = `
-      <div class="page-header" style="margin-bottom:16px">
+      <div class="cui-page-header" style="margin-bottom:16px">
         <div style="display:flex;align-items:center;gap:12px">
           <button class="btn btn-ghost btn-sm" id="btn-back-tickets"><i class="fa-solid fa-arrow-left"></i></button>
-          <div>
-            <div class="page-title" style="font-size:16px">${ticket.subject}</div>
-            <div class="text-muted text-sm">${ticket.ticket_number} · ${ticket.user_name || ticket.user_email}</div>
+          <div class="cui-page-header-left">
+            <div class="cui-page-title" style="font-size:18px">${ticket.subject}</div>
+            <div class="cui-page-subtitle">${ticket.ticket_number} · ${ticket.user_name || ticket.user_email}</div>
           </div>
         </div>
       </div>
@@ -2666,12 +2643,7 @@ async function renderAdminBotConfig(view) {
     ];
     const commands = Array.isArray(config.bot_commands) && config.bot_commands.length ? config.bot_commands : defaultCommands;
     content.innerHTML = `
-      <div class="page-header">
-        <div>
-          <div class="page-title">Quản lý bot</div>
-          <div class="text-sm text-muted" style="margin-top:6px;">Cấu hình bot Telegram, bot Discord và email hệ thống.</div>
-        </div>
-      </div>
+      ${cuiPageHeader('Quản lý bot', 'Cấu hình bot Telegram, bot Discord và email hệ thống')}
 
       <div class="bot-admin-layout">
         <form id="bot-config-form" class="bot-admin-form-shell">
@@ -2844,7 +2816,7 @@ async function renderAdminPayments(view) {
   const st = historyData.stats || {};
 
   content.innerHTML = `
-    <div class="page-header"><div class="page-title">Thanh toán</div></div>
+    ${cuiPageHeader('Thanh toán', 'Kiểm tra giao dịch và cấu hình thanh toán')}
 
     <!-- Tabs -->
     <div class="settings-tabs" role="tablist">
@@ -2861,7 +2833,7 @@ async function renderAdminPayments(view) {
     <!-- ═══ Tab: PayOS Config ═══ -->
     <div class="settings-section active" data-paysection="config">
       ${config.has_env_override ? `
-        <div class="card p-16 mb-16" style="border-left:3px solid var(--amber);background:var(--amber-light, #fffbeb)">
+        <div class="card cui-alert-warn">
           <div class="fw-600 mb-4"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Cấu hình từ biến môi trường</div>
           <div class="text-sm text-muted">Một số giá trị đang được ghi đè bởi biến môi trường (env vars). Các giá trị đó không thể chỉnh sửa tại đây.</div>
         </div>
@@ -2911,8 +2883,8 @@ async function renderAdminPayments(view) {
       </div>
 
       <!-- Filter -->
-      <div class="flex gap-6 mb-16 flex-wrap" id="payment-status-filters">
-        ${['', 'pending', 'paid', 'completed', 'cancelled'].map(s => `<button class="btn btn-sm ${s === '' ? 'btn-primary' : 'btn-ghost'}" data-pfilter="${s}">${s || 'Tất cả'}</button>`).join('')}
+      <div class="filter-pills" id="payment-status-filters">
+        ${['', 'pending', 'paid', 'completed', 'cancelled'].map(s => `<button class="filter-pill ${s === '' ? 'active' : ''}" data-pfilter="${s}">${s || 'Tất cả'}</button>`).join('')}
       </div>
 
       <!-- Table -->
@@ -2956,10 +2928,8 @@ async function renderAdminPayments(view) {
   // ── Payment history filter ──
   qsa('[data-pfilter]', content).forEach(btn => {
     btn.onclick = async () => {
-      qsa('[data-pfilter]', content).forEach(b => b.classList.remove('btn-primary'));
-      qsa('[data-pfilter]', content).forEach(b => b.classList.add('btn-ghost'));
-      btn.classList.remove('btn-ghost');
-      btn.classList.add('btn-primary');
+      qsa('[data-pfilter]', content).forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
       const status = btn.dataset.pfilter;
       const tableEl = qs('#payment-history-table', content);
       tableEl.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
@@ -3036,10 +3006,7 @@ async function renderAdminAnnouncements(view) {
       return `<span class="badge ${colors[t] || 'badge-gray'}">${typeLabels[t] || t}</span>`;
     };
     content.innerHTML = `
-      <div class="page-header">
-        <div class="page-title">Thông báo</div>
-        <button class="btn btn-primary" id="btn-add-ann">+ Thêm thông báo</button>
-      </div>
+      ${cuiPageHeader('Thông báo', 'Đăng và quản lý thông báo hệ thống', '<button class="btn btn-primary" id="btn-add-ann"><i class="fa-solid fa-plus"></i> Thêm thông báo</button>')}
       <div class="table-wrap"><table>
         <thead><tr><th>ID</th><th>Tiêu đề</th><th>Loại</th><th>Trạng thái</th><th>Thứ tự</th><th>Ngày tạo</th><th></th></tr></thead>
         <tbody>${items.length ? items.map(a => `<tr>
@@ -3171,19 +3138,16 @@ async function renderAdminBalance(view) {
     const activeTab = content.dataset.tab || 'users';
 
     content.innerHTML = `
-      <div class="page-header">
-        <div class="page-title">Quản lý user</div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          ${!auditData.ok ? `<span class="badge" style="background:#ef4444;color:#fff;">⚠ ${auditData.mismatches.length} bất thường</span>` : '<span class="badge" style="background:#10b981;color:#fff;">✓ Hệ thống OK</span>'}
+      ${cuiPageHeader('Quản lý user', 'Quản lý tài khoản, vai trò và số dư người dùng', `
+          ${!auditData.ok ? '<span class="badge badge-red">⚠ ' + auditData.mismatches.length + ' bất thường</span>' : '<span class="badge badge-green">✓ Hệ thống OK</span>'}
           <button class="btn btn-primary btn-sm" id="admin-create-user-btn">Thêm user</button>
-        </div>
-      </div>
+      `)}
 
-      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-        <button class="btn btn-sm ${activeTab === 'users' ? 'btn-primary' : 'btn-ghost'}" data-tab-btn="users">Người dùng</button>
-        <button class="btn btn-sm ${activeTab === 'txn' ? 'btn-primary' : 'btn-ghost'}" data-tab-btn="txn">Giao dịch</button>
-        <button class="btn btn-sm ${activeTab === 'withdraw' ? 'btn-primary' : 'btn-ghost'}" data-tab-btn="withdraw">
-          Yêu cầu rút ${pendingCount > 0 ? `<span class="badge" style="background:#ef4444;color:#fff;margin-left:6px;font-size:11px;padding:1px 6px;border-radius:10px;">${pendingCount}</span>` : ''}
+      <div class="settings-tabs" role="tablist">
+        <button class="settings-tab ${activeTab === 'users' ? 'active' : ''}" data-tab-btn="users" role="tab" aria-selected="${activeTab === 'users'}">Người dùng</button>
+        <button class="settings-tab ${activeTab === 'txn' ? 'active' : ''}" data-tab-btn="txn" role="tab" aria-selected="${activeTab === 'txn'}">Giao dịch</button>
+        <button class="settings-tab ${activeTab === 'withdraw' ? 'active' : ''}" data-tab-btn="withdraw" role="tab" aria-selected="${activeTab === 'withdraw'}">
+          Yêu cầu rút ${pendingCount > 0 ? `<span class="badge badge-red" style="margin-left:4px">${pendingCount}</span>` : ''}
         </button>
       </div>
 
@@ -3197,14 +3161,14 @@ async function renderAdminBalance(view) {
                 <td class="text-sm">${u.email}</td>
                 <td class="text-sm">${u.display_name || '—'}</td>
                 <td class="text-sm">${u.role || 'user'}</td>
-                <td class="fw-700" style="color:#10b981">${fmt(u.balance)}</td>
+                <td class="fw-700 text-success-600">${fmt(u.balance)}</td>
                 <td class="text-sm">${u.is_active ? 'Hoạt động' : 'Khóa'}</td>
                 <td>
-                  <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">
+                  <div class="tbl-actions">
                     <button class="tbl-btn tbl-view" data-edit-user='${JSON.stringify(u).replace(/'/g, '&apos;')}'>Sửa</button>
                     <button class="tbl-btn tbl-view" data-adjust-user="${u.id}" data-adjust-email="${u.email}" data-adjust-bal="${u.balance}">Số dư</button>
                     <button class="tbl-btn tbl-view" data-reset-user="${u.id}">Reset MK</button>
-                    <button class="tbl-btn" style="color:#ef4444;" data-delete-user="${u.id}">Xóa</button>
+                    <button class="tbl-btn tbl-delete" data-delete-user="${u.id}">Xóa</button>
                   </div>
                 </td>
               </tr>
@@ -3224,7 +3188,7 @@ async function renderAdminBalance(view) {
                 <td class="text-sm text-muted">${fmtDate(t.created_at)}</td>
                 <td class="text-sm">${t.user_email || t.user_id}</td>
                 <td><span class="badge">${typeLabels[t.type] || t.type}</span></td>
-                <td class="fw-700" style="color:${isPos ? '#10b981' : '#ef4444'}">${isPos ? '+' : ''}${fmt(t.amount)}</td>
+                <td class="fw-700 ${isPos ? 'text-success-600' : 'text-danger-600'}">${isPos ? '+' : ''}${fmt(t.amount)}</td>
                 <td class="text-sm">${fmt(t.balance_after)}</td>
                 <td class="text-sm text-muted">${t.description || t.reference || '—'}</td>
               </tr>`;
@@ -3242,13 +3206,13 @@ async function renderAdminBalance(view) {
               <tr id="wd-row-${w.id}">
                 <td class="text-sm text-muted">${fmtDate(w.created_at)}</td>
                 <td class="text-sm">${w.user_email || w.user_name || w.user_id}</td>
-                <td class="fw-700" style="color:#f59e0b">${fmt(w.amount)}</td>
-                <td><span class="badge" style="background:#f59e0b;color:#fff;">Chờ duyệt</span></td>
+                <td class="fw-700 text-warn-600">${fmt(w.amount)}</td>
+                <td><span class="badge badge-yellow">Chờ duyệt</span></td>
                 <td class="text-sm text-muted">${w.description || '—'}</td>
                 <td>
-                  <div style="display:flex;gap:4px;">
-                    <button class="tbl-btn" style="color:#10b981;" data-approve-wd="${w.id}" title="Duyệt">✓ Duyệt</button>
-                    <button class="tbl-btn" style="color:#ef4444;" data-reject-wd="${w.id}" title="Từ chối">✗ Từ chối</button>
+                  <div class="tbl-actions">
+                    <button class="tbl-btn tbl-success" data-approve-wd="${w.id}" title="Duyệt">✓ Duyệt</button>
+                    <button class="tbl-btn tbl-delete" data-reject-wd="${w.id}" title="Từ chối">✗ Từ chối</button>
                   </div>
                 </td>
               </tr>
@@ -3359,7 +3323,8 @@ async function renderAdminBalance(view) {
           if (el) el.style.display = t === tab ? '' : 'none';
         });
         qsa('[data-tab-btn]', content).forEach(b => {
-          b.className = `btn btn-sm ${b.dataset.tabBtn === tab ? 'btn-primary' : 'btn-ghost'}`;
+          b.classList.toggle('active', b.dataset.tabBtn === tab);
+          b.setAttribute('aria-selected', b.dataset.tabBtn === tab);
         });
       };
     });

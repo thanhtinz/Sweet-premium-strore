@@ -13,7 +13,7 @@ from api.auth_shared import (
 from db import get_db
 from db.models import AdminUser, User
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(tags=["auth"])
 
 
 @router.post("/make-admin")
