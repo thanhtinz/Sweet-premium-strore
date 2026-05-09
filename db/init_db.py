@@ -1,31 +1,55 @@
-from sqlalchemy import text
-from db import Base, engine
+from sqlalchemy import inspect, text
+
+from db import Base, DATABASE_PROVIDER, engine
 from db.models import (  # noqa: F401 — import to register models
     Category, Product, ProductPackage, StockItem,
     PackageField, Order, OrderItem, SiteSetting, AdminUser, User,
     Announcement, UploadedImage, UserBotLink
 )
+from db.schema_version import LATEST_SCHEMA_VERSION, apply_versioned_patches
 
 
-def init_db():
-    Base.metadata.create_all(bind=engine)
-    with engine.begin() as conn:
-        conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS subtotal_amount NUMERIC(12, 2)"))
-        conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12, 2)"))
-        conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(12, 2)"))
-        conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code VARCHAR(100)"))
-        conn.execute(text("ALTER TABLE user_bot_links ADD COLUMN IF NOT EXISTS platform_username VARCHAR(255)"))
-        conn.execute(text("ALTER TABLE user_bot_links ADD COLUMN IF NOT EXISTS dm_channel_id VARCHAR(255)"))
-        conn.execute(text("ALTER TABLE user_bot_links ADD COLUMN IF NOT EXISTS link_code VARCHAR(64)"))
-        conn.execute(text("ALTER TABLE user_bot_links ADD COLUMN IF NOT EXISTS link_code_expires_at TIMESTAMP WITH TIME ZONE"))
-        conn.execute(text("ALTER TABLE user_bot_links ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE"))
-        conn.execute(text("ALTER TABLE user_bot_links ADD COLUMN IF NOT EXISTS metadata_json JSON"))
-        conn.execute(text("ALTER TABLE user_bot_links ADD COLUMN IF NOT EXISTS linked_at TIMESTAMP WITH TIME ZONE"))
-        conn.execute(text("ALTER TABLE user_bot_links ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP WITH TIME ZONE"))
-        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_user_bot_links_platform_user ON user_bot_links(platform, platform_user_id)"))
-        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_user_bot_links_link_code ON user_bot_links(link_code) WHERE link_code IS NOT NULL"))
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_bot_links_user_platform ON user_bot_links(user_id, platform)"))
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_bot_links_platform_verified ON user_bot_links(platform, is_verified)"))
+def _dialect_name() -> str:
+    return engine.dialect.name
+
+
+def _has_column(inspector, table_name: str, column_name: str) -> bool:
+    return any(col["name"] == column_name for col in inspector.get_columns(table_name))
+
+
+def _has_index(inspector, table_name: str, index_name: str) -> bool:
+    return any(idx.get("name") == index_name for idx in inspector.get_indexes(table_name))
+
+
+def _add_missing_columns(conn, inspector, table_name: str, columns: list[tuple[str, str]]):
+    for column_name, ddl in columns:
+        if not _has_column(inspector, table_name, column_name):
+            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {ddl}"))
+
+
+def _ensure_indexes(conn, inspector):
+    if not _has_index(inspector, "user_bot_links", "uq_user_bot_links_platform_user"):
+        conn.execute(text("CREATE UNIQUE INDEX uq_user_bot_links_platform_user ON user_bot_links(platform, platform_user_id)"))
+
+    if not _has_index(inspector, "user_bot_links", "ix_user_bot_links_user_platform"):
+        conn.execute(text("CREATE INDEX ix_user_bot_links_user_platform ON user_bot_links(user_id, platform)"))
+
+    if not _has_index(inspector, "user_bot_links", "ix_user_bot_links_platform_verified"):
+        conn.execute(text("CREATE INDEX ix_user_bot_links_platform_verified ON user_bot_links(platform, is_verified)"))
+
+    if not _has_index(inspector, "user_bot_links", "uq_user_bot_links_link_code"):
+        if _dialect_name() == "postgresql":
+            conn.execute(text("CREATE UNIQUE INDEX uq_user_bot_links_link_code ON user_bot_links(link_code) WHERE link_code IS NOT NULL"))
+        else:
+            conn.execute(text("CREATE UNIQUE INDEX uq_user_bot_links_link_code ON user_bot_links(link_code)"))
+
+    if not _has_index(inspector, "order_items", "ix_order_items_order_id"):
+        conn.execute(text("CREATE INDEX ix_order_items_order_id ON order_items(order_id)"))
+
+
+def _ensure_order_items_table(conn):
+    dialect = _dialect_name()
+    if dialect == "postgresql":
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS order_items (
                 id SERIAL PRIMARY KEY,
@@ -43,4 +67,64 @@ def init_db():
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
         """))
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_order_items_order_id ON order_items(order_id)"))
+    elif dialect == "mysql":
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS order_items (
+                id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                order_id INTEGER NOT NULL,
+                package_id INTEGER NULL,
+                product_name_snapshot VARCHAR(255),
+                package_name_snapshot VARCHAR(255),
+                quantity INTEGER DEFAULT 1,
+                unit_price NUMERIC(12, 2) NOT NULL,
+                line_total NUMERIC(12, 2) NOT NULL,
+                custom_fields_data JSON,
+                delivery_data TEXT,
+                status VARCHAR(20) DEFAULT 'pending',
+                created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+                CONSTRAINT fk_order_items_package FOREIGN KEY (package_id) REFERENCES product_packages(id) ON DELETE SET NULL
+            )
+        """))
+    else:
+        raise RuntimeError(f"Unsupported SQL dialect for init_db: {dialect} (provider={DATABASE_PROVIDER})")
+
+
+def _patch_v1(conn):
+    inspector = inspect(conn)
+    _add_missing_columns(conn, inspector, "orders", [
+        ("subtotal_amount", "subtotal_amount NUMERIC(12, 2)"),
+        ("discount_amount", "discount_amount NUMERIC(12, 2)"),
+        ("tax_amount", "tax_amount NUMERIC(12, 2)"),
+        ("coupon_code", "coupon_code VARCHAR(100)"),
+    ])
+
+
+def _patch_v2(conn):
+    inspector = inspect(conn)
+    timestamp_type = "TIMESTAMP WITH TIME ZONE" if _dialect_name() == "postgresql" else "TIMESTAMP NULL"
+    json_type = "JSON"
+    _add_missing_columns(conn, inspector, "user_bot_links", [
+        ("platform_username", "platform_username VARCHAR(255)"),
+        ("dm_channel_id", "dm_channel_id VARCHAR(255)"),
+        ("link_code", "link_code VARCHAR(64)"),
+        ("link_code_expires_at", f"link_code_expires_at {timestamp_type}"),
+        ("is_verified", "is_verified BOOLEAN DEFAULT FALSE"),
+        ("metadata_json", f"metadata_json {json_type}"),
+        ("linked_at", f"linked_at {timestamp_type}"),
+        ("last_seen_at", f"last_seen_at {timestamp_type}"),
+    ])
+    _ensure_order_items_table(conn)
+    _ensure_indexes(conn, inspect(conn))
+
+
+def init_db():
+    Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        apply_versioned_patches(conn, [
+            (1, _patch_v1),
+            (2, _patch_v2),
+        ])
+        if LATEST_SCHEMA_VERSION < 2:
+            raise RuntimeError("LATEST_SCHEMA_VERSION is behind applied patch definitions")

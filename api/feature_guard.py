@@ -9,7 +9,7 @@ Usage:
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 from db import get_db
-from db.models import SiteConfig
+from db.repositories import SiteConfigRepository
 import json
 
 _cache = {"data": {}, "ts": 0}
@@ -21,10 +21,10 @@ def _load_features(db: Session) -> dict:
     now = time.time()
     if now - _cache["ts"] < 10 and _cache["data"]:
         return _cache["data"]
-    row = db.query(SiteConfig).filter(SiteConfig.key == "settings_features").first()
-    if row and row.value:
+    row = SiteConfigRepository(db).get_value("settings_features")
+    if row:
         try:
-            _cache["data"] = json.loads(row.value)
+            _cache["data"] = json.loads(row)
         except (json.JSONDecodeError, TypeError):
             _cache["data"] = {}
     else:

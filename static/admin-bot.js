@@ -71,12 +71,17 @@ async function renderAdminBotConfig(view) {
             <div class="form-group">
               <label class="form-label">Bot Token</label>
               <input type="text" class="form-input" id="discord_token" value="${config.discord_token || ''}">
-              <div class="form-hint">Tạo bot trong <strong>Discord Developer Portal</strong></div>
+              <div class="form-hint">Tạo bot trong <strong>Discord Developer Portal</strong>. Flow chính là user DM bot.</div>
             </div>
             <div class="form-group">
-              <label class="form-label">Discord Invite Link</label>
-              <input type="text" class="form-input" id="discord_invite" value="${config.discord_invite || ''}" placeholder="https://discord.gg/... hoặc link invite bot/server">
-              <div class="form-hint">Dùng để mở bot/server Discord cho user. Flow chính hiện là DM bot, không phải support channel.</div>
+              <label class="form-label">Discord Open Link</label>
+              <input type="text" class="form-input" id="discord_invite" value="${config.discord_invite || ''}" placeholder="https://discord.com/... hoặc deep link mở bot/server">
+              <div class="form-hint">Link phụ để user mở Discord nhanh. Liên kết chính vẫn là DM <code>/link CODE</code>, OAuth auto-link hoặc nhập UID thủ công.</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Discord DM Hint</label>
+              <textarea class="form-textarea" id="discord_dm_hint" rows="2" placeholder="Mở bot Discord, gửi /link CODE trong DM hoặc đăng nhập bằng Discord để auto-link.">${config.discord_dm_hint || ''}</textarea>
+              <div class="form-hint">Nội dung gợi ý hiển thị ở profile người dùng.</div>
             </div>
             <div class="form-group">
               <label class="form-label">Legacy Admin Channel ID</label>
@@ -145,6 +150,7 @@ async function renderAdminBotConfig(view) {
             discord_token: qs('#discord_token').value,
             discord_admin_id: qs('#discord_channel').value,
             discord_invite: qs('#discord_invite').value,
+            discord_dm_hint: qs('#discord_dm_hint').value,
             smtp_server: qs('#smtp_server').value,
             smtp_port: qs('#smtp_port').value,
             smtp_user: qs('#smtp_user').value,

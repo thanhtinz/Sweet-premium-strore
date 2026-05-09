@@ -8,6 +8,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 from db import SessionLocal
 from api.bot_links import build_bot_response, upsert_platform_identity
 from bot.config import DISCORD_BOT_TOKEN, TELEGRAM_BOT_TOKEN
+from bot.discord_bot import handle_discord_dm, sync_discord_dm_identity
 
 
 logging.basicConfig(level=logging.INFO)
@@ -38,19 +39,13 @@ async def _run_discord_bot():
             return
         if message.guild is not None:
             return
-        db = SessionLocal()
-        try:
-            upsert_platform_identity(
-                db,
-                platform="discord",
-                platform_user_id=str(message.author.id),
-                platform_username=_discord_username(message.author),
-                dm_channel_id=str(message.channel.id),
-                metadata={"source": "discord_dm"},
-            )
-            reply = build_bot_response(db, "discord", str(message.author.id), message.content or "")
-        finally:
-            db.close()
+        sync_discord_dm_identity(
+            str(message.author.id),
+            platform_username=_discord_username(message.author),
+            dm_channel_id=str(message.channel.id),
+            metadata={"source": "discord_dm"},
+        )
+        reply = handle_discord_dm(str(message.author.id), message.content or "")
         if reply:
             await message.channel.send(reply)
 

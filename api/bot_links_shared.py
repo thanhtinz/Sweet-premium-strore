@@ -1,0 +1,116 @@
+from datetime import datetime, timezone
+from typing import Optional
+
+from sqlalchemy.orm import Session
+
+from db.models import Order, User, UserBotLink
+from db.repositories import SiteConfigRepository, UserBotLinkRepository
+
+SUPPORTED_BOT_PLATFORMS = ("telegram", "discord")
+BOT_COMMANDS = [
+    {"command": "/start", "description": "Chào mừng và hướng dẫn liên kết tài khoản"},
+    {"command": "/help", "description": "Xem danh sách lệnh hỗ trợ"},
+    {"command": "/link CODE", "description": "Liên kết bot với tài khoản cửa hàng"},
+    {"command": "/status", "description": "Xem trạng thái liên kết bot hiện tại"},
+    {"command": "/account", "description": "Xem thông tin tài khoản và số dư"},
+    {"command": "/orders", "description": "Xem các đơn hàng gần đây"},
+    {"command": "/support", "description": "Xem hướng dẫn liên hệ hỗ trợ"},
+    {"command": "/unlink", "description": "Gỡ liên kết bot khỏi tài khoản hiện tại"},
+]
+
+
+def now_utc() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def normalize_platform(platform: str) -> str:
+    value = (platform or "").strip().lower()
+    if value not in SUPPORTED_BOT_PLATFORMS:
+        raise ValueError("Unsupported platform")
+    return value
+
+
+def load_bot_config(db: Session) -> dict:
+    return SiteConfigRepository(db).get_json("bot_smtp_config", default={}) or {}
+
+
+def get_bot_public_links(db: Session) -> dict:
+    cfg = load_bot_config(db)
+    return {
+        "discord_invite": cfg.get("discord_invite", ""),
+        "telegram_bot_username": cfg.get("telegram_bot_username", ""),
+        "telegram_user_welcome": cfg.get("telegram_user_welcome", ""),
+    }
+
+
+def get_bot_commands() -> list[dict]:
+    return BOT_COMMANDS
+
+
+def get_user_bot_link(db: Session, user_id: str, platform: str) -> Optional[UserBotLink]:
+    platform = normalize_platform(platform)
+    return UserBotLinkRepository(db).get_by_user_and_platform(str(user_id), platform)
+
+
+def serialize_platform_link(item: Optional[UserBotLink]) -> dict:
+    active_code = bool(item and item.link_code and item.link_code_expires_at and item.link_code_expires_at >= now_utc())
+    return {
+        "linked": bool(item and item.is_verified and item.platform_user_id),
+        "platform_user_id": item.platform_user_id if item and item.is_verified else "",
+        "platform_username": item.platform_username if item else "",
+        "dm_channel_id": item.dm_channel_id if item else "",
+        "link_code": item.link_code if active_code else "",
+        "has_active_code": active_code,
+        "link_code_expires_at": item.link_code_expires_at.isoformat() if item and item.link_code_expires_at else None,
+        "linked_at": item.linked_at.isoformat() if item and item.linked_at else None,
+        "last_seen_at": item.last_seen_at.isoformat() if item and item.last_seen_at else None,
+    }
+
+
+def get_user_bot_links_summary(db: Session, user_id: str) -> dict:
+    items = UserBotLinkRepository(db).list_by_user(str(user_id))
+    by_platform = {item.platform: item for item in items}
+    public_links = get_bot_public_links(db)
+    result = {
+        "commands": get_bot_commands(),
+        "discord_invite": public_links["discord_invite"],
+        "telegram_bot_username": public_links["telegram_bot_username"],
+        "telegram_user_welcome": public_links["telegram_user_welcome"],
+        "platforms": {},
+    }
+    for platform in SUPPORTED_BOT_PLATFORMS:
+        result["platforms"][platform] = serialize_platform_link(by_platform.get(platform))
+    return result
+
+
+def get_platform_link_status(db: Session, user_id: str, platform: str) -> dict:
+    item = get_user_bot_link(db, user_id, platform)
+    return {"platform": platform, **serialize_platform_link(item)}
+
+
+def resolve_platform_target(db: Session, user_id: str, platform: str) -> Optional[str]:
+    item = get_user_bot_link(db, user_id, platform)
+    if not item or not item.is_verified:
+        return None
+    return item.dm_channel_id or item.platform_user_id
+
+
+def get_bot_user_by_platform(db: Session, platform: str, platform_user_id: str) -> Optional[User]:
+    platform = normalize_platform(platform)
+    item = UserBotLinkRepository(db).get_by_platform_identity(platform, str(platform_user_id))
+    if not item or not item.is_verified or not item.user_id:
+        return None
+    return db.query(User).filter(User.id == int(item.user_id)).first()
+
+
+def get_recent_orders_summary(db: Session, user_id: str, limit: int = 5) -> list[dict]:
+    orders = db.query(Order).filter(Order.user_id == str(user_id)).order_by(Order.created_at.desc()).limit(limit).all()
+    return [
+        {
+            "order_code": order.order_code,
+            "status": order.status,
+            "total_amount": float(order.total_amount or 0),
+            "created_at": order.created_at.isoformat() if order.created_at else None,
+        }
+        for order in orders
+    ]

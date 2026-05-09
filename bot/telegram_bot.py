@@ -1,5 +1,5 @@
-import requests
-from db import SessionLocal
+import httpx
+from db import session_scope
 from api.bot_links import build_bot_response
 from .config import TELEGRAM_BOT_TOKEN, TELEGRAM_ADMIN_CHAT_ID
 
@@ -16,15 +16,12 @@ def send_telegram_message(message: str, chat_id: str = TELEGRAM_ADMIN_CHAT_ID):
     }
     
     try:
-        response = requests.post(url, json=payload, timeout=10)
+        response = httpx.post(url, json=payload, timeout=10)
         return response.status_code == 200
     except Exception:
         return False
 
 
 def handle_telegram_dm(platform_user_id: str, text: str) -> str:
-    db = SessionLocal()
-    try:
+    with session_scope() as db:
         return build_bot_response(db, "telegram", platform_user_id, text)
-    finally:
-        db.close()

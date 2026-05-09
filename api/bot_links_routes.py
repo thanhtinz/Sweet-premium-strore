@@ -35,7 +35,7 @@ def create_platform_link_code(platform: str, db: Session = Depends(get_db), curr
 
 @router.post("/{platform}/manual")
 def manual_link_platform(platform: str, data: dict, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    platform_user_id = str(data.get("platform_user_id") or "").strip()
+    platform_user_id = str(data.get("platform_user_id") or data.get("discord_user_id") or "").strip()
     if not platform_user_id:
         raise HTTPException(status_code=400, detail="platform_user_id required")
     try:

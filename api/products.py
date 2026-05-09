@@ -1,213 +1,27 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, field_validator
-from sqlalchemy.orm import Session, joinedload
-from typing import Optional, List
-from db import get_db
-from db.models import Product, ProductPackage, PackageField, StockItem, FlashSale, Review
-from datetime import datetime, timezone
+from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
+from sqlalchemy.orm import Session, joinedload
+
 from api.auth import get_current_admin
-import re
+from api.products_shared import (
+    FieldCreate,
+    FieldUpdate,
+    PackageCreate,
+    PackageUpdate,
+    ProductCreate,
+    ProductUpdate,
+    pkg_to_dict,
+    product_to_dict,
+    slugify,
+)
+from db import get_db
+from db.models import PackageField, Product, ProductPackage, Review
 
 router = APIRouter(prefix="/products", tags=["products"])
 
-
-def slugify(text: str) -> str:
-    text = text.lower().strip()
-    text = re.sub(r'[^\w\s-]', '', text)
-    text = re.sub(r'[-\s]+', '-', text)
-    return text
-
-
-class ProductCreate(BaseModel):
-    name: str
-    slug: Optional[str] = None
-    category_id: Optional[int] = None
-    description: Optional[str] = None
-    notes: Optional[str] = None
-    image_url: Optional[str] = None
-    is_featured: bool = False
-    is_active: bool = True
-    sort_order: int = 0
-
-
-class ProductUpdate(BaseModel):
-    name: Optional[str] = None
-    slug: Optional[str] = None
-    category_id: Optional[int] = None
-    description: Optional[str] = None
-    notes: Optional[str] = None
-    image_url: Optional[str] = None
-    is_featured: Optional[bool] = None
-    is_active: Optional[bool] = None
-    sort_order: Optional[int] = None
-
-
-class PackageCreate(BaseModel):
-    name: str
-    price: float
-    original_price: Optional[float] = None
-    description: Optional[str] = None
-    notes: Optional[str] = None
-    delivery_type: str = "manual"
-    is_stock_managed: bool = False
-    stock_quantity: int = 0
-    sort_order: int = 0
-    is_active: bool = True
-
-    @field_validator("price")
-    @classmethod
-    def price_positive(cls, v):
-        if v < 0:
-            raise ValueError("Price must be >= 0")
-        return v
-
-    @field_validator("delivery_type")
-    @classmethod
-    def valid_delivery(cls, v):
-        if v not in ("manual", "auto"):
-            raise ValueError("delivery_type must be 'manual' or 'auto'")
-        return v
-
-    @field_validator("stock_quantity")
-    @classmethod
-    def stock_non_negative(cls, v):
-        if v < 0:
-            raise ValueError("stock_quantity must be >= 0")
-        return v
-
-
-class PackageUpdate(BaseModel):
-    name: Optional[str] = None
-    price: Optional[float] = None
-    original_price: Optional[float] = None
-    description: Optional[str] = None
-    notes: Optional[str] = None
-    delivery_type: Optional[str] = None
-    is_stock_managed: Optional[bool] = None
-    stock_quantity: Optional[int] = None
-    sort_order: Optional[int] = None
-    is_active: Optional[bool] = None
-
-
-class FieldCreate(BaseModel):
-    field_name: str
-    field_type: str = "text"
-    is_required: bool = True
-    options: Optional[str] = None
-    sort_order: int = 0
-
-
-class FieldUpdate(BaseModel):
-    field_name: Optional[str] = None
-    field_type: Optional[str] = None
-    is_required: Optional[bool] = None
-    options: Optional[str] = None
-    sort_order: Optional[int] = None
-
-
-def pkg_to_dict(pkg: ProductPackage, db: Session = None) -> dict:
-    stock_count = 0
-    flash_sale = None
-    if db:
-        stock_count = db.query(StockItem).filter(
-            StockItem.package_id == pkg.id,
-            StockItem.is_sold == False
-        ).count()
-        now = datetime.now(timezone.utc)
-        fs = (
-            db.query(FlashSale)
-            .filter(
-                FlashSale.package_id == pkg.id,
-                FlashSale.is_active == True,
-                FlashSale.starts_at <= now,
-                FlashSale.ends_at > now,
-            )
-            .first()
-        )
-        if fs and (fs.quantity_limit == 0 or fs.quantity_sold < fs.quantity_limit):
-            flash_sale = {
-                "id": fs.id,
-                "sale_price": float(fs.sale_price),
-                "ends_at": fs.ends_at.isoformat() if fs.ends_at else None,
-                "quantity_limit": fs.quantity_limit,
-                "quantity_sold": fs.quantity_sold,
-            }
-    return {
-        "id": pkg.id,
-        "product_id": pkg.product_id,
-        "name": pkg.name,
-        "price": float(pkg.price),
-        "original_price": float(pkg.original_price) if pkg.original_price else None,
-        "description": pkg.description,
-        "notes": pkg.notes,
-        "delivery_type": pkg.delivery_type,
-        "is_stock_managed": pkg.is_stock_managed if pkg.is_stock_managed else False,
-        "stock_quantity": pkg.stock_quantity if pkg.stock_quantity else 0,
-        "sort_order": pkg.sort_order,
-        "is_active": pkg.is_active,
-        "stock_count": stock_count,
-        "flash_sale": flash_sale,
-        "fields": [
-            {
-                "id": f.id,
-                "field_name": f.field_name,
-                "field_type": f.field_type,
-                "is_required": f.is_required,
-                "options": f.options,
-                "sort_order": f.sort_order,
-            }
-            for f in sorted(pkg.fields, key=lambda x: x.sort_order)
-        ],
-    }
-
-
-def product_to_dict(p: Product, include_packages=True, db=None) -> dict:
-    # Compute review stats
-    visible_reviews = [r for r in p.reviews if r.is_visible] if p.reviews else []
-    review_count = len(visible_reviews)
-    avg_rating = round(sum(r.rating for r in visible_reviews) / review_count, 1) if review_count else 0
-
-    # Compute sold count
-    sold_count = 0
-    if db:
-        from db.models import Order
-        sold = db.query(func.sum(Order.quantity)).join(
-            ProductPackage, Order.package_id == ProductPackage.id
-        ).filter(
-            ProductPackage.product_id == p.id,
-            Order.status.in_(["paid", "completed"]),
-        ).scalar()
-        sold_count = sold or 0
-
-    d = {
-        "id": p.id,
-        "name": p.name,
-        "slug": p.slug,
-        "category_id": p.category_id,
-        "category_name": p.category.name if p.category else None,
-        "category_slug": p.category.slug if p.category else None,
-        "category_icon": p.category.icon_url if p.category else None,
-        "description": p.description,
-        "notes": p.notes,
-        "image_url": p.image_url,
-        "is_featured": p.is_featured,
-        "is_active": p.is_active,
-        "sort_order": p.sort_order,
-        "created_at": p.created_at.isoformat() if p.created_at else None,
-        "avg_rating": avg_rating,
-        "review_count": review_count,
-        "sold_count": sold_count,
-    }
-    if include_packages:
-        active_pkgs = [pkg for pkg in p.packages if pkg.is_active]
-        d["packages"] = [pkg_to_dict(pkg, db=db) for pkg in sorted(active_pkgs, key=lambda x: x.sort_order)]
-        d["min_price"] = min((float(pkg.price) for pkg in active_pkgs), default=None)
-        d["max_price"] = max((float(pkg.price) for pkg in active_pkgs), default=None)
-    return d
-
-
-# ── Public endpoints ───────────────────────────────────────────────────────────
 
 @router.get("/")
 def list_products(
@@ -217,7 +31,7 @@ def list_products(
     search: Optional[str] = None,
     price_min: Optional[float] = None,
     price_max: Optional[float] = None,
-    sort_by: Optional[str] = None,  # price_asc, price_desc, newest, name
+    sort_by: Optional[str] = None,
     page: int = 1,
     limit: int = 20,
     db: Session = Depends(get_db)
@@ -229,7 +43,6 @@ def list_products(
         from db.models import Category
         cat = db.query(Category).filter(Category.slug == category_slug).first()
         if cat:
-            # Include children category IDs
             child_ids = [c.id for c in db.query(Category).filter(Category.parent_id == cat.id).all()]
             all_ids = [cat.id] + child_ids
             q = q.filter(Product.category_id.in_(all_ids))
@@ -238,7 +51,6 @@ def list_products(
     if search:
         q = q.filter(Product.name.ilike(f"%{search}%"))
     if price_min is not None or price_max is not None:
-        from sqlalchemy import func
         pkg_sub = db.query(
             ProductPackage.product_id,
             func.min(ProductPackage.price).label("min_price")
@@ -250,14 +62,12 @@ def list_products(
             q = q.filter(pkg_sub.c.min_price <= price_max)
     total = q.count()
     if sort_by == "price_asc":
-        from sqlalchemy import func
         pkg_sub2 = db.query(
             ProductPackage.product_id,
             func.min(ProductPackage.price).label("min_p")
         ).filter(ProductPackage.is_active == True).group_by(ProductPackage.product_id).subquery()
         q = q.outerjoin(pkg_sub2, Product.id == pkg_sub2.c.product_id).order_by(pkg_sub2.c.min_p.asc())
     elif sort_by == "price_desc":
-        from sqlalchemy import func
         pkg_sub2 = db.query(
             ProductPackage.product_id,
             func.min(ProductPackage.price).label("min_p")
@@ -270,12 +80,7 @@ def list_products(
     else:
         q = q.order_by(Product.sort_order, Product.id)
     products = q.offset((page - 1) * limit).limit(limit).all()
-    return {
-        "total": total,
-        "page": page,
-        "limit": limit,
-        "items": [product_to_dict(p, db=db) for p in products]
-    }
+    return {"total": total, "page": page, "limit": limit, "items": [product_to_dict(p, db=db) for p in products]}
 
 
 @router.get("/featured")
@@ -293,58 +98,35 @@ def get_product(slug: str, db: Session = Depends(get_db)):
     if not p:
         raise HTTPException(status_code=404, detail="Product not found")
     d = product_to_dict(p, db=db)
-
-    # Review stats
-    stats = db.query(
-        func.avg(Review.rating),
-        func.count(Review.id),
-    ).filter(Review.product_id == p.id, Review.is_visible == True).first()
+    stats = db.query(func.avg(Review.rating), func.count(Review.id)).filter(Review.product_id == p.id, Review.is_visible == True).first()
     d["review_avg"] = round(float(stats[0]), 1) if stats[0] else 0
     d["review_count"] = stats[1] or 0
-
-    # Sold count
     from db.models import Order
-    sold = db.query(func.sum(Order.quantity)).join(
-        ProductPackage, Order.package_id == ProductPackage.id
-    ).filter(
+    sold = db.query(func.sum(Order.quantity)).join(ProductPackage, Order.package_id == ProductPackage.id).filter(
         ProductPackage.product_id == p.id,
         Order.status.in_(["paid", "completed"]),
     ).scalar()
     d["sold_count"] = sold or 0
-
-    # Related products (same parent category, up to 6)
     related = []
     if p.category_id:
         from db.models import Category
         cat = db.query(Category).filter(Category.id == p.category_id).first()
-        # Find sibling category IDs (same parent)
         if cat and cat.parent_id:
             sibling_ids = [c.id for c in db.query(Category).filter(Category.parent_id == cat.parent_id).all()]
         elif cat:
-            # This IS a parent category — include its children
             sibling_ids = [c.id for c in db.query(Category).filter(Category.parent_id == cat.id).all()]
             sibling_ids.append(cat.id)
         else:
             sibling_ids = [p.category_id]
-
-        rels = (
-            db.query(Product)
-            .filter(
-                Product.category_id.in_(sibling_ids),
-                Product.id != p.id,
-                Product.is_active == True,
-            )
-            .order_by(Product.sort_order)
-            .limit(6)
-            .all()
-        )
+        rels = db.query(Product).filter(
+            Product.category_id.in_(sibling_ids),
+            Product.id != p.id,
+            Product.is_active == True,
+        ).order_by(Product.sort_order).limit(6).all()
         related = [product_to_dict(r, include_packages=True, db=db) for r in rels]
     d["related"] = related
-
     return d
 
-
-# ── Admin endpoints ────────────────────────────────────────────────────────────
 
 @router.get("/admin/all", dependencies=[Depends(get_current_admin)])
 def admin_list_products(db: Session = Depends(get_db)):
@@ -388,32 +170,23 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     p = db.query(Product).filter(Product.id == product_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="Product not found")
-        
-    from db.models import Order, ProductPackage
-    # Check if any package of this product has orders
+    from db.models import Order
     pkg_ids = [pkg.id for pkg in p.packages]
     has_orders = False
     if pkg_ids:
         has_orders = db.query(Order).filter(Order.package_id.in_(pkg_ids)).first() is not None
-        
     if has_orders:
-        # Soft delete
         p.is_active = False
         p.name = f"[Đã xóa] {p.name}"
         p.slug = f"deleted-{p.slug}-{int(datetime.now().timestamp())}"
-        # Disable all packages
         for pkg in p.packages:
             pkg.is_active = False
         db.commit()
     else:
-        # Hard delete
         db.delete(p)
         db.commit()
-        
     return {"ok": True}
 
-
-# ── Packages ───────────────────────────────────────────────────────────────────
 
 @router.post("/{product_id}/packages", dependencies=[Depends(get_current_admin)])
 def add_package(product_id: int, data: PackageCreate, db: Session = Depends(get_db)):
@@ -449,8 +222,6 @@ def delete_package(pkg_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"ok": True}
 
-
-# ── Package fields ─────────────────────────────────────────────────────────────
 
 @router.post("/packages/{pkg_id}/fields", dependencies=[Depends(get_current_admin)])
 def add_field(pkg_id: int, data: FieldCreate, db: Session = Depends(get_db)):
@@ -492,3 +263,6 @@ def delete_field(field_id: int, db: Session = Depends(get_db)):
     db.delete(field)
     db.commit()
     return {"ok": True}
+
+
+__all__ = ["router", "slugify", "pkg_to_dict", "product_to_dict"]

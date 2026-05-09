@@ -205,28 +205,41 @@ async function renderProfile(view) {
     view.appendChild(securityCard);
 
     let botLinks = null;
+    let authCfg = {};
     try { botLinks = await apiFetch('/bot-links'); } catch (e) {}
+    try { authCfg = await apiFetch('/auth/config'); } catch (e) {}
     if (botLinks) {
       const discord = botLinks.platforms?.discord || {};
       const telegram = botLinks.platforms?.telegram || {};
       const commands = Array.isArray(botLinks.commands) ? botLinks.commands : [];
+      const discordOauthEnabled = !!authCfg.discord_enabled;
+      const formatBotDate = (value) => value ? fmtDate(value) : '—';
+      const formatExpiryText = (value) => value ? `Hết hạn: ${fmtDate(value)}` : 'Chưa có mã đang hoạt động';
       const botCard = el('div', 'info-card');
       botCard.innerHTML = `
         <div class="info-card-head"><div class="info-card-title"><i class="fa-solid fa-robot"></i> Liên kết bot hỗ trợ</div></div>
         <div class="info-card-body">
           <div class="mb-16">
-            <div class="fw-600 mb-8">Discord</div>
+            <div class="fw-600 mb-8">Discord DM Bot</div>
             <div class="text-sm text-muted mb-8">${discord.linked ? `Đã liên kết UID: ${esc(discord.platform_user_id || '')}` : 'Chưa liên kết Discord.'}</div>
-            <div class="text-sm text-muted mb-8">${discord.platform_username ? `Username: ${esc(discord.platform_username)}` : ''}${discord.last_seen_at ? `${discord.platform_username ? '<br>' : ''}Hoạt động gần nhất: ${esc(discord.last_seen_at)}` : ''}</div>
+            <div class="text-sm text-muted mb-8">${discord.platform_username ? `Username: ${esc(discord.platform_username)}` : ''}${discord.last_seen_at ? `${discord.platform_username ? '<br>' : ''}Hoạt động gần nhất: ${esc(formatBotDate(discord.last_seen_at))}` : ''}${discord.linked_at ? `${(discord.platform_username || discord.last_seen_at) ? '<br>' : ''}Liên kết lúc: ${esc(formatBotDate(discord.linked_at))}` : ''}</div>
+            <div style="padding:12px;background:var(--bg-page);border:1px dashed var(--border-dark);border-radius:var(--radius-xs);margin-bottom:12px;">
+              <div class="fw-600 mb-6">3 cách liên kết Discord</div>
+              <div class="text-sm text-muted">1. Tạo mã rồi DM bot: <code>/link CODE</code></div>
+              <div class="text-sm text-muted">2. Đăng nhập bằng Discord để auto-link</div>
+              <div class="text-sm text-muted">3. Nhập Discord UID thủ công nếu cần fallback</div>
+            </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button class="btn btn-outline btn-sm" id="discord-code-btn">Tạo mã /link</button>
-              <button class="btn btn-ghost btn-sm" id="discord-manual-btn">Nhập UID Discord</button>
+              <button class="btn btn-ghost btn-sm" id="discord-copy-code-btn">Copy mã</button>
+              <button class="btn btn-ghost btn-sm" id="discord-manual-btn">Nhập Discord UID</button>
               <button class="btn btn-ghost btn-sm" id="discord-status-btn">Xem trạng thái</button>
               <button class="btn btn-ghost btn-sm" id="discord-unlink-btn">Gỡ liên kết</button>
-              ${botLinks.discord_invite ? `<a class="btn btn-ghost btn-sm" href="${esc(botLinks.discord_invite)}" target="_blank" rel="noopener">Mở bot Discord</a>` : ''}
-              <a class="btn btn-ghost btn-sm" href="/api/auth/discord">Đăng nhập bằng Discord</a>
+              ${botLinks.discord_invite ? `<a class="btn btn-ghost btn-sm" href="${esc(botLinks.discord_invite)}" target="_blank" rel="noopener">Mở Discord bot</a>` : ''}
+              ${discordOauthEnabled ? `<a class="btn btn-ghost btn-sm" href="/api/auth/discord">Đăng nhập bằng Discord</a>` : ''}
             </div>
-            <div class="text-sm text-muted mt-8" id="discord-link-code">${discord.link_code ? `Dùng trong DM: /link ${esc(discord.link_code)}` : ''}</div>
+            <div class="text-sm text-muted mt-8" id="discord-link-code">${discord.link_code ? `Dùng trong DM: /link ${esc(discord.link_code)}` : 'Tạo mã rồi gửi trong DM với bot Discord.'}</div>
+            <div class="text-xs text-muted mt-4" id="discord-link-expiry">${formatExpiryText(discord.link_code_expires_at)}</div>
           </div>
           <div class="mb-16">
             <div class="fw-600 mb-8">Telegram</div>
@@ -256,9 +269,27 @@ async function renderProfile(view) {
         try {
           const res = await apiFetch(`/bot-links/${platform}/code`, { method: 'POST' });
           toast(`Mã liên kết ${platform} đã tạo`, 'success');
-          if (platform === 'discord') qs('#discord-link-code', botCard).textContent = `Dùng trong DM: /link ${res.link_code}`;
+          if (platform === 'discord') {
+            qs('#discord-link-code', botCard).textContent = `Dùng trong DM: /link ${res.link_code}`;
+            const expiryEl = qs('#discord-link-expiry', botCard);
+            if (expiryEl) expiryEl.textContent = formatExpiryText(res.expires_at);
+          }
           if (platform === 'telegram') qs('#telegram-link-code', botCard).textContent = `Dùng trong chat bot: /link ${res.link_code}`;
         } catch (err) { toast(err.message, 'error'); }
+      };
+
+      const copyDiscordCode = async () => {
+        const code = discord.link_code || qs('#discord-link-code', botCard)?.textContent?.replace('Dùng trong DM: /link ', '').trim();
+        if (!code) {
+          toast('Chưa có mã Discord để copy', 'info');
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(`/link ${code}`);
+          toast('Đã copy mã Discord', 'success');
+        } catch (_) {
+          toast('Không thể copy tự động. Hãy copy thủ công.', 'error');
+        }
       };
 
       const showStatus = async (platform) => {
@@ -288,6 +319,7 @@ async function renderProfile(view) {
       };
 
       qs('#discord-code-btn', botCard).onclick = () => createCode('discord');
+      qs('#discord-copy-code-btn', botCard).onclick = () => copyDiscordCode();
       qs('#telegram-code-btn', botCard).onclick = () => createCode('telegram');
       qs('#discord-status-btn', botCard).onclick = () => showStatus('discord');
       qs('#telegram-status-btn', botCard).onclick = () => showStatus('telegram');
@@ -297,7 +329,7 @@ async function renderProfile(view) {
         openModal(`
           <h3 class="modal-title mb-16">Liên kết Discord bằng UID</h3>
           <div class="form-group"><label class="form-label">Discord UID</label><input type="text" class="form-input" id="discord-manual-uid" placeholder="Nhập Discord user ID" /></div>
-          <div class="text-sm text-muted mb-12">Bật Developer Mode trong Discord, bấm chuột phải vào profile của bạn và copy User ID.</div>
+          <div class="text-sm text-muted mb-12">Bật Developer Mode trong Discord, mở profile của bạn, copy User ID rồi nhập vào đây nếu không dùng OAuth hoặc mã /link.</div>
           <div id="discord-manual-err" class="form-error mb-12" style="display:none"></div>
           <button class="btn btn-primary btn-full" id="discord-manual-submit">Liên kết</button>
         `);
@@ -305,7 +337,7 @@ async function renderProfile(view) {
           try {
             await apiFetch('/bot-links/discord/manual', {
               method: 'POST',
-              body: JSON.stringify({ platform_user_id: qs('#discord-manual-uid').value.trim() })
+              body: JSON.stringify({ discord_user_id: qs('#discord-manual-uid').value.trim() })
             });
             closeModal();
             toast('Đã liên kết Discord UID', 'success');

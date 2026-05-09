@@ -11,8 +11,9 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 
 from db.init_db import init_db
-from db.models import BlogPost, Product, SiteConfig, SiteSetting
-from db import SessionLocal
+from db.models import BlogPost, Product
+from db.repositories import SiteConfigRepository
+from db import session_scope
 from api.auth import router as auth_router
 from api.categories import router as cat_router
 from api.products import router as prod_router
@@ -46,16 +47,18 @@ def get_file_hash(filepath: str) -> str:
 
 def load_public_settings(db) -> dict:
     public_keys = ["site_name", "site_logo", "site_description", "site_banner", "currency", "tax_rate", "home_categories"]
-    settings = db.query(SiteSetting).filter(SiteSetting.key.in_(public_keys)).all()
-    result = {s.key: s.value for s in settings}
+    repo = SiteConfigRepository(db)
+    result = {}
+    for key in public_keys:
+        value = repo.get_value(key)
+        if value is not None:
+            result[key] = value
     config_keys = ["settings_general", "settings_images", "settings_features", "settings_appearance"]
-    rows = db.query(SiteConfig).filter(SiteConfig.key.in_(config_keys)).all()
-    for row in rows:
-        try:
-            data = json.loads(row.value) if row.value else {}
-        except (json.JSONDecodeError, TypeError):
+    rows = repo.get_many_json(config_keys)
+    for key, data in rows.items():
+        if not isinstance(data, dict):
             data = {}
-        if row.key == "settings_general":
+        if key == "settings_general":
             if data.get("title") and not result.get("site_name"):
                 result["site_name"] = data["title"]
             if data.get("site_description") and not result.get("site_description"):
@@ -65,13 +68,13 @@ def load_public_settings(db) -> dict:
             for field in ["currency_name", "currency_icon", "tax_rate", "contact_email", "contact_phone", "contact_hours", "social_fb", "social_tele", "social_discord", "seo_title", "seo_description", "seo_keywords", "seo_author", "site_url", "twitter_card", "keywords", "author"]:
                 if field in data and data[field] is not None:
                     result[field] = data[field]
-        elif row.key == "settings_images":
+        elif key == "settings_images":
             for field in ["logo_url", "favicon_url", "default_image_url", "default_avatar_url", "seo_image_url"]:
                 if data.get(field):
                     result[field] = data[field]
-        elif row.key == "settings_features":
+        elif key == "settings_features":
             result["features"] = data
-        elif row.key == "settings_appearance":
+        elif key == "settings_appearance":
             if data.get("home_categories"):
                 result["home_categories"] = data["home_categories"]
     return result
@@ -226,24 +229,18 @@ def create_app(static_dir: str) -> FastAPI:
 
     @app.get("/share/product/{slug}", response_class=HTMLResponse)
     def share_product_page(request: Request, slug: str, ref: str | None = None):
-        db = SessionLocal()
-        try:
+        with session_scope() as db:
             product = db.query(Product).filter(Product.slug == slug, Product.is_active == True).first()
             if not product:
                 raise HTTPException(status_code=404, detail="Product not found")
             settings = load_public_settings(db)
             return HTMLResponse(build_share_product_html(product, settings, request, ref=ref))
-        finally:
-            db.close()
 
     @app.get("/blog", response_class=HTMLResponse)
     def blog_index_page(request: Request):
-        db = SessionLocal()
-        try:
+        with session_scope() as db:
             settings = load_public_settings(db)
             meta = build_blog_meta(None, settings, request)
-        finally:
-            db.close()
 
         import time
         nocache = str(int(time.time() * 1000))
@@ -255,15 +252,12 @@ def create_app(static_dir: str) -> FastAPI:
 
     @app.get("/blog/{slug}", response_class=HTMLResponse)
     def blog_post_page(request: Request, slug: str):
-        db = SessionLocal()
-        try:
+        with session_scope() as db:
             post = db.query(BlogPost).filter(BlogPost.slug == slug, BlogPost.is_published == True).first()
             if not post:
                 raise HTTPException(status_code=404, detail="Post not found")
             settings = load_public_settings(db)
             meta = build_blog_meta(post, settings, request)
-        finally:
-            db.close()
 
         import time
         nocache = str(int(time.time() * 1000))
@@ -289,11 +283,8 @@ def create_app(static_dir: str) -> FastAPI:
         
         import time
         nocache = str(int(time.time() * 1000))
-        db = SessionLocal()
-        try:
+        with session_scope() as db:
             settings = load_public_settings(db)
-        finally:
-            db.close()
         canonical_base = (settings.get("site_url") or str(request.base_url)).rstrip("/")
         return templates.TemplateResponse(
             request,

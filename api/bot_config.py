@@ -1,19 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from db import SessionLocal
-from db.models import SiteConfig
+from db import get_db
+from db.repositories import SiteConfigRepository
 from api.auth import get_current_admin
 import json
 import os
 
 router = APIRouter(prefix="/admin/bot-config", tags=["admin-bot"])
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.get("/settings", dependencies=[Depends(get_current_admin)])
 def get_bot_config(db: Session = Depends(get_db)):
@@ -27,57 +20,35 @@ def get_bot_config(db: Session = Depends(get_db)):
         {"command": "/support", "description": "Xem hướng dẫn hỗ trợ"},
         {"command": "/unlink", "description": "Gỡ liên kết bot"},
     ]
-    config = db.query(SiteConfig).filter_by(key="bot_smtp_config").first()
-    if not config:
-        return {
-            "bot_commands": default_commands,
-            "link_storage": "DB table user_bot_links",
-            "discord_mode": "single_user_dm_bot",
-            "telegram_mode": "split_admin_user",
-        }
-    try:
-        data = json.loads(config.value)
-    except:
-        return {
-            "bot_commands": default_commands,
-            "link_storage": "DB table user_bot_links",
-            "discord_mode": "single_user_dm_bot",
-            "telegram_mode": "split_admin_user",
-        }
+    repo = SiteConfigRepository(db)
+    data = repo.get_json("bot_smtp_config", default={}) or {}
     data["bot_commands"] = default_commands
     data["link_storage"] = "DB table user_bot_links"
     data["discord_mode"] = "single_user_dm_bot"
+    data["discord_link_methods"] = ["dm_code", "oauth_auto_link", "manual_uid"]
     data["telegram_mode"] = "split_admin_user"
     return data
 
 @router.get("/public")
 def get_bot_public_info(db: Session = Depends(get_db)):
     """Public endpoint: returns only non-sensitive bot info for user profile"""
-    config = db.query(SiteConfig).filter_by(key="bot_smtp_config").first()
-    if not config:
-        return {}
-    try:
-        data = json.loads(config.value)
-        return {
-            "has_telegram": bool(data.get("telegram_user_token") or data.get("telegram_token")),
-            "has_discord": bool(data.get("discord_token")),
-            "discord_invite": data.get("discord_invite", ""),
-            "telegram_bot_username": data.get("telegram_bot_username", ""),
-            "telegram_user_welcome": data.get("telegram_user_welcome", ""),
-            "discord_mode": "single_user_dm_bot",
-            "telegram_mode": "split_admin_user",
-        }
-    except:
-        return {}
+    data = SiteConfigRepository(db).get_json("bot_smtp_config", default={}) or {}
+    return {
+        "has_telegram": bool(data.get("telegram_user_token") or data.get("telegram_token")),
+        "has_discord": bool(data.get("discord_token")),
+        "discord_invite": data.get("discord_invite", ""),
+        "discord_mode": "single_user_dm_bot",
+        "discord_link_methods": ["dm_code", "oauth_auto_link", "manual_uid"],
+        "discord_dm_hint": data.get("discord_dm_hint", "Mở bot Discord, gửi /link CODE trong DM hoặc đăng nhập bằng Discord để auto-link."),
+        "telegram_bot_username": data.get("telegram_bot_username", ""),
+        "telegram_user_welcome": data.get("telegram_user_welcome", ""),
+        "telegram_mode": "split_admin_user",
+    }
 
 @router.put("/settings", dependencies=[Depends(get_current_admin)])
 def update_bot_config(data: dict, db: Session = Depends(get_db)):
-    config = db.query(SiteConfig).filter_by(key="bot_smtp_config").first()
-    if not config:
-        config = SiteConfig(key="bot_smtp_config", value=json.dumps(data))
-        db.add(config)
-    else:
-        config.value = json.dumps(data)
+    repo = SiteConfigRepository(db)
+    repo.set_json("bot_smtp_config", data)
     db.commit()
     
     # Update env file as well so bot can read it easily

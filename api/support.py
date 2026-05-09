@@ -5,22 +5,16 @@ Support System APIs: Tickets, Support Pages, Site Config
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
-from db import SessionLocal
+from db import get_db
 from db.models import (
-    SupportTicket, TicketMessage, SupportPage, SiteConfig, Order, User, AdminUser
+    SupportTicket, TicketMessage, SupportPage, Order, User, AdminUser
 )
+from db.repositories import SiteConfigRepository
 from api.auth import get_current_user, get_current_admin, get_current_staff_or_admin
 from api.sanitize import sanitize_html, sanitize_text
 import json
 
 router = APIRouter(prefix="/support", tags=["support"])
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 def _is_admin(user_id: str, db: Session) -> bool:
     admin = db.query(AdminUser).filter(AdminUser.user_id == str(user_id)).first()
@@ -31,22 +25,23 @@ def _is_admin(user_id: str, db: Session) -> bool:
 @router.get("/config")
 async def get_site_config(db: Session = Depends(get_db)):
     """Get all site config (contact info, hours, etc)"""
-    configs = db.query(SiteConfig).all()
+    repo = SiteConfigRepository(db)
     result = {}
-    for cfg in configs:
+    for cfg in repo.list_rows():
         try:
-            result[cfg.key] = json.loads(cfg.value) if cfg.value.startswith('{') else cfg.value
-        except:
+            result[cfg.key] = json.loads(cfg.value) if cfg.value and cfg.value.startswith('{') else cfg.value
+        except Exception:
             result[cfg.key] = cfg.value
     return result
 
 @router.put("/config/{key}", dependencies=[Depends(get_current_admin)])
 async def update_config(key: str, value: dict, db: Session = Depends(get_db)):
     """Admin: Update site config"""
-    cfg = db.query(SiteConfig).filter_by(key=key).first()
+    repo = SiteConfigRepository(db)
+    cfg = repo.get_row(key)
     if not cfg:
         raise HTTPException(status_code=404, detail="Config not found")
-    
+
     cfg.value = json.dumps(value) if isinstance(value, dict) else str(value)
     cfg.updated_at = datetime.now(timezone.utc)
     db.commit()

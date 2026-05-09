@@ -1226,9 +1226,10 @@ async function renderAdminSettings(view) {
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
 
   try {
-    const [legacy, unified] = await Promise.all([
+    const [legacy, unified, dbSettings] = await Promise.all([
       apiFetch('/admin/settings'),
-      apiFetch('/admin/settings/unified').catch(() => ({}))
+      apiFetch('/admin/settings/unified').catch(() => ({})),
+      apiFetch('/admin/settings/database').catch(() => ({}))
     ]);
 
     const g = unified.settings_general || {};
@@ -1238,6 +1239,7 @@ async function renderAdminSettings(view) {
     const se = unified.settings_security || {};
     const ca = unified.settings_captcha || {};
     const fe = unified.settings_features || {};
+    const dbCfg = dbSettings.providers || {};
 
   // Helper: escape HTML
   const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -1269,6 +1271,7 @@ async function renderAdminSettings(view) {
     { id: 'security', label: 'Bảo mật', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' },
     { id: 'captcha', label: 'Captcha', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' },
     { id: 'features', label: 'Chức năng', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>' },
+    { id: 'database', label: 'Database', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>' },
   ];
 
   content.innerHTML = `
@@ -1526,6 +1529,75 @@ async function renderAdminSettings(view) {
         </div>
       </div>
 
+      <!-- ═══ Database ═══ -->
+      <div class="settings-section" data-section="database">
+        <div class="settings-card">
+          <div class="settings-section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            Database provider
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="db-active-provider">Provider đang active</label>
+            <select class="form-select" id="db-active-provider">
+              <option value="postgres" ${dbSettings.active_provider === 'postgres' ? 'selected' : ''}>Neon/Postgres</option>
+              <option value="mysql" ${dbSettings.active_provider === 'mysql' ? 'selected' : ''}>MySQL</option>
+              <option value="supabase_postgres" ${dbSettings.active_provider === 'supabase_postgres' ? 'selected' : ''}>Supabase Postgres</option>
+            </select>
+            <div class="form-hint">Phase hiện tại chỉ hỗ trợ 1 SQL provider active tại một thời điểm.</div>
+          </div>
+        </div>
+
+        ${['postgres', 'mysql', 'supabase_postgres'].map((provider) => {
+          const item = dbCfg[provider] || {};
+          const title = item.label || provider;
+          const statusBadge = item.has_env_override
+            ? '<span class="badge badge-green">ENV override</span>'
+            : item.has_stored_url
+              ? '<span class="badge badge-gray">Stored config</span>'
+              : '<span class="badge badge-gray">Chưa cấu hình</span>';
+          return `
+            <div class="settings-card mt-16">
+              <div class="settings-section-title">
+                <span>${title}</span>
+                <span>${statusBadge}</span>
+              </div>
+              <div class="settings-row">
+                <div class="form-group">
+                  <label class="form-label" for="db-${provider}-enabled">Bật provider</label>
+                  <select class="form-select" id="db-${provider}-enabled">
+                    <option value="true" ${item.enabled ? 'selected' : ''}>Bật</option>
+                    <option value="false" ${!item.enabled ? 'selected' : ''}>Tắt</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Nguồn hiện tại</label>
+                  <input class="form-input" value="${esc(item.env_source || (item.has_stored_url ? 'stored_config' : ''))}" disabled />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="db-${provider}-url">Database URL</label>
+                <input class="form-input" id="db-${provider}-url" type="password" value="" placeholder="${esc(item.masked_url || 'Nhập connection string nếu muốn lưu fallback')}" />
+                <div class="form-hint">URL thật không được trả về UI. Để trống nếu không muốn thay đổi giá trị đã lưu.</div>
+              </div>
+              <div class="settings-row">
+                <div class="form-group">
+                  <label class="form-label">Host</label>
+                  <input class="form-input" value="${esc(item.host || '')}" disabled />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Database</label>
+                  <input class="form-input" value="${esc(item.database_name || '')}" disabled />
+                </div>
+              </div>
+              <div class="settings-row">
+                <button type="button" class="btn btn-ghost" data-db-test="${provider}">Test connection</button>
+                <div class="form-hint" id="db-${provider}-test-result">${item.masked_url ? `Current: ${esc(item.masked_url)}` : 'Chưa có URL hiệu lực'}</div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
       <!-- Save bar -->
       <div class="settings-save-bar">
         <button type="button" class="btn btn-ghost" id="btn-reset-settings">Hoàn tác</button>
@@ -1605,6 +1677,49 @@ async function renderAdminSettings(view) {
   bindImagePreview('im-seo', 'im-seo-preview', 'Chưa có ảnh SEO / chia sẻ');
   bindImagePreview('im-avatar', 'im-avatar-preview', 'Chưa có avatar', 'avatar');
   bindImageUploads(content);
+
+  const collectDatabasePayload = () => {
+    const providers = ['postgres', 'mysql', 'supabase_postgres'];
+    const currentProviders = dbCfg || {};
+    return {
+      active_provider: val('db-active-provider'),
+      providers: Object.fromEntries(providers.map((provider) => {
+        const current = currentProviders[provider] || {};
+        const nextUrl = val(`db-${provider}-url`).trim();
+        const payload = {
+          enabled: val(`db-${provider}-enabled`) === 'true',
+          label: current.label || provider,
+        };
+        if (nextUrl) payload.database_url = nextUrl;
+        return [provider, payload];
+      })),
+    };
+  };
+
+  qsa('[data-db-test]', content).forEach((btn) => {
+    btn.onclick = async () => {
+      const provider = btn.dataset.dbTest;
+      const resultEl = qs(`#db-${provider}-test-result`, content);
+      const url = val(`db-${provider}-url`).trim();
+      btn.disabled = true;
+      if (resultEl) resultEl.textContent = 'Đang kiểm tra kết nối...';
+      try {
+        const res = await apiFetch('/admin/settings/database/test-connection', {
+          method: 'POST',
+          body: JSON.stringify({ provider, database_url: url || undefined }),
+        });
+        if (resultEl) resultEl.textContent = res.ok
+          ? `Kết nối thành công: ${res.masked_url || provider}`
+          : `Kết nối thất bại: ${res.error || 'unknown_error'}`;
+        toast(res.ok ? 'Test connection thành công' : 'Test connection thất bại', res.ok ? 'success' : 'error');
+      } catch (err) {
+        if (resultEl) resultEl.textContent = `Kết nối thất bại: ${err.message}`;
+        toast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    };
+  });
 
   qs('#settings-unified-form', content).onsubmit = async (e) => {
     e.preventDefault();
@@ -1693,6 +1808,7 @@ async function renderAdminSettings(view) {
 
     try {
       await apiFetch('/admin/settings/unified', { method: 'PUT', body: JSON.stringify(payload) });
+      await apiFetch('/admin/settings/database', { method: 'PUT', body: JSON.stringify(collectDatabasePayload()) });
       toast('Đã lưu cài đặt', 'success');
     } catch (err) {
       toast(err.message, 'error');

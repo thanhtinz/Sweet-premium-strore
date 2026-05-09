@@ -1,22 +1,38 @@
-import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from contextlib import contextmanager
 
-# Support both connector prefix and standard DATABASE_URL
-DATABASE_URL = (
-    os.environ.get("DB556FD74B_DATABASE_URL")
-    or os.environ.get("DATABASE_URL")
-    or ""
-).strip()
+from sqlalchemy.orm import declarative_base
 
-if not DATABASE_URL:
-    raise RuntimeError(
-        "Database URL not configured. Set DATABASE_URL environment variable. "
-        "Example: postgresql://user:pass@host:5432/dbname"
-    )
+from db.providers import (
+    build_engine,
+    build_session_local,
+    resolve_database_runtime_config,
+    resolve_runtime_config_with_persisted_fallback,
+)
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def _load_persisted_provider_config():
+    try:
+        from db.repositories import DatabaseProviderConfigRepository
+        bootstrap_config = resolve_database_runtime_config()
+        bootstrap_engine = build_engine(bootstrap_config)
+        BootstrapSessionLocal = build_session_local(bootstrap_engine)
+        db = BootstrapSessionLocal()
+        try:
+            return DatabaseProviderConfigRepository(db).load()
+        finally:
+            db.close()
+            bootstrap_engine.dispose()
+    except Exception:
+        return None
+
+
+runtime_config = resolve_runtime_config_with_persisted_fallback(_load_persisted_provider_config)
+DATABASE_PROVIDER = runtime_config.provider
+DATABASE_URL = runtime_config.database_url
+DATABASE_URL_SOURCE = runtime_config.source
+
+engine = build_engine(runtime_config)
+SessionLocal = build_session_local(engine)
 Base = declarative_base()
 
 
@@ -24,5 +40,18 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    finally:
+        db.close()
+
+
+@contextmanager
+def session_scope():
+    db = SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
