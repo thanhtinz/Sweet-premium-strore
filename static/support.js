@@ -9,16 +9,20 @@
 async function renderSupportPage(slug) {
   const view = qs('#app-view');
   view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  const fallbackTitles = {
+    warranty: 'Chính sách bảo hành',
+    'purchase-guide': 'Hướng dẫn mua hàng',
+    faq: 'Câu hỏi thường gặp',
+    privacy: 'Chính sách bảo mật',
+  };
   try {
     const page = await apiFetch(`/support/pages/${slug}`);
     view.innerHTML = '';
 
     const articleHtml = `
-      <div class="breadcrumb mb-16"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/support">Hỗ trợ</a> <span>›</span> <strong>${page.title}</strong></div>
       <div class="support-article-header">
         <h1 class="support-article-title">${page.title}</h1>
         <div class="support-article-meta">
-          <span class="fw-600"><i class="fa-solid fa-user-circle"></i> Admin</span>
           <span><i class="fa-solid fa-calendar"></i> Cập nhật: ${fmtDate(page.updated_at || page.created_at || new Date())}</span>
         </div>
       </div>
@@ -29,11 +33,18 @@ async function renderSupportPage(slug) {
     view.appendChild(container);
     window.scrollTo(0, 0);
   } catch (err) {
+    const title = fallbackTitles[slug] || 'Trang hỗ trợ';
     view.innerHTML = `
-      <div class="empty-state" style="margin-top:40px;">
-        <div class="empty-state-icon"><i class="fa-solid fa-exclamation-triangle" style="font-size:36px;color:var(--red);"></i></div>
-        <h3>Không thể tải trang này</h3>
-        <a href="#/support" class="btn btn-primary mt-12">Quay lại Hỗ trợ</a>
+      <div class="support-article-container">
+        <div class="support-article-header">
+          <h1 class="support-article-title">${title}</h1>
+        </div>
+        <div class="empty-state" style="margin-top:12px;">
+          <div class="empty-state-icon"><i class="fa-solid fa-circle-info" style="font-size:36px;color:var(--text-muted);"></i></div>
+          <h3>Chưa có thông tin</h3>
+          <p class="text-muted">Nội dung cho trang này chưa được cập nhật.</p>
+          <a href="#/support" class="btn btn-primary mt-12">Quay lại Hỗ trợ</a>
+        </div>
       </div>`;
   }
 }
