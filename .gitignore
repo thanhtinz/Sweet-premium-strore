@@ -21,6 +21,8 @@ ENV/
 
 # Workshop (not needed on VPS)
 .workshop/
+plans/
+tasks/
 
 # Uploads (user-generated)
 static/uploads/*
