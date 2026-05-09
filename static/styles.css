@@ -222,6 +222,8 @@ img { max-width: 100%; display: block; }
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  width: calc(100% - var(--sidebar-w));
+  max-width: calc(100% - var(--sidebar-w));
 }
 
 .header {
@@ -1188,6 +1190,8 @@ img { max-width: 100%; display: block; }
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 table { width: 100%; border-collapse: collapse; }
 thead { background: #F8FAFC; }
@@ -1211,8 +1215,7 @@ td {
 tr:hover td { background: #FAFBFC; }
 
 /* ─── Forms ─── */
-.form-group { margin-bottom: 16px; }
-.form-label {
+.form-group { margin-bottom: 16px; min-width: 0; }
   display: block;
   font-size: 13px;
   font-weight: 600;
@@ -3732,14 +3735,27 @@ a.support-contact-value:hover {
 /* ─── Responsive ─── */
 @media (max-width: 1024px) {
   .sidebar {
+    left: 0;
+    width: min(86vw, 320px);
+    max-width: 320px;
     transform: translateX(-100%);
     box-shadow: var(--shadow-lg);
+    z-index: 210;
   }
   .sidebar.open {
     transform: translateX(0);
   }
   .sidebar-overlay.open {
     display: block;
+    z-index: 209;
+  }
+  .sidebar:not(.open) {
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .sidebar.open {
+    visibility: visible;
+    pointer-events: auto;
   }
   .app-shell  { margin-left: 0; width: 100%; max-width: 100%; }
   .main-content { width: 100%; max-width: 100%; overflow-x: hidden; }
@@ -3778,6 +3794,13 @@ a.support-contact-value:hover {
 
 @media (max-width: 768px) {
   html, body { overflow-x: hidden; }
+  .sidebar-nav {
+    padding: 14px 10px 24px;
+  }
+  .nav-item, .sidebar-item {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
   .main-content  { padding: 16px; width: 100%; max-width: 100%; overflow-x: hidden; }
   .header        { padding: 0 12px; gap: 8px; width: 100%; }
   .header-left   { gap: 8px; min-width: 0; }
