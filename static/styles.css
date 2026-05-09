@@ -3581,6 +3581,154 @@ a.support-contact-value:hover {
   border-radius: 10px;
 }
 
+/* ─── Bot admin page polish ─── */
+.bot-admin-layout {
+  display: grid;
+  gap: 18px;
+  max-width: 1040px;
+}
+.bot-admin-section-card {
+  background: linear-gradient(180deg, #ffffff 0%, #fcfcff 100%);
+  border: 1px solid #e8ecf4;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+}
+.bot-admin-section-card {
+  padding: 22px 24px;
+}
+.bot-admin-section-head {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.bot-admin-section-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #fff;
+  flex: 0 0 auto;
+}
+.bot-admin-section-head.telegram .bot-admin-section-icon { background: linear-gradient(135deg, #229ED9, #38bdf8); }
+.bot-admin-section-head.discord .bot-admin-section-icon { background: linear-gradient(135deg, #5865F2, #7c3aed); }
+.bot-admin-section-head.smtp .bot-admin-section-icon { background: linear-gradient(135deg, #f59e0b, #fb7185); }
+.bot-admin-section-head.neutral .bot-admin-section-icon { background: linear-gradient(135deg, #0f172a, #475569); }
+.bot-admin-section-head h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.bot-admin-section-head h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.bot-admin-section-head p {
+.bot-admin-pill-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+.bot-admin-pill {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bot-admin-pill span {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  font-weight: 700;
+}
+.bot-admin-pill strong {
+  font-size: 15px;
+  color: #0f172a;
+}
+.bot-admin-form-shell {
+  display: grid;
+  gap: 18px;
+}
+.bot-admin-section-card {
+  padding: 22px 24px;
+}
+.bot-admin-grid {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+.bot-admin-grid.two-col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.bot-admin-grid .form-group-full {
+  grid-column: 1 / -1;
+}
+.bot-admin-command-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+.bot-admin-command-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+.bot-admin-command-item code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #4338ca;
+  background: rgba(99, 102, 241, 0.08);
+  padding: 6px 10px;
+  border-radius: 10px;
+}
+.bot-admin-command-item span {
+  flex: 1;
+  color: #475569;
+  line-height: 1.55;
+}
+.bot-admin-savebar {
+  display: flex;
+  justify-content: flex-end;
+}
+.bot-admin-savebtn {
+  min-width: 240px;
+  height: 48px;
+  font-weight: 700;
+}
+@media (max-width: 900px) {
+  .bot-admin-pill-row,
+  .bot-admin-grid.two-col {
+    grid-template-columns: 1fr;
+  }
+  .bot-admin-command-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .bot-admin-savebar {
+    justify-content: stretch;
+  }
+  .bot-admin-savebtn {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 /* ─── Responsive ─── */
 @media (max-width: 1024px) {
   .sidebar {
