@@ -21,9 +21,23 @@ def get_bot_config(db: Session = Depends(get_db)):
     if not config:
         return {}
     try:
-        return json.loads(config.value)
+        data = json.loads(config.value)
     except:
         return {}
+    data["bot_commands"] = [
+        {"command": "/start", "description": "Chào mừng và hướng dẫn liên kết"},
+        {"command": "/help", "description": "Xem danh sách lệnh"},
+        {"command": "/link CODE", "description": "Liên kết tài khoản"},
+        {"command": "/status", "description": "Xem trạng thái liên kết"},
+        {"command": "/account", "description": "Xem thông tin tài khoản"},
+        {"command": "/orders", "description": "Xem đơn hàng gần đây"},
+        {"command": "/support", "description": "Xem hướng dẫn hỗ trợ"},
+        {"command": "/unlink", "description": "Gỡ liên kết bot"},
+    ]
+    data["link_storage"] = "DB table user_bot_links"
+    data["discord_mode"] = "single_user_dm_bot"
+    data["telegram_mode"] = "split_admin_user"
+    return data
 
 @router.get("/public")
 def get_bot_public_info(db: Session = Depends(get_db)):
@@ -39,6 +53,8 @@ def get_bot_public_info(db: Session = Depends(get_db)):
             "discord_invite": data.get("discord_invite", ""),
             "telegram_bot_username": data.get("telegram_bot_username", ""),
             "telegram_user_welcome": data.get("telegram_user_welcome", ""),
+            "discord_mode": "single_user_dm_bot",
+            "telegram_mode": "split_admin_user",
         }
     except:
         return {}

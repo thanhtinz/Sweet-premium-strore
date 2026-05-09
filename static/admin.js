@@ -2508,60 +2508,90 @@ async function renderAdminBotConfig(view) {
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
     const config = await apiFetch('/admin/bot-config/settings');
+    const commands = Array.isArray(config.bot_commands) ? config.bot_commands : [];
     content.innerHTML = `
-      <div class="page-header"><div class="page-title">Cấu hình Bot & SMTP</div></div>
-      <div style="max-width: 800px">
-        <form id="bot-config-form" class="form-container" style="background:#fff; padding:24px; border-radius:8px; border:1px solid var(--border);">
-          <h3 style="margin-top:0">Telegram Bot</h3>
-          <div class="form-group">
-            <label>Bot Token</label>
-            <input type="text" class="input" id="telegram_token" value="${config.telegram_token || ''}" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">
-            <div class="help-text">Tạo bot qua @BotFather</div>
+      <div class="page-header"><div class="page-title">Quản lý bot</div></div>
+      <div style="display:grid;gap:16px;max-width:980px;">
+        <div class="info-card">
+          <div class="info-card-head"><div class="info-card-title"><i class="fa-solid fa-circle-info"></i> Kiến trúc bot hiện tại</div></div>
+          <div class="info-card-body text-sm text-muted" style="line-height:1.8;">
+            <div>Telegram mode: <strong>${esc(config.telegram_mode || 'split_admin_user')}</strong></div>
+            <div>Discord mode: <strong>${esc(config.discord_mode || 'single_user_dm_bot')}</strong></div>
+            <div>Link storage: <strong>${esc(config.link_storage || 'DB table user_bot_links')}</strong></div>
+            <div>Discord dùng DM commands cho user. Telegram giữ split admin/user.</div>
           </div>
-          <div class="form-group">
-            <label>Admin Chat ID</label>
-            <input type="text" class="input" id="telegram_admin_id" value="${config.telegram_admin_id || ''}" placeholder="ID của admin hoặc group chat">
-            <div class="help-text">Gửi tin nhắn cho bot và lấy ID qua @userinfobot</div>
+        </div>
+
+        <form id="bot-config-form" class="form-container" style="background:#fff; padding:24px; border-radius:8px; border:1px solid var(--border); display:grid; gap:20px;">
+          <div>
+            <h3 style="margin:0 0 12px 0">Telegram</h3>
+            <div class="text-sm text-muted mb-12">Bot Telegram vẫn tách admin/user. Token runtime hiện dùng TELEGRAM_BOT_TOKEN từ cấu hình này.</div>
+            <div class="form-group">
+              <label>Bot Token</label>
+              <input type="text" class="input" id="telegram_token" value="${config.telegram_token || ''}" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">
+            </div>
+            <div class="form-group">
+              <label>Bot Username</label>
+              <input type="text" class="input" id="telegram_bot_username" value="${config.telegram_bot_username || ''}" placeholder="MyShopBot">
+            </div>
+            <div class="form-group">
+              <label>Admin Chat ID</label>
+              <input type="text" class="input" id="telegram_admin_id" value="${config.telegram_admin_id || ''}" placeholder="ID admin/group chat">
+            </div>
+            <div class="form-group">
+              <label>User Welcome Message</label>
+              <textarea class="form-textarea" id="telegram_user_welcome" rows="3" placeholder="Chào mừng bạn đến với bot hỗ trợ...">${config.telegram_user_welcome || ''}</textarea>
+            </div>
           </div>
 
-          <hr style="margin:24px 0; border:none; border-top:1px solid var(--border)">
-
-          <h3 style="margin-top:0">Discord Bot</h3>
-          <div class="form-group">
-            <label>Bot Token</label>
-            <input type="text" class="input" id="discord_token" value="${config.discord_token || ''}">
-            <div class="help-text">Tạo bot trong Discord Developer Portal</div>
-          </div>
-          <div class="form-group">
-            <label>Admin Channel ID</label>
-            <input type="text" class="input" id="discord_admin_id" value="${config.discord_admin_id || ''}" placeholder="ID kênh nhận thông báo admin">
-          </div>
-
-          <hr style="margin:24px 0; border:none; border-top:1px solid var(--border)">
-
-          <h3 style="margin-top:0">SMTP Mail Config (Gửi email tự động)</h3>
-          <div class="form-group">
-            <label>SMTP Server</label>
-            <input type="text" class="input" id="smtp_server" value="${config.smtp_server || ''}" placeholder="smtp.gmail.com">
-          </div>
-          <div class="form-group">
-            <label>SMTP Port</label>
-            <input type="number" class="input" id="smtp_port" value="${config.smtp_port || '587'}" placeholder="587">
-          </div>
-          <div class="form-group">
-            <label>SMTP Username (Email)</label>
-            <input type="text" class="input" id="smtp_user" value="${config.smtp_user || ''}">
-          </div>
-          <div class="form-group">
-            <label>SMTP Password (App Password)</label>
-            <input type="password" class="input" id="smtp_pass" value="${config.smtp_pass || ''}">
-          </div>
-          <div class="form-group">
-            <label>From Email</label>
-            <input type="text" class="input" id="smtp_from" value="${config.smtp_from || ''}" placeholder="noreply@yourshop.com">
+          <div style="border-top:1px solid var(--border); padding-top:20px;">
+            <h3 style="margin:0 0 12px 0">Discord</h3>
+            <div class="text-sm text-muted mb-12">Discord là một bot user-facing duy nhất, hoạt động qua DM commands thay vì admin channel posting.</div>
+            <div class="form-group">
+              <label>Bot Token</label>
+              <input type="text" class="input" id="discord_token" value="${config.discord_token || ''}">
+            </div>
+            <div class="form-group">
+              <label>Discord Invite Link</label>
+              <input type="text" class="input" id="discord_invite" value="${config.discord_invite || ''}" placeholder="https://discord.gg/... hoặc link invite bot/server">
+            </div>
+            <div class="form-group">
+              <label>Legacy Admin Channel ID</label>
+              <input type="text" class="input" id="discord_admin_id" value="${config.discord_admin_id || ''}" placeholder="Để trống nếu không dùng nữa">
+              <div class="help-text">Trường cũ giữ lại để tương thích, nhưng flow chính hiện là DM bot cho user.</div>
+            </div>
           </div>
 
-          <button type="submit" class="btn btn-primary" style="margin-top:16px">Lưu Cấu Hình</button>
+          <div style="border-top:1px solid var(--border); padding-top:20px;">
+            <h3 style="margin:0 0 12px 0">SMTP Mail</h3>
+            <div class="form-group">
+              <label>SMTP Server</label>
+              <input type="text" class="input" id="smtp_server" value="${config.smtp_server || ''}" placeholder="smtp.gmail.com">
+            </div>
+            <div class="form-group">
+              <label>SMTP Port</label>
+              <input type="number" class="input" id="smtp_port" value="${config.smtp_port || '587'}" placeholder="587">
+            </div>
+            <div class="form-group">
+              <label>SMTP Username</label>
+              <input type="text" class="input" id="smtp_user" value="${config.smtp_user || ''}">
+            </div>
+            <div class="form-group">
+              <label>SMTP Password</label>
+              <input type="password" class="input" id="smtp_pass" value="${config.smtp_pass || ''}">
+            </div>
+            <div class="form-group">
+              <label>From Email</label>
+              <input type="text" class="input" id="smtp_from" value="${config.smtp_from || ''}" placeholder="noreply@yourshop.com">
+            </div>
+          </div>
+
+          <div style="border-top:1px solid var(--border); padding-top:20px;">
+            <h3 style="margin:0 0 12px 0">Lệnh bot đang hỗ trợ</h3>
+            <div class="text-sm text-muted">${commands.map(item => `${esc(item.command)} — ${esc(item.description)}`).join('<br>')}</div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="margin-top:8px">Lưu cấu hình bot</button>
         </form>
       </div>
     `;
@@ -2573,8 +2603,11 @@ async function renderAdminBotConfig(view) {
           method: 'PUT',
           body: JSON.stringify({
             telegram_token: qs('#telegram_token').value,
+            telegram_bot_username: qs('#telegram_bot_username').value.replace(/^@/, ''),
             telegram_admin_id: qs('#telegram_admin_id').value,
+            telegram_user_welcome: qs('#telegram_user_welcome').value,
             discord_token: qs('#discord_token').value,
+            discord_invite: qs('#discord_invite').value,
             discord_admin_id: qs('#discord_admin_id').value,
             smtp_server: qs('#smtp_server').value,
             smtp_port: qs('#smtp_port').value,
@@ -2583,7 +2616,7 @@ async function renderAdminBotConfig(view) {
             smtp_from: qs('#smtp_from').value
           })
         });
-        toast('Đã lưu cấu hình Bot & SMTP', 'success');
+        toast('Đã lưu cấu hình quản lý bot', 'success');
       } catch (err) {
         showError(err.message);
       }

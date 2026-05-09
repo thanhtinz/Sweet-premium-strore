@@ -63,8 +63,8 @@ async function renderAdminBotConfig(view) {
           <div class="config-card-header discord">
             <div class="config-card-icon"><i class="fa-brands fa-discord"></i></div>
             <div>
-              <div class="config-card-title">Discord — User</div>
-              <div class="config-card-desc">Bot hỗ trợ khách hàng qua Discord server</div>
+              <div class="config-card-title">Discord — User DM Bot</div>
+              <div class="config-card-desc">Bot Discord cho người dùng cuối, hoạt động qua DM commands</div>
             </div>
           </div>
           <div class="config-card-body">
@@ -74,13 +74,14 @@ async function renderAdminBotConfig(view) {
               <div class="form-hint">Tạo bot trong <strong>Discord Developer Portal</strong></div>
             </div>
             <div class="form-group">
-              <label class="form-label">Support Channel ID</label>
-              <input type="text" class="form-input" id="discord_channel" value="${config.discord_admin_id || ''}" placeholder="ID kênh hỗ trợ">
+              <label class="form-label">Discord Invite Link</label>
+              <input type="text" class="form-input" id="discord_invite" value="${config.discord_invite || ''}" placeholder="https://discord.gg/... hoặc link invite bot/server">
+              <div class="form-hint">Dùng để mở bot/server Discord cho user. Flow chính hiện là DM bot, không phải support channel.</div>
             </div>
             <div class="form-group">
-              <label class="form-label">Server Invite Link</label>
-              <input type="text" class="form-input" id="discord_invite" value="${config.discord_invite || ''}" placeholder="https://discord.gg/...">
-              <div class="form-hint">Link mời khách vào server hỗ trợ</div>
+              <label class="form-label">Legacy Admin Channel ID</label>
+              <input type="text" class="form-input" id="discord_channel" value="${config.discord_admin_id || ''}" placeholder="Để trống nếu không dùng nữa">
+              <div class="form-hint">Trường cũ giữ lại để tương thích. Không còn là cấu hình chính cho Discord bot.</div>
             </div>
           </div>
         </div>
