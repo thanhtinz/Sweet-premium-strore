@@ -1436,6 +1436,8 @@ async function renderAdminSettings(view) {
               </div>
             </div>
           </div>
+        </div>
+      </div>
 
       <!-- ═══ Security ═══ -->
       <div class="settings-section" data-section="security">
