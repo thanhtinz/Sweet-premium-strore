@@ -6,43 +6,52 @@ async function renderApiDocs(view) {
   const baseUrl = location.origin;
 
   view.innerHTML = `
-    <div class="api-docs">
-      <div class="api-docs-header">
-        <h1>📖 API Documentation</h1>
-        <p>Tích hợp với hệ thống qua REST API. Tất cả endpoints trả về JSON.</p>
+    <div class="api-docs-container">
+      <div class="api-docs-sidebar">
+        <div class="api-docs-sidebar-header">
+          <i class="fa-solid fa-book" style="color:var(--primary); margin-right:8px;"></i>
+          API Reference
+        </div>
+        
+        <div class="api-docs-nav-group">Bắt đầu</div>
+        <a href="#/api-docs" data-doc-section="auth" class="api-docs-nav-item active"><i class="fa-solid fa-key" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Xác thực</a>
+        <a href="#/api-docs" data-doc-section="errors" class="api-docs-nav-item"><i class="fa-solid fa-circle-exclamation" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Mã lỗi</a>
+        
+        <div class="api-docs-nav-group">Endpoints</div>
+        <a href="#/api-docs" data-doc-section="products" class="api-docs-nav-item"><i class="fa-solid fa-box" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Sản phẩm</a>
+        <a href="#/api-docs" data-doc-section="categories" class="api-docs-nav-item"><i class="fa-solid fa-tags" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Danh mục</a>
+        <a href="#/api-docs" data-doc-section="orders" class="api-docs-nav-item"><i class="fa-solid fa-cart-shopping" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Đơn hàng</a>
+        <a href="#/api-docs" data-doc-section="search" class="api-docs-nav-item"><i class="fa-solid fa-magnifying-glass" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Tìm kiếm</a>
       </div>
 
-      <div class="api-docs-nav">
-        <a href="#/api-docs" data-doc-section="auth" class="api-docs-nav-item active">🔐 Xác thực</a>
-        <a href="#/api-docs" data-doc-section="products" class="api-docs-nav-item">📦 Sản phẩm</a>
-        <a href="#/api-docs" data-doc-section="categories" class="api-docs-nav-item">📂 Danh mục</a>
-        <a href="#/api-docs" data-doc-section="orders" class="api-docs-nav-item">🛒 Đơn hàng</a>
-        <a href="#/api-docs" data-doc-section="search" class="api-docs-nav-item">🔍 Tìm kiếm</a>
-        <a href="#/api-docs" data-doc-section="errors" class="api-docs-nav-item">⚠️ Lỗi</a>
-      </div>
-
-      <!-- Auth Section -->
-      <div class="api-docs-section active" data-doc="auth">
-        <h2>Xác thực (Authentication)</h2>
-        <p>Sử dụng API Key để xác thực các request. Tạo key tại <a href="#/profile">trang Profile → API Keys</a>.</p>
-
-        <h3>Header</h3>
-        <div class="api-code-block">
-          <div class="api-code-label">Request Header</div>
-          <pre><code>X-API-Key: sk_live_your_api_key_here</code></pre>
+      <div class="api-docs-main">
+        <div class="api-docs-header">
+          <h1>Tài liệu REST API</h1>
+          <p>Tích hợp hệ thống với các ứng dụng bên thứ ba. Tất cả endpoints đều trả về dữ liệu định dạng JSON.</p>
         </div>
 
-        <h3>Ví dụ cURL</h3>
-        <div class="api-code-block">
-          <div class="api-code-label">cURL</div>
-          <pre><code>curl -H "X-API-Key: sk_live_abc123..." \\
-  ${esc(baseUrl)}/api/products/</code></pre>
-        </div>
+        <!-- Auth Section -->
+        <div class="api-docs-section active" data-doc="auth">
+          <h2>Xác thực (Authentication)</h2>
+          <p>Sử dụng API Key để xác thực các request. Bạn có thể tạo key mới tại <a href="#/profile">trang Profile → API Keys</a>.</p>
 
-        <h3>Ví dụ Python</h3>
-        <div class="api-code-block">
-          <div class="api-code-label">Python</div>
-          <pre><code>import requests
+          <h3>Header</h3>
+          <div class="api-code-block">
+            <div class="api-code-label">Request Header</div>
+            <pre><code>X-API-Key: sk_live_your_api_key_here</code></pre>
+          </div>
+
+          <h3>Ví dụ cURL</h3>
+          <div class="api-code-block">
+            <div class="api-code-label">cURL</div>
+            <pre><code>curl -H "X-API-Key: sk_live_abc123..." \\
+    ${esc(baseUrl)}/api/products/</code></pre>
+          </div>
+
+          <h3>Ví dụ Python</h3>
+          <div class="api-code-block">
+            <div class="api-code-label">Python</div>
+            <pre><code>import requests
 
 API_KEY = "sk_live_your_key"
 BASE = "${esc(baseUrl)}/api"
@@ -50,12 +59,12 @@ BASE = "${esc(baseUrl)}/api"
 headers = {"X-API-Key": API_KEY}
 products = requests.get(f"{BASE}/products/", headers=headers)
 print(products.json())</code></pre>
-        </div>
+          </div>
 
-        <h3>Ví dụ JavaScript</h3>
-        <div class="api-code-block">
-          <div class="api-code-label">JavaScript (fetch)</div>
-          <pre><code>const API_KEY = "sk_live_your_key";
+          <h3>Ví dụ JavaScript</h3>
+          <div class="api-code-block">
+            <div class="api-code-label">JavaScript (fetch)</div>
+            <pre><code>const API_KEY = "sk_live_your_key";
 const BASE = "${esc(baseUrl)}/api";
 
 const res = await fetch(\`\${BASE}/products/\`, {
@@ -278,7 +287,9 @@ const data = await res.json();</code></pre>
         <h3>Rate Limiting</h3>
         <p>API giới hạn <strong>60 request/phút</strong> mỗi API key. Vượt quá sẽ trả về <code>429 Too Many Requests</code>.</p>
       </div>
-    </div>
+      
+      </div> <!-- End api-docs-main -->
+    </div> <!-- End api-docs-container -->
   `;
 
   // Tab switching
