@@ -23,6 +23,7 @@ ENV/
 .workshop/
 plans/
 tasks/
+start-workshop.sh
 
 # Uploads (user-generated)
 static/uploads/*
