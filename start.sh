@@ -42,7 +42,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "[start] Starting bot runner"
-uv run python bot/run_bots.py &
+PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" uv run python bot/run_bots.py &
 BOT_PID=$!
 
 echo "[start] Starting web server on 0.0.0.0:${APP_PORT}"

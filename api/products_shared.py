@@ -2,7 +2,7 @@ import re
 from datetime import datetime, timezone
 from typing import Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,10 @@ def slugify(text: str) -> str:
     text = re.sub(r"[^\w\s-]", "", text)
     text = re.sub(r"[-\s]+", "-", text)
     return text
+
+
+class BulkIdsRequest(BaseModel):
+    ids: list[int] = Field(default_factory=list)
 
 
 class ProductCreate(BaseModel):

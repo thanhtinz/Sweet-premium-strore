@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException, Request
@@ -28,21 +29,23 @@ def create_topup_transaction(db: Session, user_id: int, amount: int, request: Re
 
 def create_topup_payment_link(db: Session, txn: BalanceTransaction, amount: int, email: str):
     from api.payment import get_payos_client, _get_payos_config
-    from payos import ItemData, PaymentData
+    from payos.types import CreatePaymentLinkRequest, ItemData
 
     _, _, _, base_url = _get_payos_config(db)
     payos = get_payos_client(db)
-    item = ItemData(name="Nạp số dư tài khoản", quantity=1, price=amount)
-    payment_data = PaymentData(
-        orderCode=int(txn.id) + 900000,
-        amount=amount,
+    item = ItemData(name="Nạp số dư tài khoản", quantity=1, price=int(amount))
+    payment_data = CreatePaymentLinkRequest(
+        order_code=int(txn.id) + 900000,
+        amount=int(amount),
         description=f"Nap {amount}"[:25],
+        cancel_url=f"{base_url}/#/profile?topup=cancelled",
+        return_url=f"{base_url}/#/profile?topup=success",
         items=[item],
-        returnUrl=f"{base_url}/#/profile?topup=success",
-        cancelUrl=f"{base_url}/#/profile?topup=cancelled",
-        buyerEmail=email,
+        buyer_email=email or None,
+        buyer_name=email.split('@')[0][:25] if email else "Khach",
+        expired_at=int((datetime.now(timezone.utc) + timedelta(minutes=15)).timestamp()),
     )
-    result = payos.createPaymentLink(paymentData=payment_data)
+    result = payos.payment_requests.create(payment_data)
     txn.reference = str(int(txn.id) + 900000)
     return result
 
@@ -59,13 +62,18 @@ def process_balance_webhook(db: Session, raw_body: bytes):
         raise HTTPException(403, "Webhook signature verification not configured")
     try:
         payos = get_payos_client(db)
-        payos.verifyPaymentWebhookData(payload)
+        payos.webhooks.verify(payload)
     except Exception:
         raise HTTPException(400, "Invalid webhook signature")
 
     data = payload.get("data", {})
     order_code = data.get("orderCode")
-    status = data.get("status", "")
+    # In older/some versions it comes from code/desc instead of status
+    status = payload.get("code", "")
+    if status == "00":
+        status = "PAID"
+    elif "status" in data:
+        status = data.get("status", "")
     if not order_code:
         return {"ok": True}
     try:

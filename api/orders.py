@@ -13,10 +13,13 @@ from api.orders_service import (
     calculate_order_totals,
     consume_coupon,
     deliver_manual_order,
+    fail_order_with_refund,
     normalize_order_items,
+    refund_order_to_balance,
     set_order_items_status,
 )
 from api.orders_shared import (
+    BulkIdsRequest,
     OrderCancelRequest,
     OrderCreate,
     OrderDelivery,
@@ -26,7 +29,7 @@ from api.orders_shared import (
     order_to_dict,
 )
 from db import get_db
-from db.models import BalanceTransaction, Order, OrderItem, ProductPackage, User
+from db.models import Order, OrderItem, ProductPackage
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -115,6 +118,19 @@ def admin_list_orders(status: Optional[str] = None, page: int = 1, limit: int = 
     return {"total": total, "page": page, "items": [order_to_dict(o) for o in orders]}
 
 
+@router.post("/admin/bulk-delete", dependencies=[Depends(get_current_admin)])
+def bulk_delete_orders(body: BulkIdsRequest, db: Session = Depends(get_db)):
+    ids = sorted(set(int(i) for i in (body.ids or []) if int(i) > 0))
+    if not ids:
+        raise HTTPException(status_code=400, detail="Chọn ít nhất một đơn hàng")
+    orders = db.query(Order).options(joinedload(Order.items)).filter(Order.id.in_(ids)).all()
+    for order in orders:
+        db.delete(order)
+    db.commit()
+    return {"ok": True, "requested": len(ids), "deleted": len(orders)}
+
+
+
 @router.put("/admin/{order_id}/deliver", dependencies=[Depends(get_current_admin)])
 def deliver_order(order_id: int, data: OrderDelivery, db: Session = Depends(get_db)):
     o = db.query(Order).options(
@@ -137,28 +153,33 @@ def update_order_status(order_id: int, body: OrderStatusUpdate, db: Session = De
     if not o:
         raise HTTPException(status_code=404, detail="Order not found")
     new_status = body.status
-    valid = ["pending", "paid", "processing", "completed", "cancelled"]
+    valid = ["pending", "paid", "completed", "cancelled", "failed"]
     if new_status not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid status. Valid: {valid}")
-    allowed_transitions = {
-        "pending": {"paid", "cancelled"},
-        "paid": {"processing", "completed", "cancelled"},
-        "processing": {"completed", "cancelled"},
-        "completed": set(),
-        "cancelled": set(),
-    }
-    if new_status != o.status and new_status not in allowed_transitions.get(o.status, set()):
-        raise HTTPException(status_code=400, detail=f"Không thể chuyển từ {o.status} sang {new_status}")
     previous_status = o.status
-    o.status = new_status
-    set_order_items_status(o, new_status)
-    if body.notes:
-        o.notes = body.notes
-    from datetime import datetime, timezone
-    o.updated_at = datetime.now(timezone.utc)
+    refund_amount = None
+    if new_status == "failed":
+        refund_amount = fail_order_with_refund(o, db, body.notes or "Lỗi hệ thống")
+    else:
+        allowed_transitions = {
+            "pending": {"paid", "cancelled"},
+            "paid": {"completed", "cancelled", "failed"},
+            "processing": {"completed", "cancelled", "failed"},
+            "completed": {"failed"},
+            "cancelled": set(),
+            "failed": set(),
+        }
+        if new_status != o.status and new_status not in allowed_transitions.get(o.status, set()):
+            raise HTTPException(status_code=400, detail=f"Không thể chuyển từ {o.status} sang {new_status}")
+        o.status = new_status
+        set_order_items_status(o, new_status)
+        if body.notes:
+            o.notes = body.notes
+        from datetime import datetime, timezone
+        o.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(o)
-    notify_order_status_change(db, o, previous_status=previous_status, note=body.notes)
+    notify_order_status_change(db, o, previous_status=previous_status, note=body.notes, refund_amount=refund_amount)
     return order_to_dict(o)
 
 
@@ -174,27 +195,7 @@ def cancel_order(order_id: int, body: OrderCancelRequest, db: Session = Depends(
     previous_status = o.status
     refund_amount = None
     if o.status in {"paid", "processing"}:
-        existing_refund = db.query(BalanceTransaction).filter(
-            BalanceTransaction.reference == o.order_code,
-            BalanceTransaction.type == "refund",
-            BalanceTransaction.status == "completed",
-        ).first()
-        if existing_refund:
-            raise HTTPException(status_code=400, detail="Đơn này đã được hoàn tiền trước đó")
-        user = db.query(User).filter(User.id == int(o.user_id)).with_for_update().first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        refund_amount = Decimal(o.total_amount or 0)
-        user.balance = Decimal(user.balance or 0) + refund_amount
-        db.add(BalanceTransaction(
-            user_id=user.id,
-            amount=refund_amount,
-            balance_after=user.balance,
-            type="refund",
-            status="completed",
-            reference=o.order_code,
-            description=f"Hoàn tiền đơn {o.order_code}",
-        ))
+        refund_amount = refund_order_to_balance(o, db, "Hoàn tiền đơn bị hủy bởi admin")
     o.status = "cancelled"
     set_order_items_status(o, "cancelled")
     if body.notes:
@@ -205,6 +206,16 @@ def cancel_order(order_id: int, body: OrderCancelRequest, db: Session = Depends(
     db.refresh(o)
     notify_order_status_change(db, o, previous_status=previous_status, note=body.notes, refund_amount=refund_amount)
     return order_to_dict(o)
+
+
+@router.delete("/admin/{order_id}", dependencies=[Depends(get_current_admin)])
+def delete_order(order_id: int, db: Session = Depends(get_db)):
+    o = db.query(Order).options(joinedload(Order.items)).filter(Order.id == order_id).first()
+    if not o:
+        raise HTTPException(status_code=404, detail="Order not found")
+    db.delete(o)
+    db.commit()
+    return {"ok": True, "deleted": 1}
 
 
 __all__ = [

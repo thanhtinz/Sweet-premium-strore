@@ -126,9 +126,31 @@ async function renderAdminCategories(view) {
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   
   let catMap = {};
+  const selectedIds = new Set();
+  const updateBulkBar = () => {
+    const count = selectedIds.size;
+    qsa('[data-bulk-count]', content).forEach(el => { el.textContent = count; });
+    qsa('[data-bulk-delete]', content).forEach(btn => { btn.disabled = count === 0; });
+    const allBoxes = qsa('[data-row-select]', content);
+    const all = qs('[data-select-all]', content);
+    if (all) all.checked = allBoxes.length > 0 && allBoxes.every(cb => cb.checked);
+  };
   
   // Event delegation — bound once
   content.onclick = async (e) => {
+    const bulkBtn = e.target.closest('[data-bulk-delete]');
+    if (bulkBtn) {
+      const ids = [...selectedIds];
+      if (!ids.length) return;
+      if (!confirm(`Xóa ${ids.length} danh mục đã chọn? Các sản phẩm trong danh mục sẽ bị gỡ khỏi danh mục.`)) return;
+      try {
+        const res = await apiFetch('/categories/bulk-delete', { method: 'POST', body: JSON.stringify({ ids }) });
+        selectedIds.clear();
+        toast(`Đã xóa ${res.deleted || 0} danh mục`, 'success');
+        await refresh();
+      } catch (err) { toast(err.message, 'error'); }
+      return;
+    }
     const delBtn = e.target.closest('[data-del]');
     if (delBtn) {
       e.preventDefault();
@@ -137,6 +159,7 @@ async function renderAdminCategories(view) {
       if (!confirm(`Xóa ${catName}? Các sản phẩm đang thuộc danh mục này sẽ bị gỡ khỏi danh mục.`)) return;
       try {
         await apiFetch(`/categories/${delBtn.dataset.del}`, { method: 'DELETE' });
+        selectedIds.delete(parseInt(delBtn.dataset.del));
         toast('Đã xóa danh mục', 'success');
         await refresh();
       }
@@ -148,26 +171,49 @@ async function renderAdminCategories(view) {
     const addBtn = e.target.closest('#btn-add-cat');
     if (addBtn) { showCatModal(null, refresh, Object.values(catMap)); return; }
   };
+  content.onchange = (e) => {
+    const all = e.target.closest('[data-select-all]');
+    if (all) {
+      qsa('[data-row-select]', content).forEach(cb => {
+        cb.checked = all.checked;
+        if (all.checked) selectedIds.add(parseInt(cb.value)); else selectedIds.delete(parseInt(cb.value));
+      });
+      updateBulkBar();
+      return;
+    }
+    const cb = e.target.closest('[data-row-select]');
+    if (cb) {
+      if (cb.checked) selectedIds.add(parseInt(cb.value)); else selectedIds.delete(parseInt(cb.value));
+      updateBulkBar();
+    }
+  };
 
   const refresh = async () => {
     const [cats, tree] = await Promise.all([apiFetch('/categories/all'), apiFetch('/categories/')]);
     catMap = {};
     cats.forEach(c => { catMap[c.id] = c; });
+    const validIds = new Set(cats.map(c => c.id));
+    [...selectedIds].forEach(id => { if (!validIds.has(id)) selectedIds.delete(id); });
     const renderRows = (items, depth = 0) => items.map(c => {
       const indent = depth > 0 ? `padding-left:${depth * 24}px;` : '';
       const prefix = depth > 0 ? '<span style="color:var(--text-muted);margin-right:6px;">↳</span>' : '';
       const iconImg = c.icon_url ? `<img src="${c.icon_url}" style="width:18px;height:18px;border-radius:4px;vertical-align:middle;margin-right:6px;object-fit:cover;" alt="" />` : '';
-      let row = `<tr><td class="text-muted">#${c.id}</td><td class="td-bold" style="${indent}">${prefix}${iconImg}${esc(c.name)}</td><td class="td-mono">${esc(c.slug)}</td><td>${c.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td><td>${c.sort_order}</td><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit="${c.id}">Sửa</button><button class="tbl-btn tbl-delete" data-del="${c.id}">Xóa</button></div></td></tr>`;
+      let row = `<tr><td style="width:42px"><input type="checkbox" data-row-select value="${c.id}" ${selectedIds.has(c.id) ? 'checked' : ''}></td><td class="text-muted">#${c.id}</td><td class="td-bold" style="${indent}">${prefix}${iconImg}${esc(c.name)}</td><td class="td-mono">${esc(c.slug)}</td><td>${c.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td><td>${c.sort_order}</td><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit="${c.id}">Sửa</button><button class="tbl-btn tbl-delete" data-del="${c.id}">Xóa</button></div></td></tr>`;
       if (c.children?.length) row += renderRows(c.children, depth + 1);
       return row;
     }).join('');
     content.innerHTML = `
       ${cuiPageHeader('Danh mục', 'Tổ chức nhóm sản phẩm và điều hướng', '<button class="btn btn-primary" id="btn-add-cat"><i class="fa-solid fa-plus"></i> Thêm danh mục</button>')}
+      <div class="d-flex align-center gap-8 mb-12" style="justify-content:space-between">
+        <div class="text-muted text-sm">Đã chọn <strong data-bulk-count>${selectedIds.size}</strong> danh mục</div>
+        <button class="btn btn-sm btn-outline-danger" data-bulk-delete ${selectedIds.size ? '' : 'disabled'}><i class="fa-solid fa-trash-can"></i> Xóa đã chọn</button>
+      </div>
       <div class="table-wrap"><table>
-        <thead><tr><th>ID</th><th>Tên</th><th>Slug</th><th>Trạng thái</th><th>Thứ tự</th><th></th></tr></thead>
+        <thead><tr><th style="width:42px"><input type="checkbox" data-select-all></th><th>ID</th><th>Tên</th><th>Slug</th><th>Trạng thái</th><th>Thứ tự</th><th></th></tr></thead>
         <tbody>${renderRows(tree)}</tbody>
       </table></div>
     `;
+    updateBulkBar();
   };
   await refresh();
 }
@@ -227,9 +273,31 @@ async function renderAdminProducts(view) {
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   
   let currentProducts = [], currentCats = [];
+  const selectedIds = new Set();
+  const updateBulkBar = () => {
+    const count = selectedIds.size;
+    qsa('[data-bulk-count]', content).forEach(el => { el.textContent = count; });
+    qsa('[data-bulk-delete]', content).forEach(btn => { btn.disabled = count === 0; });
+    const allBoxes = qsa('[data-row-select]', content);
+    const all = qs('[data-select-all]', content);
+    if (all) all.checked = allBoxes.length > 0 && allBoxes.every(cb => cb.checked);
+  };
   
   // Event delegation — bound once, survives innerHTML refreshes
   content.onclick = async (e) => {
+    const bulkBtn = e.target.closest('[data-bulk-delete]');
+    if (bulkBtn) {
+      const ids = [...selectedIds];
+      if (!ids.length) return;
+      if (!confirm(`Xóa ${ids.length} sản phẩm đã chọn? Sản phẩm có đơn hàng sẽ được ẩn/lưu trữ thay vì xóa hẳn.`)) return;
+      try {
+        const res = await apiFetch('/products/bulk-delete', { method: 'POST', body: JSON.stringify({ ids }) });
+        selectedIds.clear();
+        toast(`Đã xóa ${res.deleted || 0}, lưu trữ ${res.archived || 0} sản phẩm`, 'success');
+        await refresh();
+      } catch (err) { toast(err.message, 'error'); }
+      return;
+    }
     const delBtn = e.target.closest('[data-del]');
     if (delBtn) {
       e.preventDefault();
@@ -238,6 +306,7 @@ async function renderAdminProducts(view) {
       if (!confirm(`Xóa ${productName}? Nếu sản phẩm đã có đơn, hệ thống sẽ tự ẩn thay vì xóa hẳn dữ liệu.`)) return;
       try {
         await apiFetch(`/products/${delBtn.dataset.del}`, { method: 'DELETE' });
+        selectedIds.delete(parseInt(delBtn.dataset.del));
         toast('Đã xử lý xóa sản phẩm', 'success');
         await refresh();
       }
@@ -255,17 +324,40 @@ async function renderAdminProducts(view) {
     const addBtn = e.target.closest('#btn-add-prod');
     if (addBtn) { showProductModal(null, currentCats, refresh); return; }
   };
+  content.onchange = (e) => {
+    const all = e.target.closest('[data-select-all]');
+    if (all) {
+      qsa('[data-row-select]', content).forEach(cb => {
+        cb.checked = all.checked;
+        if (all.checked) selectedIds.add(parseInt(cb.value)); else selectedIds.delete(parseInt(cb.value));
+      });
+      updateBulkBar();
+      return;
+    }
+    const cb = e.target.closest('[data-row-select]');
+    if (cb) {
+      if (cb.checked) selectedIds.add(parseInt(cb.value)); else selectedIds.delete(parseInt(cb.value));
+      updateBulkBar();
+    }
+  };
 
   const refresh = async () => {
     const [products, cats] = await Promise.all([apiFetch('/products/admin/all'), apiFetch('/categories/all')]);
     currentProducts = products; currentCats = cats;
+    const validIds = new Set(products.map(p => p.id));
+    [...selectedIds].forEach(id => { if (!validIds.has(id)) selectedIds.delete(id); });
     content.innerHTML = `
       ${cuiPageHeader('Sản phẩm', 'Quản lý sản phẩm, gói bán và nội dung hiển thị', '<button class="btn btn-primary" id="btn-add-prod"><i class="fa-solid fa-plus"></i> Thêm</button>')}
+      <div class="d-flex align-center gap-8 mb-12" style="justify-content:space-between">
+        <div class="text-muted text-sm">Đã chọn <strong data-bulk-count>${selectedIds.size}</strong> sản phẩm</div>
+        <button class="btn btn-sm btn-outline-danger" data-bulk-delete ${selectedIds.size ? '' : 'disabled'}><i class="fa-solid fa-trash-can"></i> Xóa đã chọn</button>
+      </div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Tên</th><th>Danh mục</th><th>Gói</th><th>Giá từ</th><th>Nổi bật</th><th>TT</th><th></th></tr></thead>
-        <tbody>${products.map(p => `<tr><td class="td-bold">${p.name}</td><td class="text-muted">${p.category_name || '—'}</td><td>${(p.packages||[]).length}</td><td class="text-primary">${p.min_price ? fmt(p.min_price) : '—'}</td><td>${p.is_featured ? ico.starFill : '—'}</td><td>${p.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit="${p.id}">Sửa</button><button class="tbl-btn tbl-view" data-pkg="${p.id}" data-pname="${encodeURIComponent(p.name)}">Gói</button><button class="tbl-btn tbl-delete" data-del="${p.id}">Xóa</button></div></td></tr>`).join('')}</tbody>
+        <thead><tr><th style="width:42px"><input type="checkbox" data-select-all></th><th>Tên</th><th>Danh mục</th><th>Gói</th><th>Giá từ</th><th>Nổi bật</th><th>TT</th><th></th></tr></thead>
+        <tbody>${products.map(p => `<tr><td><input type="checkbox" data-row-select value="${p.id}" ${selectedIds.has(p.id) ? 'checked' : ''}></td><td class="td-bold">${esc(p.name)}</td><td class="text-muted">${esc(p.category_name || '—')}</td><td>${(p.packages||[]).length}</td><td class="text-primary">${p.min_price ? fmt(p.min_price) : '—'}</td><td>${p.is_featured ? ico.starFill : '—'}</td><td>${p.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit="${p.id}">Sửa</button><button class="tbl-btn tbl-view" data-pkg="${p.id}" data-pname="${encodeURIComponent(p.name)}">Gói</button><button class="tbl-btn tbl-delete" data-del="${p.id}">Xóa</button></div></td></tr>`).join('')}</tbody>
       </table></div>
     `;
+    updateBulkBar();
   };
   await refresh();
 }
@@ -844,31 +936,63 @@ function adminOrderItemsHtml(order) {
 async function renderAdminOrders(view) {
   if (!view) return; const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  const selectedIds = new Set();
+  const updateBulkBar = () => {
+    const count = selectedIds.size;
+    qsa('[data-bulk-count]', content).forEach(el => { el.textContent = count; });
+    qsa('[data-bulk-delete]', content).forEach(btn => { btn.disabled = count === 0; });
+    const allBoxes = qsa('[data-row-select]', content);
+    const all = qs('[data-select-all]', content);
+    if (all) all.checked = allBoxes.length > 0 && allBoxes.every(cb => cb.checked);
+  };
   const refresh = async (status = '') => {
     try {
     const data = await apiFetch(`/orders/admin/all?limit=50${status ? '&status=' + status : ''}`);
+    const statusOptions = ['', 'pending', 'paid', 'completed', 'cancelled', 'failed'];
+    const statusLabels = { pending: 'Đặt hàng', paid: 'Đã thanh toán', completed: 'Đã giao hàng', cancelled: 'Đã hủy', failed: 'Lỗi' };
+    const paymentLabels = { payos: 'PayOS', balance: 'Số dư' };
+    const validIds = new Set(data.items.map(o => o.id));
+    [...selectedIds].forEach(id => { if (!validIds.has(id)) selectedIds.delete(id); });
     const actionButtons = (o) => {
       const buttons = [];
-      if (o.status === 'paid') {
-        buttons.push(`<button class="tbl-btn tbl-edit" data-mark-processing="${o.id}">Xử lý</button>`);
-        buttons.push(`<button class="tbl-btn tbl-success" data-deliver="${o.id}">Giao</button>`);
-        buttons.push(`<button class="tbl-btn tbl-delete" data-cancel-order="${o.id}">Hủy</button>`);
-      } else if (o.status === 'processing') {
-        buttons.push(`<button class="tbl-btn tbl-success" data-deliver="${o.id}">Giao</button>`);
-        buttons.push(`<button class="tbl-btn tbl-delete" data-cancel-order="${o.id}">Hủy</button>`);
-      } else if (o.status === 'pending') {
+      buttons.push(`<button class="tbl-btn tbl-edit" data-edit-status="${o.id}" data-status="${o.status}">Trạng thái</button>`);
+      if (o.status === 'pending') {
         buttons.push(`<button class="tbl-btn tbl-delete" data-cancel-order="${o.id}">Hủy</button>`);
       }
+      buttons.push(`<button class="tbl-btn tbl-delete" data-delete-order="${o.id}">Xóa</button>`);
       buttons.push(`<button class="tbl-btn tbl-view" data-view-order="${o.id}" data-od="${encodeURIComponent(JSON.stringify(o))}">Xem</button>`);
       return `<div class="tbl-actions">${buttons.join('')}</div>`;
     };
     content.innerHTML = `
-      <div class="filter-pills">${['', 'pending', 'paid', 'processing', 'completed', 'cancelled'].map(s => `<button class="filter-pill ${status === s ? 'active' : ''}" data-filter="${s}">${s || 'Tất cả'}</button>`).join('')}</div>
+      <div class="filter-pills">${statusOptions.map(s => `<button class="filter-pill ${status === s ? 'active' : ''}" data-filter="${s}">${s ? statusLabels[s] || s : 'Tất cả'}</button>`).join('')}</div>
+      <div class="d-flex align-center gap-8 mb-12" style="justify-content:space-between">
+        <div class="text-muted text-sm">Đã chọn <strong data-bulk-count>${selectedIds.size}</strong> đơn hàng</div>
+        <button class="btn btn-sm btn-outline-danger" data-bulk-delete ${selectedIds.size ? '' : 'disabled'}><i class="fa-solid fa-trash-can"></i> Xóa đã chọn</button>
+      </div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Mã đơn</th><th>Khách</th><th>SP</th><th>Tiền</th><th>PTTT</th><th>TT</th><th>Ngày</th><th></th></tr></thead>
-        <tbody>${data.items.map(o => `<tr><td class="td-mono">${o.order_code}</td><td class="text-sm">${esc(o.user_email) || '—'}</td><td class="text-sm">${adminOrderSummary(o)}</td><td class="text-primary">${fmt(o.total_amount)}</td><td class="text-sm">${o.payment_method || 'payos'}</td><td>${statusBadge(o.status)}</td><td class="text-sm text-muted">${fmtDate(o.created_at)}</td><td>${actionButtons(o)}</td></tr>`).join('')}</tbody>
+        <thead><tr><th style="width:42px"><input type="checkbox" data-select-all></th><th>Mã đơn</th><th>Khách</th><th>SP</th><th>Tiền</th><th>PTTT</th><th>TT</th><th>Ngày</th><th></th></tr></thead>
+
+        <tbody>${data.items.map(o => `<tr><td><input type="checkbox" data-row-select value="${o.id}" ${selectedIds.has(o.id) ? 'checked' : ''}></td><td class="td-mono">${o.order_code}</td><td class="text-sm">${esc(o.user_email) || '—'}</td><td class="text-sm">${adminOrderSummary(o)}</td><td class="text-primary">${fmt(o.total_amount)}</td><td class="text-sm">${paymentLabels[o.payment_method] || o.payment_method || 'PayOS'}</td><td>${statusBadge(o.status)}</td><td class="text-sm text-muted">${fmtDate(o.created_at)}</td><td>${actionButtons(o)}</td></tr>`).join('')}</tbody>
       </table></div>
     `;
+    updateBulkBar();
+
+    content.onchange = (e) => {
+      const all = e.target.closest('[data-select-all]');
+      if (all) {
+        qsa('[data-row-select]', content).forEach(cb => {
+          cb.checked = all.checked;
+          if (all.checked) selectedIds.add(parseInt(cb.value)); else selectedIds.delete(parseInt(cb.value));
+        });
+        updateBulkBar();
+        return;
+      }
+      const cb = e.target.closest('[data-row-select]');
+      if (cb) {
+        if (cb.checked) selectedIds.add(parseInt(cb.value)); else selectedIds.delete(parseInt(cb.value));
+        updateBulkBar();
+      }
+    };
 
     content.onclick = async (e) => {
       const filterBtn = e.target.closest('[data-filter]');
@@ -877,27 +1001,29 @@ async function renderAdminOrders(view) {
         return;
       }
 
-      const deliverBtn = e.target.closest('[data-deliver]');
-      if (deliverBtn) {
-        showDeliverModal(parseInt(deliverBtn.dataset.deliver), refresh.bind(null, status));
+      const bulkBtn = e.target.closest('[data-bulk-delete]');
+      if (bulkBtn) {
+        const ids = [...selectedIds];
+        if (!ids.length) return;
+        if (!confirm(`Xóa vĩnh viễn ${ids.length} đơn hàng đã chọn? Thao tác này không hoàn tiền.`)) return;
+        try {
+          const res = await apiFetch('/orders/admin/bulk-delete', { method: 'POST', body: JSON.stringify({ ids }) });
+          selectedIds.clear();
+          toast(`Đã xóa ${res.deleted || 0} đơn hàng`, 'success');
+          await refresh(status);
+        } catch (err) { toast(err.message, 'error'); }
         return;
       }
 
-      const processingBtn = e.target.closest('[data-mark-processing]');
-      if (processingBtn) {
-        try {
-          await apiFetch(`/orders/admin/${processingBtn.dataset.markProcessing}/status`, { method: 'PUT', body: JSON.stringify({ status: 'processing' }) });
-          toast('Đã chuyển sang đang xử lý', 'success');
-          await refresh(status);
-        } catch (err) {
-          toast(err.message, 'error');
-        }
+      const editStatusBtn = e.target.closest('[data-edit-status]');
+      if (editStatusBtn) {
+        showOrderStatusModal(parseInt(editStatusBtn.dataset.editStatus), editStatusBtn.dataset.status, refresh.bind(null, status));
         return;
       }
 
       const cancelBtn = e.target.closest('[data-cancel-order]');
       if (cancelBtn) {
-        if (!confirm('Hủy đơn này và hoàn tiền về số dư nội bộ nếu đã thanh toán?')) return;
+        if (!confirm('Hủy đơn này? Chỉ dùng cho đơn hết thời gian/chưa thanh toán, không hoàn tiền.')) return;
         try {
           await apiFetch(`/orders/admin/${cancelBtn.dataset.cancelOrder}/cancel`, { method: 'POST', body: JSON.stringify({}) });
           toast('Đã hủy đơn', 'success');
@@ -908,11 +1034,23 @@ async function renderAdminOrders(view) {
         return;
       }
 
+      const deleteBtn = e.target.closest('[data-delete-order]');
+      if (deleteBtn) {
+        if (!confirm('Xóa vĩnh viễn đơn này? Thao tác này không hoàn tiền.')) return;
+        try {
+          await apiFetch(`/orders/admin/${deleteBtn.dataset.deleteOrder}`, { method: 'DELETE' });
+          selectedIds.delete(parseInt(deleteBtn.dataset.deleteOrder));
+          toast('Đã xóa đơn hàng', 'success');
+          await refresh(status);
+        } catch (err) { toast(err.message, 'error'); }
+        return;
+      }
+
       const viewBtn = e.target.closest('[data-view-order]');
       if (viewBtn) {
         const o = JSON.parse(decodeURIComponent(viewBtn.dataset.od));
         openModal(`
-          <div class="order-meta">${Object.entries({ 'Mã đơn': o.order_code, 'Khách': esc(o.user_email), 'Tóm tắt': adminOrderSummary(o), 'Tiền': fmt(o.total_amount), 'PTTT': o.payment_method || 'payos', 'TT': o.status, 'Ngày': fmtDate(o.created_at), 'Coupon': o.coupon_code || '—' }).map(([k, v]) => `<div class="order-meta-item"><div class="order-meta-label">${k}</div><div class="order-meta-value">${v || '—'}</div></div>`).join('')}</div>
+          <div class="order-meta">${Object.entries({ 'Mã đơn': o.order_code, 'Khách': esc(o.user_email), 'Tóm tắt': adminOrderSummary(o), 'Tiền': fmt(o.total_amount), 'PTTT': paymentLabels[o.payment_method] || o.payment_method || 'PayOS', 'TT': statusLabels[o.status] || o.status, 'Ngày': fmtDate(o.created_at), 'Coupon': o.coupon_code || '—' }).map(([k, v]) => `<div class="order-meta-item"><div class="order-meta-label">${k}</div><div class="order-meta-value">${v || '—'}</div></div>`).join('')}</div>
           <div class="delivery-box mt-12"><div class="delivery-box-title">Danh sách sản phẩm</div><div>${adminOrderItemsHtml(o)}</div></div>
           ${o.delivery_data ? `<div class="delivery-box mt-12"><div class="delivery-box-title">Tổng dữ liệu giao</div><div class="delivery-data">${esc(o.delivery_data)}</div></div>` : ''}
         `, `Đơn: ${o.order_code}`);
@@ -921,6 +1059,53 @@ async function renderAdminOrders(view) {
     } catch (err) { content.innerHTML = `<div class="empty-state"><h3>Lỗi tải đơn hàng</h3><p class="text-muted">${err.message}</p></div>`; }
   };
   await refresh();
+}
+
+
+function showOrderStatusModal(orderId, currentStatus, refresh) {
+  const labels = { pending: 'Đặt hàng', paid: 'Đã thanh toán', completed: 'Đã giao hàng', cancelled: 'Đã hủy', failed: 'Lỗi / hoàn tiền' };
+  openModal(`
+    <form id="order-status-form">
+      <div class="form-group"><label class="form-label">Trạng thái</label><select class="form-select" id="order-status-value">
+        ${['pending', 'paid', 'completed', 'cancelled', 'failed'].map(s => `<option value="${s}" ${s === currentStatus ? 'selected' : ''}>${labels[s]}</option>`).join('')}
+      </select><div class="form-hint">Chọn “Đã giao hàng” sẽ mở form nhập dữ liệu giao hàng.</div></div>
+      <div id="order-delivery-fields" style="display:none">
+        <div class="form-group"><label class="form-label">Dữ liệu giao hàng<span class="req">*</span></label><textarea class="form-textarea" id="order-delivery-data" rows="6" placeholder="username: ...\npassword: ..."></textarea><div class="form-hint">Thông tin giao cho khách</div></div>
+      </div>
+      <div class="form-group"><label class="form-label">Ghi chú</label><input class="form-input" id="order-status-note" placeholder="Ghi chú nội bộ / thông báo" /></div>
+      <div id="order-status-err" class="form-error mb-12" style="display:none"></div>
+      <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">Cập nhật</button><button type="button" class="btn btn-ghost" id="order-status-cancel">Hủy</button></div>
+    </form>
+  `, 'Cập nhật trạng thái đơn');
+  const statusSelect = qs('#order-status-value');
+  const deliveryFields = qs('#order-delivery-fields');
+  const deliveryData = qs('#order-delivery-data');
+  const syncDeliveryFields = () => {
+    const show = statusSelect.value === 'completed' && currentStatus !== 'completed';
+    deliveryFields.style.display = show ? 'block' : 'none';
+    deliveryData.required = show;
+  };
+  statusSelect.onchange = syncDeliveryFields;
+  syncDeliveryFields();
+  qs('#order-status-cancel').onclick = closeModal;
+  qs('#order-status-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const newStatus = statusSelect.value;
+    try {
+      if (newStatus === 'completed' && currentStatus !== 'completed') {
+        await apiFetch(`/orders/admin/${orderId}/deliver`, { method: 'PUT', body: JSON.stringify({ delivery_data: deliveryData.value, notes: qs('#order-status-note').value || null }) });
+      } else {
+        await apiFetch(`/orders/admin/${orderId}/status`, { method: 'PUT', body: JSON.stringify({ status: newStatus, notes: qs('#order-status-note').value || null }) });
+      }
+      closeModal();
+      toast('Đã cập nhật trạng thái', 'success');
+      refresh();
+    } catch (err) {
+      const box = qs('#order-status-err');
+      box.textContent = err.message;
+      box.style.display = 'block';
+    }
+  };
 }
 
 function showDeliverModal(orderId, refresh) {
@@ -3145,7 +3330,7 @@ function _renderPaymentTable(items) {
       <td class="text-sm">${o.user_email || '—'}</td>
       <td class="text-sm">${o.product_name || '—'}</td>
       <td class="text-primary">${fmt(o.total_amount)}</td>
-      <td class="text-sm">${o.payment_method || 'payos'}</td>
+      <td class="text-sm">${({ payos: 'PayOS', balance: 'Số dư' })[o.payment_method] || o.payment_method || 'PayOS'}</td>
       <td>${statusBadge(o.status)}</td>
       <td class="text-sm text-muted">${fmtDate(o.created_at)}</td>
       <td class="text-sm text-muted">${fmtDate(o.updated_at)}</td>

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from api.auth import get_current_admin
 from api.products_shared import (
+    BulkIdsRequest,
     FieldCreate,
     FieldUpdate,
     PackageCreate,
@@ -186,6 +187,33 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
         db.delete(p)
         db.commit()
     return {"ok": True}
+
+
+@router.post("/bulk-delete", dependencies=[Depends(get_current_admin)])
+def bulk_delete_products(body: BulkIdsRequest, db: Session = Depends(get_db)):
+    ids = sorted(set(int(i) for i in (body.ids or []) if int(i) > 0))
+    if not ids:
+        raise HTTPException(status_code=400, detail="Chọn ít nhất một sản phẩm")
+    products = db.query(Product).options(joinedload(Product.packages)).filter(Product.id.in_(ids)).all()
+    deleted = 0
+    archived = 0
+    from db.models import Order
+    for p in products:
+        pkg_ids = [pkg.id for pkg in p.packages]
+        has_orders = bool(pkg_ids and db.query(Order).filter(Order.package_id.in_(pkg_ids)).first())
+        if has_orders:
+            p.is_active = False
+            if not p.name.startswith("[Đã xóa]"):
+                p.name = f"[Đã xóa] {p.name}"
+            p.slug = f"deleted-{p.slug}-{int(datetime.now().timestamp())}"
+            for pkg in p.packages:
+                pkg.is_active = False
+            archived += 1
+        else:
+            db.delete(p)
+            deleted += 1
+    db.commit()
+    return {"ok": True, "requested": len(ids), "deleted": deleted, "archived": archived}
 
 
 @router.post("/{product_id}/packages", dependencies=[Depends(get_current_admin)])

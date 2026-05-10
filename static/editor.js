@@ -170,7 +170,7 @@ function createRichTextEditor({
       content_style: `
         body { font-family: Manrope, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.75; color: #0f172a; padding: 12px; }
         img { max-width: 100%; height: auto; border-radius: 12px; }
-        blockquote { border-left: 3px solid #5D5FEF; margin: 12px 0; padding: 10px 14px; background: rgba(93,95,239,.08); border-radius: 10px; }
+        blockquote { border-left: 3px solid #334155; margin: 12px 0; padding: 10px 14px; background: rgba(51,65,85,.08); border-radius: 10px; }
         table { border-collapse: collapse; width: 100%; } td, th { border: 1px solid #dbe3ef; padding: 8px; }
       `,
       setup(editor) {

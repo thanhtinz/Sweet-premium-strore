@@ -169,7 +169,7 @@ def test_payos_connection_admin(
             checksum_key=data.payos_checksum_key
         )
         try:
-            payos.getPaymentLinkInfomation(orderId=9999999999)
+            payos.payment_requests.get(id=9999999999)
             return {"message": "Kết nối thành công (API credentials hợp lệ)"}
         except Exception as e:
             err_str = str(e).lower()

@@ -48,6 +48,25 @@ async function renderHome(view) {
       slide.innerHTML = inner;
       track.appendChild(slide);
     });
+
+function paymentStatusLabel(status) {
+  const normalized = String(status || '').toUpperCase();
+  const labels = {
+    PENDING: 'Chờ thanh toán',
+    PAID: 'Đã thanh toán',
+    CANCELLED: 'Đã hủy',
+    EXPIRED: 'Hết hạn',
+    PROCESSING: 'Đang xử lý',
+    FAILED: 'Lỗi',
+  };
+  return labels[normalized] || status || 'Chờ thanh toán';
+}
+
+function paymentMethodLabel(method) {
+  const labels = { payos: 'PayOS', balance: 'Số dư' };
+  return labels[method] || method || 'PayOS';
+}
+
     slider.appendChild(track);
 
     if (heroBanners.length > 1) {
@@ -1968,9 +1987,13 @@ async function renderCheckout(view) {
       try {
         const order = await apiFetch('/orders/create', { method: 'POST', body: JSON.stringify({ items: cart.map(item => ({ package_id: item.pkg_id, quantity: item.quantity, custom_fields_data: item.fields || {} })), payment_method: selectedMethod, coupon_code: cartCoupon?.code || null }) });
         if (selectedMethod === 'payos') {
-          const link = await apiFetch('/payment/create-link', { method: 'POST', body: JSON.stringify({ order_code: order.order_code }) });
+          const payment = await apiFetch('/payment/create-link', { method: 'POST', body: JSON.stringify({ order_code: order.order_code }) });
           cart.length = 0; cartCoupon = null; saveCart(); updateCartCount();
-          location.hash = `/orders/${order.order_code}?checkout=payos`;
+          if (payment?.payment_url) {
+            window.location.href = payment.payment_url;
+          } else {
+            location.hash = `/orders/${order.order_code}`;
+          }
         } else {
           // Balance payment
           cart.length = 0; cartCoupon = null; saveCart(); updateCartCount();
@@ -2028,14 +2051,56 @@ async function renderCheckout(view) {
         <button class="btn btn-primary btn-lg" onclick="location.reload()"><i class="fa-solid fa-rotate-right"></i> Thử lại</button>
       `;
     } else if (method === 'payos') {
+      const payosData = payUrl || {};
+      const checkoutOrder = payosData.order || order;
+      content.style.maxWidth = '920px';
+      content.style.textAlign = 'left';
+      const qrBlock = payosData.qr_code
+        ? `<div class="checkout-shell-qr-wrap"><img src="${payosData.qr_code}" alt="QR thanh toán" class="checkout-shell-qr" /></div>`
+        : `<div class="checkout-shell-qr-wrap checkout-shell-qr-placeholder"><i class="fa-solid fa-qrcode"></i><span>QR sẽ hiển thị khi PayOS trả dữ liệu</span></div>`;
+      const bankMeta = [
+        payosData.account_name ? `<div class="checkout-shell-meta-row"><span>Chủ tài khoản</span><strong>${esc(payosData.account_name)}</strong></div>` : '',
+        payosData.account_number ? `<div class="checkout-shell-meta-row"><span>Số tài khoản</span><strong>${esc(payosData.account_number)}</strong></div>` : '',
+        payosData.bin ? `<div class="checkout-shell-meta-row"><span>Mã ngân hàng</span><strong>${esc(String(payosData.bin))}</strong></div>` : '',
+        payosData.description ? `<div class="checkout-shell-meta-row"><span>Nội dung CK</span><strong>${esc(payosData.description)}</strong></div>` : '',
+      ].filter(Boolean).join('');
+      const payosItems = checkoutOrder.items || order.items || [];
       content.innerHTML = `
-        <div style="font-size: 64px; color: var(--primary); margin-bottom: 16px;"><i class="fa-solid fa-qrcode"></i></div>
-        <h2 style="margin-bottom: 8px;">Đang chờ thanh toán</h2>
-        <p class="text-muted mb-8">Mã đơn: <strong>${order.order_code}</strong></p>
-        <p class="mb-24" style="color:var(--text-heading)">Đơn hàng đã được tạo. Trình duyệt đã mở tab thanh toán PayOS an toàn. Nếu chưa mở, bạn có thể bấm nút bên dưới.</p>
-        <div style="display:flex; justify-content:center; gap: 12px; flex-wrap:wrap;">
-          <a href="${payUrl}" target="_blank" class="btn btn-primary btn-lg"><i class="fa-solid fa-money-bill-wave"></i> Thanh toán ngay</a>
-          <a href="#/orders/${order.order_code}" class="btn btn-outline btn-lg">Xem đơn hàng</a>
+        <div class="checkout-shell-card">
+          <div class="checkout-shell-head">
+            <div>
+              <div class="checkout-shell-eyebrow">Thanh toán PayOS</div>
+              <h3>Quét QR hoặc chuyển khoản</h3>
+              <p>Mã đơn: <strong>${checkoutOrder.order_code || order.order_code}</strong>. Thanh toán trong giao diện cửa hàng, không chuyển sang trang PayOS.</p>
+            </div>
+            <div class="checkout-shell-status pending"><i class="fa-solid fa-clock"></i> ${paymentStatusLabel(payosData.status || 'PENDING')}</div>
+          </div>
+          <div class="checkout-shell-body">
+            <div class="checkout-shell-summary">
+              <div class="checkout-shell-total">
+                <span>Tổng cần thanh toán</span>
+                <strong>${fmt(payosData.amount || checkoutOrder.total_amount || order.total_amount || 0)}</strong>
+              </div>
+              <div class="checkout-shell-items">
+                ${payosItems.map(item => `
+                  <div class="checkout-shell-item">
+                    <div class="checkout-shell-item-name">${esc(item.product_name || 'Sản phẩm')} <span>x${item.quantity || 1}</span></div>
+                    <div class="checkout-shell-item-meta">${esc(item.package_name || 'Gói')}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            <div class="checkout-shell-payment">
+              ${qrBlock}
+              <div class="checkout-shell-meta">
+                ${bankMeta || '<div class="checkout-shell-meta-row"><span>Thông tin</span><strong>Quét QR hoặc chuyển khoản theo thông tin thanh toán bên dưới</strong></div>'}
+              </div>
+              <div class="checkout-shell-actions">
+                <button class="btn btn-primary btn-full" id="btn-step3-check-status"><i class="fa-solid fa-rotate"></i> Cập nhật trạng thái thanh toán</button>
+                  <a href="#/orders/${order.order_code}" class="btn btn-ghost btn-full"><i class="fa-solid fa-receipt"></i> Xem chi tiết đơn</a>
+              </div>
+            </div>
+          </div>
         </div>
       `;
     } else {
@@ -2052,11 +2117,101 @@ async function renderCheckout(view) {
     }
 
     view.appendChild(content);
+
+    qs('#btn-step3-check-status', content)?.addEventListener('click', async () => {
+      const btn = qs('#btn-step3-check-status', content);
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang kiểm tra...';
+      await apiFetch(`/payment/status/${order.order_code}`).catch(() => null);
+      const refreshed = await apiFetch(`/payment/checkout-data/${order.order_code}`).catch(() => null);
+      renderStep3(order, 'payos', refreshed || payUrl);
+    });
   }
 
   // Start at Step 2
   renderStep2();
 }
+
+async function renderPayosCheckout(view, { code }) {
+  if (!currentUser) return location.hash = '/login';
+  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  try {
+    await apiFetch(`/payment/status/${code}`).catch(() => null);
+    let checkoutData = await apiFetch(`/payment/checkout-data/${code}`).catch(() => null);
+    if (!checkoutData?.payos?.payment_link_id) {
+      await apiFetch('/payment/create-link', { method: 'POST', body: JSON.stringify({ order_code: code }) });
+      checkoutData = await apiFetch(`/payment/checkout-data/${code}`);
+    }
+
+    const payosData = checkoutData?.payos || {};
+    const items = checkoutData?.items || [];
+    const expiresAt = payosData.expires_at ? Number(payosData.expires_at) * 1000 : (Date.now() + 15 * 60 * 1000);
+    view.innerHTML = `
+      <div class="payos-fullpage">
+        <div class="payos-fullpage-card">
+          <div class="payos-fullpage-top">
+            <div>
+              <div class="checkout-shell-eyebrow">Thanh toán PayOS</div>
+              <h1>Hoàn tất thanh toán</h1>
+              <p>Quét QR hoặc chuyển khoản theo thông tin bên dưới. Không cần mở trang PayOS.</p>
+            </div>
+            <a href="#/orders/${code}" class="btn btn-ghost"><i class="fa-solid fa-receipt"></i> Chi tiết đơn</a>
+          </div>
+          <div class="payos-fullpage-grid">
+            <div class="payos-fullpage-left">
+              <div class="checkout-shell-total">
+                <span>Tổng cần thanh toán</span>
+                <strong>${fmt(payosData.amount || checkoutData.total_amount || 0)}</strong>
+              </div>
+              <div class="payos-countdown" id="payos-countdown">15:00</div>
+              <div class="checkout-shell-items">
+                ${items.map(item => `
+                  <div class="checkout-shell-item">
+                    <div class="checkout-shell-item-name">${esc(item.product_name || 'Sản phẩm')} <span>x${item.quantity || 1}</span></div>
+                    <div class="checkout-shell-item-meta">${esc(item.package_name || 'Gói')}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            <div class="payos-fullpage-right">
+              ${payosData.qr_code ? `<div class="checkout-shell-qr-wrap"><img src="${payosData.qr_code}" alt="QR thanh toán" class="checkout-shell-qr" /></div>` : `<div class="checkout-shell-qr-wrap checkout-shell-qr-placeholder"><i class="fa-solid fa-qrcode"></i><span>QR chưa sẵn sàng</span></div>`}
+              <div class="checkout-shell-meta">
+                ${payosData.account_name ? `<div class="checkout-shell-meta-row"><span>Chủ tài khoản</span><strong>${esc(payosData.account_name)}</strong></div>` : ''}
+                ${payosData.account_number ? `<div class="checkout-shell-meta-row"><span>Số tài khoản</span><strong>${esc(payosData.account_number)}</strong></div>` : ''}
+                ${payosData.bin ? `<div class="checkout-shell-meta-row"><span>Mã ngân hàng</span><strong>${esc(String(payosData.bin))}</strong></div>` : ''}
+                ${payosData.description ? `<div class="checkout-shell-meta-row"><span>Nội dung CK</span><strong>${esc(payosData.description)}</strong></div>` : ''}
+              </div>
+              <a class="btn btn-outline btn-full" href="${payosData.payment_url || '#'}" target="_blank" rel="noopener" ${payosData.payment_url ? '' : 'aria-disabled="true"'}><i class="fa-solid fa-up-right-from-square"></i> Mở link PayOS đã tạo</a>
+              <button class="btn btn-primary btn-full" id="btn-payos-full-check"><i class="fa-solid fa-rotate"></i> Cập nhật trạng thái</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const tick = () => {
+      const left = Math.max(0, expiresAt - Date.now());
+      const mins = Math.floor(left / 60000);
+      const secs = Math.floor((left % 60000) / 1000);
+      const el = qs('#payos-countdown', view);
+      if (el) el.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      if (left <= 0 && el) el.classList.add('expired');
+    };
+    tick();
+    const timer = setInterval(() => {
+      if (!document.body.contains(view)) return clearInterval(timer);
+      tick();
+    }, 1000);
+
+    qs('#btn-payos-full-check', view)?.addEventListener('click', async () => {
+      await apiFetch(`/payment/status/${code}`).catch(() => null);
+      renderPayosCheckout(view, { code });
+    });
+  } catch (e) {
+    view.innerHTML = `<div class="empty-state"><h3>${e.message}</h3></div>`;
+  }
+}
+
 
 // ORDERS
 function orderPrimaryItem(order) {
@@ -2107,15 +2262,19 @@ async function renderOrders(view) {
 
     // Filter Tabs
     const pendingCount = data.items.filter(i => i.status === 'pending_payment' || i.status === 'pending').length;
-    const processingCount = data.items.filter(i => i.status === 'processing').length;
+    const paidCount = data.items.filter(i => i.status === 'paid').length;
     const completedCount = data.items.filter(i => i.status === 'completed').length;
+    const cancelledCount = data.items.filter(i => i.status === 'cancelled' || i.status === 'expired').length;
+    const failedCount = data.items.filter(i => i.status === 'failed').length;
     view.innerHTML += `
       <div class="card mb-16" style="padding: 6px;">
         <div style="display:flex; overflow-x:auto; gap:4px; scrollbar-width:none;" id="orders-filter-tabs">
           <button class="btn btn-ghost" data-status="all" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; background:#e2e8f0; color:var(--text-heading); font-weight:600;">Tất cả <span style="background:rgba(0,0,0,0.1); margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${data.total}</span></button>
-          <button class="btn btn-ghost" data-status="pending" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Chờ xử lý <span style="background:#f1f5f9; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${pendingCount}</span></button>
-          <button class="btn btn-ghost" data-status="processing" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Đang xử lý <span style="background:#f1f5f9; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${processingCount}</span></button>
-          <button class="btn btn-ghost" data-status="completed" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Hoàn thành <span style="background:#f1f5f9; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${completedCount}</span></button>
+          <button class="btn btn-ghost" data-status="pending" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Đặt hàng <span style="background:#f1f5f9; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${pendingCount}</span></button>
+          <button class="btn btn-ghost" data-status="paid" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Đã thanh toán <span style="background:#f1f5f9; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${paidCount}</span></button>
+          <button class="btn btn-ghost" data-status="completed" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Đã giao hàng <span style="background:#f1f5f9; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${completedCount}</span></button>
+          <button class="btn btn-ghost" data-status="cancelled" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Đã hủy <span style="background:#f1f5f9; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${cancelledCount}</span></button>
+          <button class="btn btn-ghost" data-status="failed" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Lỗi <span style="background:#f1f5f9; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${failedCount}</span></button>
         </div>
       </div>
     `;
@@ -2127,9 +2286,11 @@ async function renderOrders(view) {
 
     function renderList() {
       listWrap.innerHTML = '';
-      const filtered = currentFilter === 'all' ? data.items : data.items.filter(i => 
-        currentFilter === 'pending' ? (i.status === 'pending' || i.status === 'pending_payment') : i.status === currentFilter
-      );
+      const filtered = currentFilter === 'all' ? data.items : data.items.filter(i => {
+        if (currentFilter === 'pending') return i.status === 'pending' || i.status === 'pending_payment';
+        if (currentFilter === 'cancelled') return i.status === 'cancelled' || i.status === 'expired';
+        return i.status === currentFilter;
+      });
       
       if (!filtered.length) { 
         listWrap.innerHTML = `<div class="empty-state"><h3>Chưa có đơn hàng</h3></div>`; 
@@ -2141,12 +2302,15 @@ async function renderOrders(view) {
         card.style.padding = '20px';
         
         let stText = 'Lỗi', stColor = '#ef4444', stIcon = 'circle-xmark';
-        if (o.status === 'completed') { stText = 'Hoàn thành'; stColor = '#10b981'; stIcon = 'circle-check'; }
-        else if (o.status === 'pending' || o.status === 'pending_payment') { stText = 'Chờ xử lý'; stColor = '#f59e0b'; stIcon = 'clock'; }
-        else if (o.status === 'processing') { stText = 'Đang xử lý'; stColor = '#3b82f6'; stIcon = 'spinner fa-spin'; }
+        if (o.status === 'completed') { stText = 'Đã giao hàng'; stColor = '#10b981'; stIcon = 'circle-check'; }
+        else if (o.status === 'pending' || o.status === 'pending_payment') { stText = 'Đặt hàng'; stColor = '#f59e0b'; stIcon = 'clock'; }
+        else if (o.status === 'paid') { stText = 'Đã thanh toán'; stColor = '#3b82f6'; stIcon = 'credit-card'; }
+        else if (o.status === 'cancelled' || o.status === 'expired') { stText = 'Đã hủy'; stColor = '#ef4444'; stIcon = 'circle-xmark'; }
+        else if (o.status === 'failed') { stText = 'Lỗi / đã hoàn tiền'; stColor = '#ef4444'; stIcon = 'triangle-exclamation'; }
 
         const img = orderDisplayImage(o) || `<div style="width:56px; height:56px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:24px;"><i class="fa-solid fa-box"></i></div>`;
         const imgHtml = img.startsWith('<') ? img : `<img src="${img}" onerror="${onImgFallback()}" style="width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--border);" />`;
+        const detailHash = `#/orders/${o.order_code}`;
 
         card.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
@@ -2164,7 +2328,7 @@ async function renderOrders(view) {
           
           <div style="display:flex; justify-content:space-between; align-items:center;">
             ${imgHtml}
-            <a href="#/orders/${o.order_code}" class="btn" style="background:#eef2ff; color:var(--primary); border:none; padding:10px 20px; border-radius:8px; font-weight:600;">Xem chi tiết</a>
+            <a href="${detailHash}" class="btn" style="background:#eef2ff; color:var(--primary); border:none; padding:10px 20px; border-radius:8px; font-weight:600;">Xem chi tiết</a>
           </div>
         `;
         listWrap.appendChild(card);
@@ -2219,9 +2383,10 @@ async function renderOrderDetail(view, { code }) {
     `;
 
     let stText = 'Lỗi', stColor = '#ef4444', stBg = '#fee2e2', stIcon = 'circle-xmark';
-    if (d.status === 'completed') { stText = 'Hoàn thành'; stColor = '#10b981'; stBg = '#ecfdf5'; stIcon = 'circle-check'; }
-    else if (d.status === 'pending' || d.status === 'pending_payment') { stText = 'Chờ xử lý'; stColor = '#f59e0b'; stBg = '#fef3c7'; stIcon = 'clock'; }
-    else if (d.status === 'processing') { stText = 'Đang xử lý'; stColor = '#3b82f6'; stBg = '#eff6ff'; stIcon = 'spinner fa-spin'; }
+    if (d.status === 'completed') { stText = 'Đã giao hàng'; stColor = '#10b981'; stBg = '#ecfdf5'; stIcon = 'circle-check'; }
+    else if (d.status === 'pending' || d.status === 'pending_payment') { stText = 'Đặt hàng'; stColor = '#f59e0b'; stBg = '#fef3c7'; stIcon = 'clock'; }
+    else if (d.status === 'paid') { stText = 'Đã thanh toán'; stColor = '#3b82f6'; stBg = '#eff6ff'; stIcon = 'credit-card'; }
+    else if (d.status === 'failed') { stText = 'Lỗi / đã hoàn tiền'; stColor = '#ef4444'; stBg = '#fee2e2'; stIcon = 'triangle-exclamation'; }
 
     const grid = el('div', 'checkout-grid');
     const leftCol = el('div');
@@ -2352,7 +2517,7 @@ async function renderOrderDetail(view, { code }) {
             <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin-bottom:24px;">
               <button class="btn" style="background:#16a34a; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-weight:600;" onclick="navigator.clipboard.writeText(\`${d.delivery_data.replace(/`/g, '\\`')}\`).then(()=>toast('Đã sao chép tất cả','success'))"><i class="fa-solid fa-copy"></i> Sao chép tất cả</button>
               <button class="btn" style="background:#2563eb; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-weight:600;" onclick="downloadFile('${d.order_code}.txt', \`${d.delivery_data.replace(/`/g, '\\`')}\`)"><i class="fa-solid fa-file-lines"></i> Xuất TXT</button>
-              <button class="btn" style="background:#8b5cf6; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-weight:600;" onclick="downloadFile('${d.order_code}.csv', \`${accounts.join('\\n').replace(/`/g, '\\`')}\`)"><i class="fa-solid fa-file-csv"></i> Xuất CSV</button>
+              <button class="btn" style="background:#334155; color:#fff; border:none; padding:10px 20px; border-radius:8px; font-weight:600;" onclick="downloadFile('${d.order_code}.csv', \`${accounts.join('\\n').replace(/`/g, '\\`')}\`)"><i class="fa-solid fa-file-csv"></i> Xuất CSV</button>
             </div>
 
             <div style="border-top:1px dashed #cbd5e1; margin-bottom:24px;"></div>
@@ -2385,7 +2550,7 @@ async function renderOrderDetail(view, { code }) {
                 <h3>Thanh toán thành công!</h3>
                 <p>Đơn hàng đã được thanh toán và đang xử lý giao hàng.</p>
               </div>
-              <div class="checkout-shell-status paid"><i class="fa-solid fa-circle-check"></i> PAID</div>
+              <div class="checkout-shell-status paid"><i class="fa-solid fa-circle-check"></i> Đã thanh toán</div>
             </div>
             <div class="checkout-shell-body">
               <div class="checkout-shell-summary" style="text-align:center; padding:32px 20px;">
@@ -2410,7 +2575,7 @@ async function renderOrderDetail(view, { code }) {
                 <h3>Thanh toán không thành công</h3>
                 <p>Đơn hàng đã bị huỷ hoặc hết hạn thanh toán.</p>
               </div>
-              <div class="checkout-shell-status cancelled"><i class="fa-solid fa-circle-xmark"></i> ${d.status.toUpperCase()}</div>
+              <div class="checkout-shell-status cancelled"><i class="fa-solid fa-circle-xmark"></i> ${paymentStatusLabel(d.status)}</div>
             </div>
             <div class="checkout-shell-body">
               <div class="checkout-shell-summary" style="text-align:center; padding:32px 20px;">
@@ -2445,7 +2610,7 @@ async function renderOrderDetail(view, { code }) {
                 <h3>Quét QR hoặc tiếp tục tới PayOS</h3>
                 <p>Giữ nguyên giao diện cửa hàng, chỉ chuyển sang PayOS khi bạn cần hoàn tất trên trang cổng thanh toán.</p>
               </div>
-              <div class="checkout-shell-status ${d.status}"><i class="fa-solid fa-clock"></i> ${payosData.status || 'PENDING'}</div>
+              <div class="checkout-shell-status ${d.status}"><i class="fa-solid fa-clock"></i> ${paymentStatusLabel(payosData.status || 'PENDING')}</div>
             </div>
             <div class="checkout-shell-body">
               <div class="checkout-shell-summary">
@@ -2465,11 +2630,10 @@ async function renderOrderDetail(view, { code }) {
               <div class="checkout-shell-payment">
                 ${qrBlock}
                 <div class="checkout-shell-meta">
-                  ${bankMeta || '<div class="checkout-shell-meta-row"><span>Thông tin</span><strong>Tiếp tục tới PayOS để xem chi tiết thanh toán</strong></div>'}
+                  ${bankMeta || '<div class="checkout-shell-meta-row"><span>Thông tin</span><strong>Quét QR hoặc chuyển khoản theo thông tin thanh toán bên dưới</strong></div>'}
                 </div>
                 <div class="checkout-shell-actions">
-                  ${payosData.payment_url ? `<a href="${payosData.payment_url}" target="_blank" rel="noopener" class="btn btn-primary btn-full"><i class="fa-solid fa-arrow-up-right-from-square"></i> Tiếp tục tới PayOS</a>` : ''}
-                  <button class="btn btn-ghost btn-full" id="btn-check-status"><i class="fa-solid fa-rotate"></i> Cập nhật trạng thái</button>
+                  <button class="btn btn-primary btn-full" id="btn-check-status"><i class="fa-solid fa-rotate"></i> Cập nhật trạng thái thanh toán</button>
                 </div>
               </div>
             </div>
@@ -2482,7 +2646,7 @@ async function renderOrderDetail(view, { code }) {
             <div class="card-body">
               <h3 style="margin-top:0; color:#b45309">Chưa thanh toán</h3>
               <p style="color:var(--text-muted); font-size:14px; margin-bottom:16px;">Bạn cần thanh toán đơn hàng này để hệ thống xử lý giao hàng.</p>
-              <button class="btn btn-primary btn-full" onclick="location.hash='/checkout'"><i class="fa-solid fa-credit-card"></i> Thanh toán ngay</button>
+              <button class="btn btn-primary btn-full btn-payos-order"><i class="fa-solid fa-credit-card"></i> Thanh toán ngay</button>
               <button class="btn btn-ghost btn-full mt-8" id="btn-check-status"><i class="fa-solid fa-rotate"></i> Cập nhật trạng thái</button>
             </div>
           </div>
@@ -2494,7 +2658,7 @@ async function renderOrderDetail(view, { code }) {
           <div class="card-body">
             <h3 style="margin-top:0; color:#b45309">Chưa thanh toán</h3>
             <p style="color:var(--text-muted); font-size:14px; margin-bottom:16px;">Bạn cần thanh toán đơn hàng này để hệ thống xử lý giao hàng.</p>
-            <button class="btn btn-primary btn-full" onclick="location.hash='/checkout'"><i class="fa-solid fa-credit-card"></i> Thanh toán ngay</button>
+            <button class="btn btn-primary btn-full btn-payos-order"><i class="fa-solid fa-credit-card"></i> Thanh toán ngay</button>
             <button class="btn btn-ghost btn-full mt-8" id="btn-check-status"><i class="fa-solid fa-rotate"></i> Cập nhật trạng thái</button>
           </div>
         </div>
@@ -2510,6 +2674,23 @@ async function renderOrderDetail(view, { code }) {
       if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang kiểm tra...'; }
       await apiFetch(`/payment/status/${code}`).catch(() => null);
       renderOrderDetail(view, { code });
+    });
+
+    qsa('.btn-payos-order', rightCol).forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        const oldHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang mở PayOS...';
+        try {
+          const payment = await apiFetch('/payment/create-link', { method: 'POST', body: JSON.stringify({ order_code: code }) });
+          if (payment?.payment_url) window.location.href = payment.payment_url;
+          else toast('Không lấy được link PayOS', 'error');
+        } catch (err) {
+          toast(err.message || 'Không tạo được link PayOS', 'error');
+          btn.disabled = false;
+          btn.innerHTML = oldHtml;
+        }
+      });
     });
   } catch (e) { view.innerHTML = `<div class="empty-state"><h3>${e.message}</h3></div>`; }
 }

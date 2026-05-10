@@ -37,6 +37,31 @@ from api.feature_guard import require_feature
 from db import get_db
 from db.models import BalanceTransaction, User
 
+
+def _sync_topup_transaction(db: Session, txn: BalanceTransaction):
+    if not txn or txn.type != "topup" or txn.status != "pending" or not txn.reference:
+        return txn
+    try:
+        from api.payment import get_payos_client, _get_payos_config, _payos_attr
+        client_id, _, _, _ = _get_payos_config(db)
+        if not client_id:
+            return txn
+        info = get_payos_client(db).payment_requests.get(id=int(txn.reference))
+        payos_status = _payos_attr(info, "status")
+        if payos_status == "PAID":
+            user = db.query(User).filter(User.id == txn.user_id).with_for_update().first()
+            if user:
+                user.balance = Decimal(user.balance or 0) + txn.amount
+                txn.balance_after = user.balance
+                txn.status = "completed"
+                db.commit()
+        elif payos_status in ("CANCELLED", "EXPIRED", "FAILED"):
+            txn.status = "failed"
+            db.commit()
+    except Exception:
+        pass
+    return txn
+
 router = APIRouter(prefix="/balance", tags=["balance"])
 
 _balance_on = Depends(require_feature("balance"))
@@ -58,12 +83,11 @@ def get_balance_history(
     db: Session = Depends(get_db),
 ):
     uid = int(current_user["user_id"])
-    q = db.query(BalanceTransaction).filter(
-        BalanceTransaction.user_id == uid,
-        BalanceTransaction.status == "completed",
-    )
+    q = db.query(BalanceTransaction).filter(BalanceTransaction.user_id == uid)
     total = q.count()
     items = q.order_by(BalanceTransaction.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
+    for txn in items:
+        _sync_topup_transaction(db, txn)
     return {"total": total, "page": page, "items": [_txn_to_dict(t) for t in items]}
 
 
@@ -79,14 +103,28 @@ def create_topup(data: TopupRequest, request: Request, current_user: dict = Depe
         result = create_topup_payment_link(db, txn, data.amount, current_user.get("email", ""))
         db.commit()
         return {
-            "payment_url": result.checkoutUrl,
+            "payment_url": result.checkout_url,
             "transaction_id": txn.id,
-            "qr_code": getattr(result, "qrCode", None),
+            "qr_code": getattr(result, "qr_code", None),
         }
     except Exception as e:
         txn.status = "failed"
         db.commit()
         raise HTTPException(500, f"PayOS error: {str(e)}")
+
+
+@router.get("/topup/status/{txn_id}", dependencies=[_balance_on])
+def check_topup_status(txn_id: int, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    uid = int(current_user["user_id"])
+    txn = db.query(BalanceTransaction).filter(
+        BalanceTransaction.id == txn_id,
+        BalanceTransaction.user_id == uid,
+        BalanceTransaction.type == "topup",
+    ).first()
+    if not txn:
+        raise HTTPException(404, "Transaction not found")
+    _sync_topup_transaction(db, txn)
+    return _txn_to_dict(txn)
 
 
 @router.post("/webhook")
@@ -183,7 +221,7 @@ def admin_adjust_balance(data: AdminAdjustRequest, request: Request, current_use
 
 @router.get("/admin/transactions", dependencies=[Depends(get_current_admin)])
 def admin_list_transactions(page: int = Query(1, ge=1), limit: int = Query(50, ge=1, le=200), type: Optional[str] = None, db: Session = Depends(get_db)):
-    q = db.query(BalanceTransaction).filter(BalanceTransaction.status == "completed")
+    q = db.query(BalanceTransaction)
     if type:
         q = q.filter(BalanceTransaction.type == type)
     total = q.count()
