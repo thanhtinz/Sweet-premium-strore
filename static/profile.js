@@ -85,16 +85,32 @@ async function renderProfile(view) {
       let historyItems = [];
       try { const hData = await apiFetch('/balance/history?limit=5'); historyItems = hData.items || []; } catch(e) {}
 
-      const balanceCard = el('div', 'info-card');
+      const balanceCard = el('div', 'mb-24');
       balanceCard.innerHTML = `
-        <div class="info-card-head" style="display:flex;justify-content:space-between;align-items:center;">
-          <div class="info-card-title"><i class="fa-solid fa-wallet"></i> Số dư tài khoản</div>
-          <div style="font-size:24px;font-weight:800;color:#f472b6;">${fmt(myBalance)}</div>
-        </div>
-        <div class="info-card-body">
-          <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <button class="btn btn-primary" id="btn-topup"><i class="fa-solid fa-plus"></i> Nạp tiền</button>
-            ${affAvailable >= 1000 ? `<button class="btn btn-outline" id="btn-aff-withdraw"><i class="fa-solid fa-arrow-right-from-bracket"></i> Rút hoa hồng (${fmt(affAvailable)})</button>` : ''}
+        <div class="wallet-card" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 16px; padding: 24px; position: relative; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.08); border: 1px solid rgba(255,255,255,0.05); margin-bottom: 24px;">
+          <!-- Decorative background circles -->
+          <div style="position: absolute; top: -50px; right: -20px; width: 150px; height: 150px; background: rgba(255,255,255,0.03); border-radius: 50%; pointer-events: none;"></div>
+          <div style="position: absolute; bottom: -30px; right: 80px; width: 100px; height: 100px; background: rgba(255,255,255,0.02); border-radius: 50%; pointer-events: none;"></div>
+          
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; position: relative; z-index: 1;">
+            <div>
+              <div style="font-size: 13px; font-weight: 600; color: #94a3b8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Số dư khả dụng</div>
+              <div style="font-size: 32px; font-weight: 800; color: #fff; letter-spacing: -0.5px; display: flex; align-items: baseline; gap: 4px;">
+                ${fmt(myBalance)}
+              </div>
+            </div>
+            <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.08); border-radius: 14px; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
+              <i class="fa-solid fa-wallet" style="font-size: 20px; color: #38bdf8;"></i>
+            </div>
+          </div>
+
+          <div style="margin-top: 28px; display: flex; gap: 12px; position: relative; z-index: 1; flex-wrap: wrap;">
+            <button class="btn btn-primary" id="btn-topup" style="background: #38bdf8; color: #0f172a; border: none; font-weight: 700; border-radius: 8px; padding: 10px 20px;">
+              <i class="fa-solid fa-plus" style="margin-right: 6px;"></i> Nạp tiền ngay
+            </button>
+            ${affAvailable >= 1000 ? `<button class="btn btn-outline" id="btn-aff-withdraw" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.15); color: #fff; border-radius: 8px; padding: 10px 20px; font-weight: 600;">
+              <i class="fa-solid fa-arrow-right-from-bracket" style="margin-right: 6px;"></i> Rút hoa hồng (${fmt(affAvailable)})
+            </button>` : ''}
           </div>
         </div>
       `;
