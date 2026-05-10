@@ -120,6 +120,9 @@ def default_meta_image(settings: dict, request: Request) -> str:
     image = settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png"
     return absolute_url(image, request, base)
 
+def json_ld_text(data: dict | None) -> str:
+    return json.dumps(data or {}, ensure_ascii=False).replace("</", "<\\/")
+
 
 def build_spa_meta(settings: dict, request: Request, **overrides) -> dict:
     site_name = settings.get("site_name") or "ShopKey"
@@ -145,6 +148,14 @@ def build_spa_meta(settings: dict, request: Request, **overrides) -> dict:
         "og_type": overrides.get("og_type") or "website",
         "og_image_alt": overrides.get("image_alt") or title,
         "robots": overrides.get("robots") or "index,follow",
+        "theme_color": overrides.get("theme_color") or settings.get("theme_color") or "#7c3aed",
+        "json_ld": overrides.get("json_ld") or {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": site_name,
+            "url": canonical_url(settings, request, "/"),
+            "description": site_description,
+        },
     }
 
 
@@ -156,6 +167,15 @@ def product_meta(product: Product, settings: dict, request: Request, include_que
     image_url = absolute_url(product.image_url or default_meta_image(settings, request), request, public_base_url(settings, request))
     clean_url = canonical_url(settings, request, f"/product/{product.slug}")
     social_url = canonical_url(settings, request, f"/product/{product.slug}", include_query=include_query)
+    product_schema = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": product.name,
+        "description": description,
+        "image": image_url,
+        "url": clean_url,
+        "brand": {"@type": "Brand", "name": site_name},
+    }
     return build_spa_meta(
         settings,
         request,
@@ -167,6 +187,7 @@ def product_meta(product: Product, settings: dict, request: Request, include_que
         image_alt=product.name,
         canonical_url=clean_url,
         social_url=social_url,
+        json_ld=product_schema,
     )
 
 
@@ -193,12 +214,21 @@ def build_share_product_html(product: Product, settings: dict, request: Request,
   <meta property=\"og:image\" content=\"{escape(meta['seo_image_url'])}\" />
   <meta property=\"og:image:secure_url\" content=\"{escape(meta['seo_image_url'])}\" />
   <meta property=\"og:image:alt\" content=\"{escape(meta['og_image_alt'])}\" />
+  <meta property=\"og:image:width\" content=\"1200\" />
+  <meta property=\"og:image:height\" content=\"630\" />
+  <link rel=\"image_src\" href=\"{escape(meta['seo_image_url'])}\" />
+  <meta itemprop=\"name\" content=\"{escape(meta['seo_title'])}\" />
+  <meta itemprop=\"description\" content=\"{escape(meta['seo_description'])}\" />
+  <meta itemprop=\"image\" content=\"{escape(meta['seo_image_url'])}\" />
+  <meta name=\"thumbnail\" content=\"{escape(meta['seo_image_url'])}\" />
+  <meta name=\"theme-color\" content=\"{escape(meta['theme_color'])}\" />
   <meta name=\"twitter:card\" content=\"{escape(meta['twitter_card'])}\" />
   <meta name=\"twitter:title\" content=\"{escape(meta['seo_title'])}\" />
   <meta name=\"twitter:description\" content=\"{escape(meta['seo_description'])}\" />
   <meta name=\"twitter:image\" content=\"{escape(meta['seo_image_url'])}\" />
   <meta name=\"twitter:url\" content=\"{escape(meta['social_url'])}\" />
   {f'<link rel=\"icon\" href=\"{escape(meta["favicon_url"])}\" />' if meta.get("favicon_url") else ''}
+  <script type=\"application/ld+json\">{json_ld_text(meta.get('json_ld'))}</script>
   <meta http-equiv=\"refresh\" content=\"0; url={escape(redirect_url)}\" />
   <script>window.location.replace({json.dumps(redirect_url)});</script>
 </head>
@@ -227,10 +257,30 @@ def build_blog_meta(post: BlogPost | None, settings: dict, request: Request) -> 
         raw_desc = post.meta_description or post.excerpt or site_description
         description = " ".join(str(raw_desc).replace("<", " ").replace(">", " ").split())[:220]
         image_url = absolute_url(post.thumbnail_url or settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request, public_base)
+        json_ld = {
+            "@context": "https://schema.org",
+            "@type": "BlogPosting",
+            "headline": title,
+            "description": description,
+            "image": image_url,
+            "url": canonical_url,
+            "author": {"@type": "Organization", "name": seo_author},
+            "publisher": {"@type": "Organization", "name": site_name, "logo": {"@type": "ImageObject", "url": logo_url or favicon_url}},
+        }
     else:
         title = settings.get("seo_title") or f"Blog | {site_name}"
         description = site_description
         image_url = absolute_url(settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request, public_base)
+        json_ld = {
+            "@context": "https://schema.org",
+            "@type": "Blog",
+            "name": title,
+        "theme_color": settings.get("theme_color") or "#7c3aed",
+        "json_ld": json_ld,
+
+            "description": description,
+            "url": canonical_url,
+        }
 
     return {
         "site_name": site_name,
@@ -397,13 +447,23 @@ def create_app(static_dir: str) -> FastAPI:
                 page = db.query(SupportPage).filter(SupportPage.slug == slug, SupportPage.is_published == True).first()
                 if page:
                     title = f"{page.title} | {settings.get('site_name') or 'ShopKey'}"
+                    page_url = canonical_url(settings, request, f"/support/{page.slug}")
+                    description = clean_meta_text(page.meta_description or page.content, settings.get("site_description") or "", 220)
                     meta = build_spa_meta(
                         settings,
                         request,
                         title=title,
-                        description=page.meta_description or page.content,
+                        description=description,
                         path=f"/support/{page.slug}",
                         og_type="article",
+                        json_ld={
+                            "@context": "https://schema.org",
+                            "@type": "Article",
+                            "headline": title,
+                            "description": description,
+                            "url": page_url,
+                            "publisher": {"@type": "Organization", "name": settings.get("site_name") or "ShopKey"},
+                        },
                     )
             elif path.startswith("/category/"):
                 slug = path.removeprefix("/category/").strip("/")
@@ -411,7 +471,21 @@ def create_app(static_dir: str) -> FastAPI:
                 if category:
                     title = f"{category.name} | {settings.get('site_name') or 'ShopKey'}"
                     image_url = absolute_url(category.image_url or category.icon_url or default_meta_image(settings, request), request, public_base_url(settings, request))
-                    meta = build_spa_meta(settings, request, title=title, description=f"Khám phá sản phẩm trong danh mục {category.name}", image_url=image_url, path=f"/category/{category.slug}")
+                    meta = build_spa_meta(
+                        settings,
+                        request,
+                        title=title,
+                        description=f"Khám phá sản phẩm trong danh mục {category.name}",
+                        image_url=image_url,
+                        path=f"/category/{category.slug}",
+                        json_ld={
+                            "@context": "https://schema.org",
+                            "@type": "CollectionPage",
+                            "name": title,
+                            "description": f"Khám phá sản phẩm trong danh mục {category.name}",
+                            "url": canonical_url(settings, request, f"/category/{category.slug}"),
+                        },
+                    )
             elif path == "/all":
                 cat_slug = request.query_params.get("cat") or request.query_params.get("category")
                 if cat_slug:
@@ -419,7 +493,21 @@ def create_app(static_dir: str) -> FastAPI:
                     if category:
                         title = f"{category.name} | {settings.get('site_name') or 'ShopKey'}"
                         image_url = absolute_url(category.image_url or category.icon_url or default_meta_image(settings, request), request, public_base_url(settings, request))
-                        meta = build_spa_meta(settings, request, title=title, description=f"Khám phá sản phẩm trong danh mục {category.name}", image_url=image_url, include_query=True)
+                        meta = build_spa_meta(
+                            settings,
+                            request,
+                            title=title,
+                            description=f"Khám phá sản phẩm trong danh mục {category.name}",
+                            image_url=image_url,
+                            include_query=True,
+                            json_ld={
+                                "@context": "https://schema.org",
+                                "@type": "CollectionPage",
+                                "name": title,
+                                "description": f"Khám phá sản phẩm trong danh mục {category.name}",
+                                "url": canonical_url(settings, request, request.url.path, include_query=True),
+                            },
+                        )
             elif path in {"/admin", "/login", "/register", "/profile", "/cart", "/checkout", "/orders"} or path.startswith(("/admin/", "/orders/", "/payos-checkout/")):
                 meta = build_spa_meta(settings, request, robots="noindex,nofollow")
 

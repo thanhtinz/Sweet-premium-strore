@@ -76,6 +76,10 @@ def test_home_renders_site_social_meta(monkeypatch):
     assert '<meta property="og:image" content="https://example.com/static/seo.png"' in html
     assert '<link rel="canonical" href="https://example.com/"' in html
 
+    assert '<meta itemprop="name" content="Meta Shop SEO Title"' in html
+    assert '<meta name="thumbnail" content="https://example.com/static/seo.png"' in html
+    assert '<script type="application/ld+json">' in html
+
 
 def test_product_route_renders_product_social_meta(monkeypatch):
     product = Product(id=7, name="Premium Key", slug="premium-key", description="<p>Product desc</p>", image_url="/static/premium.png", is_active=True)
@@ -85,7 +89,13 @@ def test_product_route_renders_product_social_meta(monkeypatch):
     assert '<meta property="og:title" content="Premium Key | Meta Shop"' in html
     assert '<meta property="og:description" content="Product desc"' in html
     assert '<meta property="og:image" content="https://example.com/static/premium.png"' in html
+    assert '<meta itemprop="image" content="https://example.com/static/premium.png"' in html
+    assert '"@type":"Product"' in html or '"@type": "Product"' in html
+
     assert '<meta name="twitter:url" content="https://example.com/product/premium-key?ref=abc"' in html
+    assert '<meta property="og:image:width" content="1200"' in html
+    assert '<link rel="image_src" href="https://example.com/static/premium.png"' in html
+
     assert '<link rel="canonical" href="https://example.com/product/premium-key"' in html
 
 

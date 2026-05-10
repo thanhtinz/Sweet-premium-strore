@@ -15,12 +15,23 @@
   <meta property="og:image" content="{{ image_url }}" />
   <meta property="og:image:secure_url" content="{{ image_url }}" />
   <meta property="og:image:alt" content="{{ title }}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <link rel="image_src" href="{{ image_url }}" />
   <meta property="og:url" content="{{ canonical_url }}" />
+  <meta itemprop="name" content="{{ title }}" />
+  <meta itemprop="description" content="{{ description }}" />
+  <meta itemprop="image" content="{{ image_url }}" />
+  <meta name="thumbnail" content="{{ image_url }}" />
+  <meta name="theme-color" content="{{ theme_color or '#7c3aed' }}" />
+
   <meta property="og:site_name" content="{{ site_name }}" />
   <meta name="twitter:card" content="{{ twitter_card or 'summary_large_image' }}" />
   <meta name="twitter:title" content="{{ title }}" />
   <meta name="twitter:description" content="{{ description }}" />
   <meta name="twitter:image" content="{{ image_url }}" />
+  {% if json_ld %}<script type="application/ld+json">{{ json_ld|tojson }}</script>{% endif %}
+
   <meta name="twitter:url" content="{{ canonical_url }}" />
   <link rel="icon" href="{{ favicon_url }}" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />

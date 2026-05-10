@@ -1,8 +1,10 @@
 import asyncio
 import logging
+from contextlib import contextmanager
 
 import discord
 from discord import app_commands
+from sqlalchemy import text
 from telegram import BotCommand, Update
 from telegram.error import Conflict
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
@@ -24,6 +26,32 @@ DISCORD_COMMANDS = [
     (item["command"].lstrip("/").split()[0], item["description"])
     for item in BOT_COMMANDS
 ]
+
+BOT_RUNNER_LOCK_KEY = 55674001
+
+
+@contextmanager
+def _bot_runner_lock():
+    """Keep only one published/dev process running external bot clients."""
+    db = SessionLocal()
+    acquired = False
+    try:
+        dialect = db.bind.dialect.name if db.bind is not None else ""
+        if dialect == "postgresql":
+            acquired = bool(db.execute(text("SELECT pg_try_advisory_lock(:key)"), {"key": BOT_RUNNER_LOCK_KEY}).scalar())
+            if not acquired:
+                logger.warning("Bot runner lock already held; skipping bot startup in this process")
+                yield False
+                return
+        yield True
+    finally:
+        if acquired:
+            try:
+                db.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": BOT_RUNNER_LOCK_KEY})
+            except Exception:
+                logger.warning("Failed to release bot runner advisory lock", exc_info=True)
+        db.close()
+
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("bot-runner")
@@ -181,28 +209,31 @@ async def _run_telegram_bot(token: str, label: str = "Telegram"):
 
 
 async def main():
-    tasks = []
-    if DISCORD_BOT_TOKEN:
-        tasks.append(asyncio.create_task(_run_discord_bot()))
-    telegram_polling_token = TELEGRAM_USER_BOT_TOKEN or TELEGRAM_BOT_TOKEN
-    telegram_label = "Telegram user" if TELEGRAM_USER_BOT_TOKEN else "Telegram admin fallback"
-    if telegram_polling_token:
-        tasks.append(asyncio.create_task(_run_telegram_bot(telegram_polling_token, telegram_label)))
-    if not tasks:
-        logger.info("No bot tokens configured, exiting bot runner")
-        return
-    try:
-        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
-        for task in done:
-            exc = task.exception()
-            if exc:
-                logger.error("Bot task failed: %s", exc)
-        for task in pending:
-            task.cancel()
-    except asyncio.CancelledError:
-        for task in tasks:
-            task.cancel()
-        raise
+    with _bot_runner_lock() as should_run:
+        if not should_run:
+            return
+        tasks = []
+        if DISCORD_BOT_TOKEN:
+            tasks.append(asyncio.create_task(_run_discord_bot()))
+        telegram_polling_token = TELEGRAM_USER_BOT_TOKEN or TELEGRAM_BOT_TOKEN
+        telegram_label = "Telegram user" if TELEGRAM_USER_BOT_TOKEN else "Telegram admin fallback"
+        if telegram_polling_token:
+            tasks.append(asyncio.create_task(_run_telegram_bot(telegram_polling_token, telegram_label)))
+        if not tasks:
+            logger.info("No bot tokens configured, exiting bot runner")
+            return
+        try:
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+            for task in done:
+                exc = task.exception()
+                if exc:
+                    logger.error("Bot task failed: %s", exc)
+            for task in pending:
+                task.cancel()
+        except asyncio.CancelledError:
+            for task in tasks:
+                task.cancel()
+            raise
 
 
 if __name__ == "__main__":
