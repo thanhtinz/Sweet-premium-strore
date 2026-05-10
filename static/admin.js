@@ -1695,6 +1695,7 @@ async function renderAdminSettings(view) {
   bindImageUploads(content);
 
   const collectDatabasePayload = () => {
+    const val = (id) => qs(`#${id}`, content)?.value ?? '';
     const providers = ['postgres', 'mysql', 'supabase_postgres'];
     const currentProviders = dbCfg || {};
     return {
@@ -1714,6 +1715,7 @@ async function renderAdminSettings(view) {
 
   qsa('[data-db-test]', content).forEach((btn) => {
     btn.onclick = async () => {
+      const val = (id) => qs(`#${id}`, content)?.value ?? '';
       const provider = btn.dataset.dbTest;
       const resultEl = qs(`#db-${provider}-test-result`, content);
       const url = val(`db-${provider}-url`).trim();
