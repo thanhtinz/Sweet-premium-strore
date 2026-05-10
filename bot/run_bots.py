@@ -12,6 +12,7 @@ from bot.discord_bot import handle_discord_dm, sync_discord_dm_identity
 
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("bot-runner")
 
 
