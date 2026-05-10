@@ -272,7 +272,7 @@ def create_app(static_dir: str) -> FastAPI:
         )
 
     # SPA fallback — all non-API routes serve index.html
-    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], response_class=HTMLResponse)
+    @app.get("/{full_path:path}", response_class=HTMLResponse)
     def spa_fallback(request: Request, full_path: str):
         # API paths that hit the catch-all need trailing slash redirect
         if full_path.startswith("api/") or full_path == "api":
