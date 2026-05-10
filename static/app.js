@@ -123,6 +123,13 @@ function setActiveSidebarItem(hash) {
 
 async function navigate() {
   const hash = location.hash || '#/';
+  
+  // Chờ thông tin user nếu chưa fetch (tránh mất hash state)
+  if (!currentUser && typeof authToken !== 'undefined' && authToken && typeof fetchMe === 'function') {
+     await fetchMe();
+     updateAuthUI();
+  }
+
   const route = parseRoute(hash);
   let view = qs('#app-view');
   if (!view) return;
@@ -134,12 +141,6 @@ async function navigate() {
   if (footer) footer.style.display = isAdmin ? 'none' : 'block';
 
   view.style.minHeight = '60vh';
-
-  // Chờ thông tin user nếu chưa fetch (giúp tránh lỗi khi refresh thẳng trang yêu cầu đăng nhập)
-  if (!currentUser && authToken && typeof fetchMe === 'function') {
-     await fetchMe();
-     updateAuthUI();
-  }
 
   if (!route) {
     // Full-page 404 — hide header, sidebar, footer
@@ -377,6 +378,11 @@ async function init() {
     loadToken();
     lockViewportZoom();
 
+    // BẮT BUỘC ĐỢI TẢI THÔNG TIN USER TRƯỚC KHI NAVIGATE
+    await fetchMe();
+    updateAuthUI();
+    updateCartCount();
+
     try {
       const urlParams = new URLSearchParams(location.search);
       const refCode = urlParams.get('ref');
@@ -384,15 +390,14 @@ async function init() {
         localStorage.setItem('aff_ref_code', refCode);
         const cleanUrl = new URL(location);
         cleanUrl.searchParams.delete('ref');
-        // Khi gỡ bỏ ref query parameter, phải giữ lại phần hash để không làm mất trạng thái của router
-        history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+        // Khi gỡ bỏ ref query parameter, giữ lại phần hash nhưng dùng sessionStorage để lưu hash tạm thời
+        const currentHash = location.hash;
+        history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search);
+        if (currentHash) {
+           setTimeout(() => { location.hash = currentHash; }, 10);
+        }
       }
     } catch (_) {}
-
-    // BẮT BUỘC ĐỢI TẢI THÔNG TIN USER TRƯỚC KHI NAVIGATE
-    await fetchMe();
-    updateAuthUI();
-    updateCartCount();
 
   if (currentUser) {
     try {
