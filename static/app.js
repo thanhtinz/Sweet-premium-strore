@@ -378,7 +378,8 @@ async function init() {
       localStorage.setItem('aff_ref_code', refCode);
       const cleanUrl = new URL(location);
       cleanUrl.searchParams.delete('ref');
-      history.replaceState(null, '', cleanUrl);
+      // Khi gỡ bỏ ref query parameter, phải giữ lại phần hash để không làm mất trạng thái của router
+      history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
     }
   } catch (_) {}
 
