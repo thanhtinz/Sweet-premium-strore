@@ -720,7 +720,7 @@ async function renderUserAffiliates(view) {
     // Hero
     const heroHead = el('div', 'products-hero');
     heroHead.innerHTML = `
-      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/profile">Tài khoản</a> <span>›</span> <strong>Giới thiệu bạn bè</strong></div>
+      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <strong>Giới thiệu bạn bè</strong></div>
       <h1 class="products-hero-title"><i class="fa-solid fa-user-group"></i> Giới thiệu bạn bè</h1>
       <p class="products-hero-desc">Chia sẻ link giới thiệu và nhận hoa hồng từ mỗi đơn hàng thành công</p>
     `;

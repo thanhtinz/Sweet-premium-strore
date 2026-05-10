@@ -2111,53 +2111,88 @@ async function renderOrders(view) {
     const completedCount = data.items.filter(i => i.status === 'completed').length;
     view.innerHTML += `
       <div class="card mb-16" style="padding: 6px;">
-        <div style="display:flex; overflow-x:auto; gap:4px; scrollbar-width:none;">
-          <button class="btn btn-primary" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px;">Tất cả <span style="background:rgba(255,255,255,0.2); margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${data.total}</span></button>
-          <button class="btn btn-ghost" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Chờ xử lý <span style="background:#e2e8f0; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${pendingCount}</span></button>
-          <button class="btn btn-ghost" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Đang xử lý <span style="background:#e2e8f0; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${processingCount}</span></button>
-          <button class="btn btn-ghost" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Hoàn thành <span style="background:#e2e8f0; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${completedCount}</span></button>
+        <div style="display:flex; overflow-x:auto; gap:4px; scrollbar-width:none;" id="orders-filter-tabs">
+          <button class="btn btn-primary" data-status="all" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px;">Tất cả <span style="background:rgba(255,255,255,0.2); margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${data.total}</span></button>
+          <button class="btn btn-ghost" data-status="pending" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Chờ xử lý <span style="background:#e2e8f0; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${pendingCount}</span></button>
+          <button class="btn btn-ghost" data-status="processing" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Đang xử lý <span style="background:#e2e8f0; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${processingCount}</span></button>
+          <button class="btn btn-ghost" data-status="completed" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Hoàn thành <span style="background:#e2e8f0; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${completedCount}</span></button>
         </div>
       </div>
     `;
 
-    if (!data.items.length) { view.innerHTML += `<div class="empty-state"><h3>Chưa có đơn hàng</h3></div>`; return; }
-
-    // List
     const listWrap = el('div');
-    data.items.forEach(o => {
-      const card = el('div', 'card mb-16');
-      card.style.padding = '20px';
-      
-      let stText = 'Lỗi', stColor = '#ef4444', stIcon = 'circle-xmark';
-      if (o.status === 'completed') { stText = 'Hoàn thành'; stColor = '#10b981'; stIcon = 'circle-check'; }
-      else if (o.status === 'pending' || o.status === 'pending_payment') { stText = 'Chờ xử lý'; stColor = '#f59e0b'; stIcon = 'clock'; }
-      else if (o.status === 'processing') { stText = 'Đang xử lý'; stColor = '#3b82f6'; stIcon = 'spinner fa-spin'; }
-
-      const img = orderDisplayImage(o) || `<div style="width:56px; height:56px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:24px;"><i class="fa-solid fa-box"></i></div>`;
-      const imgHtml = img.startsWith('<') ? img : `<img src="${img}" onerror="${onImgFallback()}" style="width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--border);" />`;
-
-      card.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-          <div style="font-weight:800; font-size:16px; color:var(--text-heading);">#${o.order_code}</div>
-          <div style="font-weight:600; font-size:13px; color:${stColor}; display:flex; align-items:center; gap:6px;">
-            <i class="fa-solid fa-${stIcon}"></i> ${stText}
-          </div>
-        </div>
-        <div style="font-weight:600; font-size:15px; color:var(--text-heading); line-height:1.4; margin-bottom:16px;">${orderSummaryLabel(o)}</div>
-        
-        <div style="display:flex; justify-content:space-between; align-items:center; color:var(--text-muted); font-size:14px; margin-bottom:20px; border-bottom:1px dashed var(--border); padding-bottom:20px;">
-          <div>${fmtDate(o.created_at)}</div>
-          <div>Tổng tiền: <span style="font-weight:800; color:#10b981; font-size:16px;">${fmt(o.total_amount)}</span></div>
-        </div>
-        
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          ${imgHtml}
-          <a href="#/orders/${o.order_code}" class="btn" style="background:#eef2ff; color:var(--primary); border:none; padding:10px 20px; border-radius:8px; font-weight:600;">Xem chi tiết</a>
-        </div>
-      `;
-      listWrap.appendChild(card);
-    });
     view.appendChild(listWrap);
+
+    let currentFilter = 'all';
+
+    function renderList() {
+      listWrap.innerHTML = '';
+      const filtered = currentFilter === 'all' ? data.items : data.items.filter(i => 
+        currentFilter === 'pending' ? (i.status === 'pending' || i.status === 'pending_payment') : i.status === currentFilter
+      );
+      
+      if (!filtered.length) { 
+        listWrap.innerHTML = `<div class="empty-state"><h3>Chưa có đơn hàng</h3></div>`; 
+        return; 
+      }
+
+      filtered.forEach(o => {
+        const card = el('div', 'card mb-16');
+        card.style.padding = '20px';
+        
+        let stText = 'Lỗi', stColor = '#ef4444', stIcon = 'circle-xmark';
+        if (o.status === 'completed') { stText = 'Hoàn thành'; stColor = '#10b981'; stIcon = 'circle-check'; }
+        else if (o.status === 'pending' || o.status === 'pending_payment') { stText = 'Chờ xử lý'; stColor = '#f59e0b'; stIcon = 'clock'; }
+        else if (o.status === 'processing') { stText = 'Đang xử lý'; stColor = '#3b82f6'; stIcon = 'spinner fa-spin'; }
+
+        const img = orderDisplayImage(o) || `<div style="width:56px; height:56px; border-radius:10px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:24px;"><i class="fa-solid fa-box"></i></div>`;
+        const imgHtml = img.startsWith('<') ? img : `<img src="${img}" onerror="${onImgFallback()}" style="width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--border);" />`;
+
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+            <div style="font-weight:800; font-size:16px; color:var(--text-heading);">#${o.order_code}</div>
+            <div style="font-weight:600; font-size:13px; color:${stColor}; display:flex; align-items:center; gap:6px;">
+              <i class="fa-solid fa-${stIcon}"></i> ${stText}
+            </div>
+          </div>
+          <div style="font-weight:600; font-size:15px; color:var(--text-heading); line-height:1.4; margin-bottom:16px;">${orderSummaryLabel(o)}</div>
+          
+          <div style="display:flex; justify-content:space-between; align-items:center; color:var(--text-muted); font-size:14px; margin-bottom:20px; border-bottom:1px dashed var(--border); padding-bottom:20px;">
+            <div>${fmtDate(o.created_at)}</div>
+            <div>Tổng tiền: <span style="font-weight:800; color:#10b981; font-size:16px;">${fmt(o.total_amount)}</span></div>
+          </div>
+          
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            ${imgHtml}
+            <a href="#/orders/${o.order_code}" class="btn" style="background:#eef2ff; color:var(--primary); border:none; padding:10px 20px; border-radius:8px; font-weight:600;">Xem chi tiết</a>
+          </div>
+        `;
+        listWrap.appendChild(card);
+      });
+    }
+
+    renderList();
+
+    const tabs = view.querySelectorAll('#orders-filter-tabs button');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        tabs.forEach(t => {
+          t.className = 'btn btn-ghost';
+          t.style.color = 'var(--text-secondary)';
+          const span = t.querySelector('span');
+          if(span) { span.style.background = '#e2e8f0'; span.style.color = 'inherit'; }
+        });
+        
+        tab.className = 'btn btn-primary';
+        tab.style.color = '#fff';
+        const span = tab.querySelector('span');
+        if(span) { span.style.background = 'rgba(255,255,255,0.2)'; span.style.color = '#fff'; }
+        
+        currentFilter = tab.getAttribute('data-status');
+        renderList();
+      });
+    });
+
   } catch (e) { view.innerHTML = `<div class="empty-state"><h3>${e.message}</h3></div>`; }
 }
 
