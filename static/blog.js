@@ -409,6 +409,9 @@ async function renderAdminBlog(view) {
         err.style.display = 'block';
       }
     };
+    
+    // Inject AI button for blog fields
+    if (typeof initAiButtons === 'function') initAiButtons(content);
   };
 
   await render();

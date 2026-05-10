@@ -33,7 +33,9 @@
     /color/i, /code/i, /slug/i, /percent/i, /rate/i, /lock/i,
     /duration/i, /max/i, /cron/i, /path/i, /ip/i, /admin/i,
     /captcha/i, /script/i, /header_script/i, /footer_script/i,
-    /baseurl/i, /apikey/i, /api.key/i,
+    /baseurl/i, /apikey/i, /api.key/i, /bot/i, /telegram/i, /discord/i,
+    /smtp/i, /mail/i, /host/i, /port/i, /client.?id/i, /payment/i, /payos/i,
+    /auth/i, /bank/i, /account/i
   ];
 
   function detectFieldType(el) {
@@ -170,9 +172,24 @@
     if (!container) return;
     // Small delay to let DOM settle (modals, dynamic content)
     setTimeout(() => {
-      const fields = container.querySelectorAll('input[type="text"], textarea');
-      fields.forEach(el => {
+      // Chỉ áp dụng cho textarea (nội dung lớn) và các thẻ input type text mà có ID nằm trong nhóm nội dung (seo, desc, content, title)
+      // Loại bỏ các thẻ input nhỏ lẻ
+      const textareas = container.querySelectorAll('textarea');
+      const inputs = container.querySelectorAll('input[type="text"]');
+      
+      textareas.forEach(el => {
         if (!shouldSkip(el)) injectButton(el);
+      });
+
+      inputs.forEach(el => {
+        if (shouldSkip(el)) return;
+        const id = (el.id || '').toLowerCase();
+        const name = (el.name || '').toLowerCase();
+        // Chỉ lấy những thẻ input text có từ khóa liên quan đến content lớn
+        if (/seo.?desc|excerpt|mo-ta|tom-tat|noi-dung|content/i.test(id) || 
+            /seo.?desc|excerpt|mo-ta|tom-tat|noi-dung|content/i.test(name)) {
+          injectButton(el);
+        }
       });
     }, 100);
   };
