@@ -3106,7 +3106,7 @@ async function renderAdminPayments(view) {
           payos_api_key: qs('#payos-api-key', content).value,
           payos_checksum_key: qs('#payos-checksum-key', content).value,
         };
-        const res = await apiFetch('/payment/test', { method: 'POST', body: JSON.stringify(payload) });
+        const res = await apiFetch('/admin/payment/test', { method: 'POST', body: JSON.stringify(payload) });
         resultEl.textContent = '✓ ' + (res.message || 'Kết nối thành công');
         resultEl.style.color = 'var(--success)';
       } catch (err) {

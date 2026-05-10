@@ -149,3 +149,32 @@ def update_unified_settings(data: dict, db: Session = Depends(get_db)):
         repo.set_json(key, value)
     db.commit()
     return {"ok": True}
+
+from pydantic import BaseModel
+class PayOSTestRequest(BaseModel):
+    payos_client_id: str
+    payos_api_key: str
+    payos_checksum_key: str
+
+@router.post("/payment/test")
+def test_payos_connection_admin(
+    data: PayOSTestRequest,
+    current_admin: dict = Depends(get_current_admin)
+):
+    try:
+        from payos import PayOS
+        payos = PayOS(
+            client_id=data.payos_client_id,
+            api_key=data.payos_api_key,
+            checksum_key=data.payos_checksum_key
+        )
+        try:
+            payos.getPaymentLinkInfomation(orderId=9999999999)
+            return {"message": "Kết nối thành công (API credentials hợp lệ)"}
+        except Exception as e:
+            err_str = str(e).lower()
+            if "unauthorized" in err_str or "invalid" in err_str:
+                raise ValueError("Sai Client ID, API Key hoặc Checksum Key")
+            return {"message": "Kết nối thành công tới PayOS"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Test thất bại: {str(e)}")
