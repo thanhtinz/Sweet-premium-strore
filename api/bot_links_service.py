@@ -16,7 +16,41 @@ from api.bot_links_shared import (
     now_utc,
 )
 from db.models import UserBotLink
-from db.repositories import UserBotLinkRepository
+
+
+def build_support_contact_response(db: Session) -> str:
+    repo = SiteConfigRepository(db)
+    settings = {}
+    general = repo.get_json("settings_general", default={}) or {}
+    if isinstance(general, dict):
+        settings.update(general)
+    for key in ["site_name", "site_url", "contact_email", "contact_phone", "contact_hours", "social_fb", "social_tele", "social_discord"]:
+        value = repo.get_value(key)
+        if value and not settings.get(key):
+            settings[key] = value
+
+    site_name = settings.get("site_name") or settings.get("title") or "website"
+    lines = [f"Thông tin hỗ trợ {site_name}:"]
+    contact_items = [
+        ("Email", settings.get("contact_email")),
+        ("Số điện thoại", settings.get("contact_phone")),
+        ("Giờ hỗ trợ", settings.get("contact_hours")),
+        ("Facebook", settings.get("social_fb")),
+        ("Telegram", settings.get("social_tele")),
+        ("Discord", settings.get("social_discord")),
+        ("Website", settings.get("site_url")),
+    ]
+    for label, value in contact_items:
+        value = str(value or "").strip()
+        if value:
+            lines.append(f"• {label}: {value}")
+    if len(lines) == 1:
+        lines.append("Chưa cấu hình thông tin liên hệ. Vui lòng vào trang Hỗ trợ trên website để tạo ticket.")
+    else:
+        lines.append("Bạn cũng có thể tạo ticket trực tiếp trong mục Hỗ trợ trên website.")
+    return "\n".join(lines)
+
+from db.repositories import SiteConfigRepository, UserBotLinkRepository
 
 
 def create_link_code(db: Session, user_id: str, platform: str, expires_minutes: int = 30) -> UserBotLink:
@@ -193,7 +227,5 @@ def build_bot_response(db: Session, platform: str, platform_user_id: str, text: 
             lines.append(f"• {order['order_code']} — {order['status']} — {order['total_amount']:,.0f}".replace(",", "."))
         return "\n".join(lines)
     if lowered in ("/support", "support"):
-        public_links = get_bot_public_links(db)
-        support_hint = public_links.get("telegram_user_welcome") or "Nếu cần hỗ trợ, hãy liên hệ qua trang hỗ trợ trên website."
-        return support_hint
+        return build_support_contact_response(db)
     return "Lệnh chưa được hỗ trợ. Dùng /help để xem danh sách lệnh."
