@@ -194,6 +194,7 @@ async function navigate() {
     '/support': 'support', '/support/': 'support',
     '/wishlist': 'wishlist',
     '/api-docs': 'api_docs',
+    '/admin/api-keys': 'api_docs',
   };
   const featureLabels = {
     blog: 'Blog', offers: 'Ưu đãi / Gift Code', affiliate: 'Affiliate / Giới thiệu',
