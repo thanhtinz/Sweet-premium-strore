@@ -554,7 +554,9 @@ img { max-width: 100%; display: block; }
 .api-docs-container {
   display: flex;
   gap: 32px;
+  width: 100%;
   max-width: 1100px;
+  box-sizing: border-box;
   margin: 0 auto;
   align-items: flex-start;
 }
@@ -613,11 +615,15 @@ img { max-width: 100%; display: block; }
 .api-docs-main {
   flex: 1;
   min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 32px;
   box-shadow: var(--shadow-sm);
+  word-wrap: break-word;
+  word-break: break-word;
 }
 
 @media (max-width: 860px) {
@@ -634,8 +640,9 @@ img { max-width: 100%; display: block; }
     padding: 8px;
     gap: 6px;
     border-radius: 8px;
-    border: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-sm);
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
@@ -645,7 +652,17 @@ img { max-width: 100%; display: block; }
   .api-docs-nav-item.active { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(93, 95, 239, 0.3); }
   .api-docs-nav-item i { opacity: 0.8 !important; }
 
-  .api-docs-main { padding: 16px 12px; border: none; box-shadow: none; border-radius: 0; background: transparent; }
+  .api-docs-main { 
+    padding: 20px; 
+    border-radius: 12px; 
+    background: var(--bg-card); 
+    border: 1px solid var(--border); 
+    box-shadow: var(--shadow-sm); 
+    width: 100%; 
+    max-width: 100%; 
+    box-sizing: border-box; 
+    overflow-x: hidden; 
+  }
   .api-docs-header { margin-bottom: 20px; padding-bottom: 16px; }
   .api-docs-header h1 { font-size: 22px; }
   .api-docs-section h2 { font-size: 18px; margin-bottom: 12px; }
@@ -653,18 +670,18 @@ img { max-width: 100%; display: block; }
   .api-docs-section h4 { margin-top: 12px; }
   .api-docs-section p { font-size: 13px; margin-bottom: 10px; }
   
-  .api-endpoint { flex-wrap: wrap; gap: 6px; padding: 10px 12px; margin: 16px 0 10px; }
-  .api-method { padding: 3px 8px; font-size: 10px; }
+  .api-endpoint { flex-wrap: wrap; gap: 8px; padding: 12px; margin: 16px 0 10px; }
+  .api-method { padding: 4px 8px; font-size: 10px; }
   .api-endpoint code { font-size: 12px; word-break: break-all; width: 100%; margin-top: 2px; }
-  .api-badge { padding: 3px 8px; font-size: 10px; }
+  .api-badge { padding: 4px 8px; font-size: 10px; margin-left: 0; }
   
-  .api-code-block { margin: 12px 0 16px; }
+  .api-code-block { margin: 12px 0 16px; max-width: 100%; }
   .api-code-label { padding: 6px 12px; font-size: 10px; }
-  .api-code-block pre { padding: 10px 12px; font-size: 11px; }
-  .api-params-table { margin: 8px 0 16px; }
+  .api-code-block pre { padding: 12px; font-size: 11px; overflow-x: auto; max-width: 100%; }
+  .api-params-table { margin: 8px 0 16px; display: block; overflow-x: auto; white-space: nowrap; }
   .api-params-table th, .api-params-table td { padding: 8px 10px; font-size: 12px; }
   
-  .api-note { margin: 12px 0 16px; padding: 10px 12px; font-size: 13px; }
+  .api-note { margin: 12px 0 16px; padding: 12px; font-size: 13px; }
 }
 
 .api-docs-header { margin-bottom: 32px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
