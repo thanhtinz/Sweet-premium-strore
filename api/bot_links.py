@@ -10,6 +10,7 @@ from api.bot_links_service import (
 from api.bot_links_shared import (
     BOT_COMMANDS,
     SUPPORTED_BOT_PLATFORMS,
+    ensure_aware_utc,
     get_bot_commands,
     get_bot_public_links,
     get_bot_user_by_platform,
@@ -27,6 +28,7 @@ __all__ = [
     "BOT_COMMANDS",
     "now_utc",
     "_normalize_platform",
+    "ensure_aware_utc",
     "get_bot_public_links",
     "get_bot_commands",
     "get_user_bot_link",

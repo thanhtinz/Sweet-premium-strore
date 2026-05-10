@@ -45,9 +45,9 @@ def notify_order_status_change(
         send_email = None
 
     try:
-        from bot.telegram_bot import send_telegram_message
+        from bot.telegram_bot import send_telegram_user_message
     except Exception:
-        send_telegram_message = None
+        send_telegram_user_message = None
 
     try:
         from bot.discord_bot import send_discord_message
@@ -80,12 +80,12 @@ def notify_order_status_change(
         send_email(order.user_email, subject, html_body, is_html=True)
 
     chat_id = _resolve_user_telegram_chat_id(db, order.user_id)
-    if chat_id and send_telegram_message:
+    if chat_id and send_telegram_user_message:
         telegram_message = "\n".join([
             f"<b>{subject}</b>",
             *[line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") for line in lines],
         ])
-        send_telegram_message(telegram_message, chat_id=chat_id)
+        send_telegram_user_message(telegram_message, chat_id=chat_id)
 
     discord_target = _resolve_user_discord_target(db, order.user_id)
     if discord_target and send_discord_message:

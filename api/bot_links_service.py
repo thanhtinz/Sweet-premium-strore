@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from api.bot_links_shared import (
     BOT_COMMANDS,
+    ensure_aware_utc,
     get_bot_public_links,
     get_bot_user_by_platform,
     get_platform_link_status,
@@ -117,7 +118,8 @@ def consume_link_code(
     item = repo.get_by_link_code(platform, normalized_code)
     if not item or not item.user_id:
         return None
-    if item.link_code_expires_at and item.link_code_expires_at < now_utc():
+    expires_at = ensure_aware_utc(item.link_code_expires_at)
+    if expires_at and expires_at < now_utc():
         return None
     return link_platform_account(
         db,

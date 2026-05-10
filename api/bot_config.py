@@ -8,6 +8,17 @@ import os
 
 router = APIRouter(prefix="/admin/bot-config", tags=["admin-bot"])
 
+def _telegram_user_bot_username(data: dict) -> str:
+    user_username = (data.get("telegram_user_bot_username") or "").strip()
+    if user_username:
+        return user_username.lstrip("@")
+    admin_token = (data.get("telegram_token") or "").strip()
+    user_token = (data.get("telegram_user_token") or "").strip()
+    if user_token and user_token != admin_token:
+        return ""
+    return (data.get("telegram_bot_username") or "").strip().lstrip("@")
+
+
 @router.get("/settings", dependencies=[Depends(get_current_admin)])
 def get_bot_config(db: Session = Depends(get_db)):
     default_commands = [
@@ -40,7 +51,9 @@ def get_bot_public_info(db: Session = Depends(get_db)):
         "discord_mode": "single_user_dm_bot",
         "discord_link_methods": ["dm_code", "oauth_auto_link", "manual_uid"],
         "discord_dm_hint": data.get("discord_dm_hint", "Mở bot Discord, gửi /link CODE trong DM hoặc đăng nhập bằng Discord để auto-link."),
-        "telegram_bot_username": data.get("telegram_bot_username", ""),
+        "telegram_bot_username": _telegram_user_bot_username(data),
+        "telegram_admin_bot_username": (data.get("telegram_bot_username") or "").strip().lstrip("@"),
+        "telegram_user_bot_username": _telegram_user_bot_username(data),
         "telegram_user_welcome": data.get("telegram_user_welcome", ""),
         "telegram_mode": "split_admin_user",
     }
@@ -55,6 +68,9 @@ def update_bot_config(data: dict, db: Session = Depends(get_db)):
     env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env.bot")
     with open(env_path, "w") as f:
         f.write(f"TELEGRAM_BOT_TOKEN={data.get('telegram_token', '')}\n")
+        f.write(f"TELEGRAM_USER_BOT_TOKEN={data.get('telegram_user_token', '')}\n")
+        f.write(f"TELEGRAM_BOT_USERNAME={data.get('telegram_bot_username', '')}\n")
+        f.write(f"TELEGRAM_USER_BOT_USERNAME={data.get('telegram_user_bot_username', '')}\n")
         f.write(f"TELEGRAM_ADMIN_CHAT_ID={data.get('telegram_admin_id', '')}\n")
         f.write(f"DISCORD_BOT_TOKEN={data.get('discord_token', '')}\n")
         f.write(f"DISCORD_ADMIN_CHANNEL_ID={data.get('discord_admin_id', '')}\n")

@@ -19,6 +19,14 @@ BOT_COMMANDS = [
 ]
 
 
+def ensure_aware_utc(value: Optional[datetime]) -> Optional[datetime]:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -34,11 +42,25 @@ def load_bot_config(db: Session) -> dict:
     return SiteConfigRepository(db).get_json("bot_smtp_config", default={}) or {}
 
 
+def _telegram_user_bot_username(cfg: dict) -> str:
+    user_username = (cfg.get("telegram_user_bot_username") or "").strip()
+    if user_username:
+        return user_username.lstrip("@")
+    admin_token = (cfg.get("telegram_token") or "").strip()
+    user_token = (cfg.get("telegram_user_token") or "").strip()
+    if user_token and user_token != admin_token:
+        return ""
+    return (cfg.get("telegram_bot_username") or "").strip().lstrip("@")
+
+
 def get_bot_public_links(db: Session) -> dict:
     cfg = load_bot_config(db)
+    telegram_user_bot_username = _telegram_user_bot_username(cfg)
     return {
         "discord_invite": cfg.get("discord_invite", ""),
-        "telegram_bot_username": cfg.get("telegram_bot_username", ""),
+        "telegram_bot_username": telegram_user_bot_username,
+        "telegram_admin_bot_username": (cfg.get("telegram_bot_username") or "").strip().lstrip("@"),
+        "telegram_user_bot_username": telegram_user_bot_username,
         "telegram_user_welcome": cfg.get("telegram_user_welcome", ""),
     }
 
@@ -53,7 +75,10 @@ def get_user_bot_link(db: Session, user_id: str, platform: str) -> Optional[User
 
 
 def serialize_platform_link(item: Optional[UserBotLink]) -> dict:
-    active_code = bool(item and item.link_code and item.link_code_expires_at and item.link_code_expires_at >= now_utc())
+    expires_at = ensure_aware_utc(item.link_code_expires_at) if item else None
+    linked_at = ensure_aware_utc(item.linked_at) if item else None
+    last_seen_at = ensure_aware_utc(item.last_seen_at) if item else None
+    active_code = bool(item and item.link_code and expires_at and expires_at >= now_utc())
     return {
         "linked": bool(item and item.is_verified and item.platform_user_id),
         "platform_user_id": item.platform_user_id if item and item.is_verified else "",
@@ -61,9 +86,9 @@ def serialize_platform_link(item: Optional[UserBotLink]) -> dict:
         "dm_channel_id": item.dm_channel_id if item else "",
         "link_code": item.link_code if active_code else "",
         "has_active_code": active_code,
-        "link_code_expires_at": item.link_code_expires_at.isoformat() if item and item.link_code_expires_at else None,
-        "linked_at": item.linked_at.isoformat() if item and item.linked_at else None,
-        "last_seen_at": item.last_seen_at.isoformat() if item and item.last_seen_at else None,
+        "link_code_expires_at": expires_at.isoformat() if expires_at else None,
+        "linked_at": linked_at.isoformat() if linked_at else None,
+        "last_seen_at": last_seen_at.isoformat() if last_seen_at else None,
     }
 
 
@@ -75,6 +100,8 @@ def get_user_bot_links_summary(db: Session, user_id: str) -> dict:
         "commands": get_bot_commands(),
         "discord_invite": public_links["discord_invite"],
         "telegram_bot_username": public_links["telegram_bot_username"],
+        "telegram_admin_bot_username": public_links["telegram_admin_bot_username"],
+        "telegram_user_bot_username": public_links["telegram_user_bot_username"],
         "telegram_user_welcome": public_links["telegram_user_welcome"],
         "platforms": {},
     }

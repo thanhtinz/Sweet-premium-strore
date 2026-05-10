@@ -31,6 +31,8 @@ def _config_value(env_key: str, db_key: str, default: str = "") -> str:
 
 TELEGRAM_BOT_TOKEN = _config_value("TELEGRAM_BOT_TOKEN", "telegram_token")
 TELEGRAM_USER_BOT_TOKEN = _config_value("TELEGRAM_USER_BOT_TOKEN", "telegram_user_token")
+TELEGRAM_BOT_USERNAME = _config_value("TELEGRAM_BOT_USERNAME", "telegram_bot_username")
+TELEGRAM_USER_BOT_USERNAME = _config_value("TELEGRAM_USER_BOT_USERNAME", "telegram_user_bot_username")
 TELEGRAM_ADMIN_CHAT_ID = _config_value("TELEGRAM_ADMIN_CHAT_ID", "telegram_admin_id")
 
 DISCORD_BOT_TOKEN = _config_value("DISCORD_BOT_TOKEN", "discord_token")

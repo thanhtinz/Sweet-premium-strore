@@ -2983,14 +2983,19 @@ async function renderAdminBotConfig(view) {
                 <div class="help-text">Dùng cho bot hỗ trợ người dùng cuối.</div>
               </div>
               <div class="form-group">
-                <label class="form-label">Tên bot Telegram</label>
-                <input type="text" class="form-input" id="telegram_bot_username" value="${config.telegram_bot_username || ''}" placeholder="MyShopBot">
-                <div class="help-text">Dùng để tạo link mở bot Telegram cho người dùng.</div>
+                <label class="form-label">Tên bot Telegram admin</label>
+                <input type="text" class="form-input" id="telegram_bot_username" value="${config.telegram_bot_username || ''}" placeholder="AdminNotifyBot">
+                <div class="help-text">Username bot admin, dùng cho thông báo nội bộ.</div>
               </div>
               <div class="form-group">
                 <label class="form-label">Admin chat ID</label>
                 <input type="text" class="form-input" id="telegram_admin_id" value="${config.telegram_admin_id || ''}" placeholder="ID admin hoặc group chat">
                 <div class="help-text">Nhận thông báo nội bộ cho admin.</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Tên bot Telegram user</label>
+                <input type="text" class="form-input" id="telegram_user_bot_username" value="${config.telegram_user_bot_username || config.telegram_bot_username || ''}" placeholder="MyShopSupportBot">
+                <div class="help-text">Dùng để tạo link mở bot Telegram ở profile người dùng.</div>
               </div>
               <div class="form-group form-group-full">
                 <label class="form-label">Tin nhắn chào người dùng</label>
@@ -3105,6 +3110,7 @@ async function renderAdminBotConfig(view) {
           body: JSON.stringify({
             telegram_token: qs('#telegram_token').value,
             telegram_user_token: qs('#telegram_user_token').value,
+            telegram_user_bot_username: qs('#telegram_user_bot_username').value.replace(/^@/, ''),
             telegram_bot_username: qs('#telegram_bot_username').value.replace(/^@/, ''),
             telegram_admin_id: qs('#telegram_admin_id').value,
             telegram_user_welcome: qs('#telegram_user_welcome').value,

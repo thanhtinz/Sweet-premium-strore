@@ -7,7 +7,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 
 from db import SessionLocal
 from api.bot_links import build_bot_response, upsert_platform_identity
-from bot.config import DISCORD_BOT_TOKEN, TELEGRAM_BOT_TOKEN
+from bot.config import DISCORD_BOT_TOKEN, TELEGRAM_BOT_TOKEN, TELEGRAM_USER_BOT_TOKEN
 from bot.discord_bot import handle_discord_dm, sync_discord_dm_identity
 
 
@@ -76,12 +76,12 @@ async def _telegram_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await message.reply_text(reply)
 
 
-async def _run_telegram_bot():
-    if not TELEGRAM_BOT_TOKEN:
-        logger.info("Telegram bot token missing, skip Telegram runner")
+async def _run_telegram_bot(token: str, label: str = "Telegram"):
+    if not token:
+        logger.info("%s bot token missing, skip Telegram runner", label)
         return
 
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start", _telegram_reply))
     app.add_handler(CommandHandler("help", _telegram_reply))
     app.add_handler(CommandHandler("link", _telegram_reply))
@@ -94,8 +94,8 @@ async def _run_telegram_bot():
 
     await app.initialize()
     await app.start()
-    await app.updater.start_polling(drop_pending_updates=False)
-    logger.info("Telegram bot polling started")
+    await app.updater.start_polling(drop_pending_updates=True)
+    logger.info("%s bot polling started", label)
     try:
         await asyncio.Event().wait()
     finally:
@@ -108,8 +108,10 @@ async def main():
     tasks = []
     if DISCORD_BOT_TOKEN:
         tasks.append(asyncio.create_task(_run_discord_bot()))
-    if TELEGRAM_BOT_TOKEN:
-        tasks.append(asyncio.create_task(_run_telegram_bot()))
+    telegram_polling_token = TELEGRAM_USER_BOT_TOKEN or TELEGRAM_BOT_TOKEN
+    telegram_label = "Telegram user" if TELEGRAM_USER_BOT_TOKEN else "Telegram admin fallback"
+    if telegram_polling_token:
+        tasks.append(asyncio.create_task(_run_telegram_bot(telegram_polling_token, telegram_label)))
     if not tasks:
         logger.info("No bot tokens configured, exiting bot runner")
         return

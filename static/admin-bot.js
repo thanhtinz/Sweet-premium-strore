@@ -24,9 +24,9 @@ async function renderAdminBotConfig(view) {
               <div class="form-hint">Tạo bot qua <strong>@BotFather</strong> trên Telegram</div>
             </div>
             <div class="form-group">
-              <label class="form-label">Bot Username</label>
-              <input type="text" class="form-input" id="tg_bot_username" value="${config.telegram_bot_username || ''}" placeholder="MyShopBot (không có @)">
-              <div class="form-hint">Username bot để tạo link t.me/username cho user</div>
+              <label class="form-label">Admin Bot Username</label>
+              <input type="text" class="form-input" id="tg_bot_username" value="${config.telegram_bot_username || ''}" placeholder="AdminNotifyBot (không có @)">
+              <div class="form-hint">Username bot admin. Không dùng làm link user nếu có bot user riêng.</div>
             </div>
             <div class="form-group">
               <label class="form-label">Admin Chat ID</label>
@@ -55,6 +55,11 @@ async function renderAdminBotConfig(view) {
               <label class="form-label">Bot Token</label>
               <input type="text" class="form-input" id="tg_user_token" value="${config.telegram_user_token || ''}" placeholder="Bot riêng cho khách hàng">
               <div class="form-hint">Có thể dùng chung hoặc tạo bot riêng cho user</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">User Bot Username</label>
+              <input type="text" class="form-input" id="tg_user_bot_username" value="${config.telegram_user_bot_username || ''}" placeholder="MyShopSupportBot (không có @)">
+              <div class="form-hint">Bắt buộc nếu dùng bot user riêng, để profile mở đúng bot.</div>
             </div>
             <div class="form-group">
               <button type="button" class="btn btn-outline btn-sm" id="btn-test-tg-user">
@@ -156,6 +161,7 @@ async function renderAdminBotConfig(view) {
             telegram_bot_username: qs('#tg_bot_username').value.replace(/^@/, ''),
             telegram_admin_id: qs('#tg_admin_chat').value,
             telegram_user_token: qs('#tg_user_token').value,
+            telegram_user_bot_username: qs('#tg_user_bot_username').value.replace(/^@/, ''),
             telegram_user_welcome: qs('#tg_user_welcome').value,
             discord_token: qs('#discord_token').value,
             discord_admin_id: qs('#discord_channel').value,

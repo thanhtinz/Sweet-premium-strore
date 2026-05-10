@@ -329,7 +329,9 @@ async function renderProfile(view) {
       };
 
       const copyDiscordCode = async () => {
-        const code = discord.link_code || qs('#discord-link-code', botCard)?.textContent?.replace('Dùng trong DM: /link ', '').trim();
+        const currentText = qs('#discord-link-code', botCard)?.textContent || '';
+        const match = currentText.match(/\/link\s+([A-Z0-9]+)/i);
+        const code = match?.[1] || discord.link_code || '';
         if (!code) {
           toast('Chưa có mã Discord để copy', 'info');
           return;

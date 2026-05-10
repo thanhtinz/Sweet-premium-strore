@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
 from api.bot_links import (
+    ensure_aware_utc,
     create_link_code,
     get_platform_link_status,
     get_user_bot_links_summary,
@@ -33,7 +34,7 @@ def create_platform_link_code(platform: str, db: Session = Depends(get_db), curr
     return {
         "platform": platform,
         "link_code": item.link_code,
-        "expires_at": item.link_code_expires_at.isoformat() if item.link_code_expires_at else None,
+        "expires_at": ensure_aware_utc(item.link_code_expires_at).isoformat() if item.link_code_expires_at else None,
     }
 
 
