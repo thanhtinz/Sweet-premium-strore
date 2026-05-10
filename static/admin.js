@@ -3002,12 +3002,15 @@ async function renderAdminBotConfig(view) {
                 <textarea class="form-textarea" id="telegram_user_welcome" rows="4" placeholder="Chào mừng bạn đến với bot hỗ trợ...">${config.telegram_user_welcome || ''}</textarea>
                 <div class="help-text">Hiển thị khi người dùng bắt đầu dùng bot Telegram.</div>
               </div>
-              <div class="form-group form-group-full">
+              <div class="form-group form-group-full" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <button type="button" class="btn btn-outline btn-sm" id="btn-test-telegram">
                   <i class="fa-brands fa-telegram"></i> Test kết nối Telegram Admin Bot
                 </button>
                 <button type="button" class="btn btn-outline btn-sm" id="btn-test-telegram-user">
                   <i class="fa-brands fa-telegram"></i> Test kết nối Telegram User Bot
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-save-telegram">
+                  <i class="fa-solid fa-floppy-disk"></i> Lưu Telegram
                 </button>
               </div>
             </div>
@@ -3032,14 +3035,12 @@ async function renderAdminBotConfig(view) {
                 <input type="text" class="form-input" id="discord_invite" value="${config.discord_invite || ''}" placeholder="https://discord.gg/... hoặc link invite bot/server">
                 <div class="help-text">Dùng để dẫn người dùng tới bot hoặc server Discord.</div>
               </div>
-              <div class="form-group form-group-full">
-                <label class="form-label">Legacy admin channel ID</label>
-                <input type="text" class="form-input" id="discord_admin_id" value="${config.discord_admin_id || ''}" placeholder="Để trống nếu không dùng nữa">
-                <div class="help-text">Trường cũ giữ lại để tương thích. Không còn là cấu hình chính cho Discord bot.</div>
-              </div>
-              <div class="form-group form-group-full">
+              <div class="form-group form-group-full" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <button type="button" class="btn btn-outline btn-sm" id="btn-test-discord">
                   <i class="fa-brands fa-discord"></i> Test kết nối Discord Bot
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-save-discord">
+                  <i class="fa-solid fa-floppy-disk"></i> Lưu Discord
                 </button>
               </div>
             </div>
@@ -3074,6 +3075,11 @@ async function renderAdminBotConfig(view) {
                 <label class="form-label">Email gửi đi</label>
                 <input type="text" class="form-input" id="smtp_from" value="${config.smtp_from || ''}" placeholder="noreply@yourshop.com">
               </div>
+              <div class="form-group form-group-full" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <button type="button" class="btn btn-primary btn-sm" id="btn-save-smtp">
+                  <i class="fa-solid fa-floppy-disk"></i> Lưu Email hệ thống
+                </button>
+              </div>
             </div>
           </section>
 
@@ -3095,40 +3101,43 @@ async function renderAdminBotConfig(view) {
             </div>
           </section>
 
-          <div class="bot-admin-savebar">
-            <button type="submit" class="btn btn-primary bot-admin-savebtn"><i class="fa-solid fa-floppy-disk"></i> Lưu cấu hình quản lý bot</button>
-          </div>
         </form>
       </div>
     `;
 
-    qs('#bot-config-form').onsubmit = async (e) => {
-      e.preventDefault();
+    const getBotConfigPayload = () => ({
+      telegram_token: qs('#telegram_token')?.value || config.telegram_token || '',
+      telegram_user_token: qs('#telegram_user_token')?.value || config.telegram_user_token || '',
+      telegram_user_bot_username: (qs('#telegram_user_bot_username')?.value || config.telegram_user_bot_username || '').replace(/^@/, ''),
+      telegram_bot_username: (qs('#telegram_bot_username')?.value || config.telegram_bot_username || '').replace(/^@/, ''),
+      telegram_admin_id: qs('#telegram_admin_id')?.value || config.telegram_admin_id || '',
+      telegram_user_welcome: qs('#telegram_user_welcome')?.value || config.telegram_user_welcome || '',
+      discord_token: qs('#discord_token')?.value || config.discord_token || '',
+      discord_invite: qs('#discord_invite')?.value || config.discord_invite || '',
+      discord_admin_id: config.discord_admin_id || '',
+      smtp_server: qs('#smtp_server')?.value || config.smtp_server || '',
+      smtp_port: qs('#smtp_port')?.value || config.smtp_port || '587',
+      smtp_user: qs('#smtp_user')?.value || config.smtp_user || '',
+      smtp_pass: qs('#smtp_pass')?.value || config.smtp_pass || '',
+      smtp_from: qs('#smtp_from')?.value || config.smtp_from || ''
+    });
+
+    const saveBotConfig = async (label) => {
       try {
         await apiFetch('/admin/bot-config/settings', {
           method: 'PUT',
-          body: JSON.stringify({
-            telegram_token: qs('#telegram_token').value,
-            telegram_user_token: qs('#telegram_user_token').value,
-            telegram_user_bot_username: qs('#telegram_user_bot_username').value.replace(/^@/, ''),
-            telegram_bot_username: qs('#telegram_bot_username').value.replace(/^@/, ''),
-            telegram_admin_id: qs('#telegram_admin_id').value,
-            telegram_user_welcome: qs('#telegram_user_welcome').value,
-            discord_token: qs('#discord_token').value,
-            discord_invite: qs('#discord_invite').value,
-            discord_admin_id: qs('#discord_admin_id').value,
-            smtp_server: qs('#smtp_server').value,
-            smtp_port: qs('#smtp_port').value,
-            smtp_user: qs('#smtp_user').value,
-            smtp_pass: qs('#smtp_pass').value,
-            smtp_from: qs('#smtp_from').value
-          })
+          body: JSON.stringify(getBotConfigPayload())
         });
-        toast('Đã lưu cấu hình quản lý bot', 'success');
+        toast(`Đã lưu cấu hình ${label}`, 'success');
       } catch (err) {
         showError(err.message);
       }
     };
+
+    qs('#bot-config-form').onsubmit = (e) => e.preventDefault();
+    qs('#btn-save-telegram').onclick = () => saveBotConfig('Telegram');
+    qs('#btn-save-discord').onclick = () => saveBotConfig('Discord');
+    qs('#btn-save-smtp').onclick = () => saveBotConfig('Email hệ thống');
 
     qs('#btn-test-telegram').onclick = async () => {
       const t = qs('#telegram_token').value;
