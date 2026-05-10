@@ -8,7 +8,7 @@
 // ─── LOGIN PAGE ─────────────────────────────────────
 
 function renderLogin(view) {
-  if (currentUser) return location.hash = '/';
+  if (currentUser) return navigateTo('/');
   view.innerHTML = '';
   const page = el('div', 'auth-page');
   page.innerHTML = `
@@ -59,7 +59,7 @@ function renderLogin(view) {
         </button>
       </form>
       <div class="auth-footer">
-        Chưa có tài khoản? <a href="#/register" class="auth-link">Tạo tài khoản mới →</a>
+        Chưa có tài khoản? <a href="/register" class="auth-link">Tạo tài khoản mới →</a>
       </div>
     </div>
   `;
@@ -106,7 +106,7 @@ function renderLogin(view) {
       
       if (!data.token) throw new Error('Đăng nhập thất bại');
       saveToken(data.token); await fetchMe(); updateAuthUI();
-      toast('Đăng nhập thành công!', 'success'); location.hash = '/';
+      toast('Đăng nhập thành công!', 'success'); navigateTo('/');
     } catch (err) {
       errText.textContent = err.message || 'Email hoặc mật khẩu không đúng';
       errEl.style.display = 'flex';
@@ -145,7 +145,7 @@ function renderLogin(view) {
 // ─── REGISTER PAGE ──────────────────────────────────
 
 function renderRegister(view) {
-  if (currentUser) { location.hash = '/'; return; }
+  if (currentUser) { navigateTo('/'); return; }
   view.innerHTML = '';
   const page = el('div', 'auth-page');
   page.innerHTML = `
@@ -198,7 +198,7 @@ function renderRegister(view) {
       <div class="auth-divider"><span>hoặc</span></div>
       <div id="social-buttons-reg" class="social-buttons"></div>
       <div class="auth-footer">
-        Đã có tài khoản? <a href="#/login" class="auth-link">Đăng nhập →</a>
+        Đã có tài khoản? <a href="/login" class="auth-link">Đăng nhập →</a>
       </div>
     </div>
   `;
@@ -232,8 +232,8 @@ function renderRegister(view) {
         method: 'POST',
         body: JSON.stringify({ email, password: pwd, display_name: name })
       });
-      if (data.token) { saveToken(data.token); await fetchMe(); updateAuthUI(); toast('Đăng ký thành công!', 'success'); location.hash = '/'; }
-      else { toast('Đăng ký thành công! Vui lòng đăng nhập.', 'success'); location.hash = '/login'; }
+      if (data.token) { saveToken(data.token); await fetchMe(); updateAuthUI(); toast('Đăng ký thành công!', 'success'); navigateTo('/'); }
+      else { toast('Đăng ký thành công! Vui lòng đăng nhập.', 'success'); navigateTo('/login'); }
     } catch (err) { errText.textContent = err.message || 'Đăng ký thất bại'; errEl.style.display = 'flex'; }
     finally { btn.classList.remove('loading'); btn.disabled = false; }
   };
@@ -242,18 +242,18 @@ function renderRegister(view) {
 // ─── OAUTH CALLBACK ──────────────────────────────────
 
 function renderAuthCallback(view) {
-  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  const params = new URLSearchParams(location.search || '');
   const token = params.get('token');
   const error = params.get('error');
   if (error) {
     toast('Đăng nhập thất bại: ' + error, 'error');
-    location.hash = '/login';
+    navigateTo('/login');
     return;
   }
   if (token) {
     saveToken(token);
-    fetchMe().then(() => { updateAuthUI(); toast('Đăng nhập thành công!', 'success'); location.hash = '/'; });
+    fetchMe().then(() => { updateAuthUI(); toast('Đăng nhập thành công!', 'success'); navigateTo('/'); });
   } else {
-    location.hash = '/login';
+    navigateTo('/login');
   }
 }

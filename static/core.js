@@ -113,7 +113,7 @@ async function apiFetch(path, options = {}) {
     actualOptions.method = 'POST';
   }
 
-  if (ADMIN_DEBUG && location.hash.startsWith('#/admin') && !isGET) {
+  if (ADMIN_DEBUG && location.pathname.startsWith('/admin') && !isGET) {
     adminDebugLog('apiFetch request', { path, actualPath, method: actualOptions.method || 'GET' });
   }
   
@@ -121,14 +121,14 @@ async function apiFetch(path, options = {}) {
   if (!res.ok) {
     let err = `HTTP ${res.status}`;
     try { const j = await res.json(); err = j.detail || err; } catch (_) {}
-    if (ADMIN_DEBUG && location.hash.startsWith('#/admin')) {
+    if (ADMIN_DEBUG && location.pathname.startsWith('/admin')) {
       adminDebugLog('apiFetch error', { path, actualPath, method: actualOptions.method || 'GET', error: err });
     }
     throw new Error(err);
   }
   
   const data = await res.json();
-  if (ADMIN_DEBUG && location.hash.startsWith('#/admin') && !isGET) {
+  if (ADMIN_DEBUG && location.pathname.startsWith('/admin') && !isGET) {
     adminDebugLog('apiFetch success', { path, actualPath, method: actualOptions.method || 'GET' });
   }
   return data;

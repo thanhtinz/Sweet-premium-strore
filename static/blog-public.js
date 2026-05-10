@@ -137,7 +137,7 @@ function renderSidebar(tree, activeSlug) {
         <div class="blog-theme-sidebar-title">Menu</div>
         <div class="blog-theme-sidebar-links blog-theme-sidebar-links-static">
           <a class="blog-theme-sidebar-link" href="/blog">Trang chủ</a>
-          <a class="blog-theme-sidebar-link" href="/#/">Cửa hàng</a>
+          <a class="blog-theme-sidebar-link" href="/">Cửa hàng</a>
         </div>
         ${tree.map((section) => `
           <div class="blog-theme-sidebar-section">

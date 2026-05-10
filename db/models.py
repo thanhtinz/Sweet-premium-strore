@@ -185,7 +185,7 @@ class Banner(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(255), nullable=False)
     image_url = Column(Text, nullable=False)
-    link = Column(Text)  # hash route e.g. #/category/vpn or external URL
+    link = Column(Text)  # app route e.g. /category/vpn or external URL
     banner_type = Column(String(20), default="hero")  # hero | category
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)

@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 async function renderProfile(view) {
-  if (!currentUser) return location.hash = '/login';
+  if (!currentUser) return navigateTo('/login');
   view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
 
   try {
@@ -14,7 +14,7 @@ async function renderProfile(view) {
     
     const heroHead = el('div', 'products-hero');
     heroHead.innerHTML = `
-      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <strong>Tài khoản</strong></div>
+      <div class="breadcrumb mb-8"><a href="/">Trang chủ</a> <span>›</span> <strong>Tài khoản</strong></div>
       <h1 class="products-hero-title"><i class="fa-solid fa-user-circle"></i> Tài khoản của tôi</h1>
       <p class="products-hero-desc">Quản lý thông tin cá nhân và cài đặt bảo mật</p>
     `;
@@ -538,7 +538,7 @@ async function renderProfile(view) {
 
     qs('#profile-logout-btn', view).onclick = () => {
       saveToken(null); currentUser = null; updateAuthUI();
-      toast('Đã đăng xuất', 'info'); location.hash = '/';
+      toast('Đã đăng xuất', 'info'); navigateTo('/');
     };
 
     // Legacy bot card removed: replaced by detailed Discord DM / Telegram linking card above.
@@ -708,7 +708,7 @@ async function renderProfile(view) {
 
     // Order history
     const ordersCard = el('div', 'info-card');
-    ordersCard.innerHTML = `<div class="info-card-head" style="display:flex; justify-content:space-between; align-items:center;"><div class="info-card-title"><i class="fa-solid fa-clock-rotate-left"></i> Lịch sử đơn hàng gần đây</div><a href="#/orders" class="btn btn-outline btn-sm" style="background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.3); color:#fff;">Xem tất cả đơn</a></div><div class="info-card-body" id="profile-orders"><div class="page-loading"><div class="spinner"></div></div></div>`;
+    ordersCard.innerHTML = `<div class="info-card-head" style="display:flex; justify-content:space-between; align-items:center;"><div class="info-card-title"><i class="fa-solid fa-clock-rotate-left"></i> Lịch sử đơn hàng gần đây</div><a href="/orders" class="btn btn-outline btn-sm" style="background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.3); color:#fff;">Xem tất cả đơn</a></div><div class="info-card-body" id="profile-orders"><div class="page-loading"><div class="spinner"></div></div></div>`;
     view.appendChild(ordersCard);
 
     try {
@@ -722,7 +722,7 @@ async function renderProfile(view) {
           <div class="order-card" style="margin-bottom:8px">
             <div class="order-card-top">
               <div><div class="order-code">${o.order_code}</div><div class="order-date">${fmtDate(o.created_at)}</div></div>
-              <div class="d-flex align-center gap-8">${statusBadge(o.status)}<a href="#/orders/${o.order_code}" class="btn btn-ghost btn-sm">Chi tiết</a></div>
+              <div class="d-flex align-center gap-8">${statusBadge(o.status)}<a href="/orders/${o.order_code}" class="btn btn-ghost btn-sm">Chi tiết</a></div>
             </div>
             <div class="text-sm">${o.product_name || ''} — <span class="text-muted">${o.package_name || ''}</span></div>
             <div class="fw-700 text-primary mt-4">${fmt(o.total_amount)}</div>
@@ -807,7 +807,7 @@ async function renderProfile(view) {
 // ═══════════════════════════════════════════════════════════════
 
 async function renderUserAffiliates(view) {
-  if (!currentUser) return location.hash = '/login';
+  if (!currentUser) return navigateTo('/login');
   view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
 
   try {
@@ -818,7 +818,7 @@ async function renderUserAffiliates(view) {
     // Hero
     const heroHead = el('div', 'products-hero');
     heroHead.innerHTML = `
-      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <strong>Giới thiệu bạn bè</strong></div>
+      <div class="breadcrumb mb-8"><a href="/">Trang chủ</a> <span>›</span> <strong>Giới thiệu bạn bè</strong></div>
       <h1 class="products-hero-title"><i class="fa-solid fa-user-group"></i> Giới thiệu bạn bè</h1>
       <p class="products-hero-desc">Chia sẻ link giới thiệu và nhận hoa hồng từ mỗi đơn hàng thành công</p>
     `;

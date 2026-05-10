@@ -1,9 +1,33 @@
-
 // ── Router ─────────────────────────────────────────────────────
+function normalizeAppPath(path = '') {
+  if (!path || path === '#') return '/';
+  if (path.startsWith('#/')) return path.slice(1) || '/';
+  if (path.startsWith('/#/')) return path.slice(2) || '/';
+  if (!path.startsWith('/')) return `/${path}`;
+  return path;
+}
+
+function getCurrentPath() {
+  return normalizeAppPath(`${location.pathname || '/'}${location.search || ''}`);
+}
+
+function navigateTo(path, { replace = false } = {}) {
+  const target = normalizeAppPath(path);
+  const current = `${location.pathname || '/'}${location.search || ''}`;
+  if (target === current) {
+    navigate();
+    return;
+  }
+  history[replace ? 'replaceState' : 'pushState']({}, '', target);
+  navigate();
+}
+
+if (typeof window !== 'undefined') window.navigateTo = navigateTo;
+
 const routes = {
   '/': renderHome,
   '/all': renderAllProducts,
-  '/category/:slug': (view, { slug }) => { location.hash = `/all?cat=${slug}`; },
+  '/category/:slug': (view, { slug }) => { navigateTo(`/all?cat=${encodeURIComponent(slug)}`, { replace: true }); },
   '/product/:slug': renderProduct,
   '/cart': renderCart,
   '/offers': renderOffers,
@@ -13,8 +37,8 @@ const routes = {
   '/orders': renderOrders,
   '/orders/:code': renderOrderDetail,
   '/search': (view, params) => {
-    const q = new URLSearchParams(location.hash.split('?')[1] || '').get('q') || '';
-    location.hash = `/all?q=${encodeURIComponent(q)}`;
+    const q = new URLSearchParams(location.search || '').get('q') || '';
+    navigateTo(`/all?q=${encodeURIComponent(q)}`, { replace: true });
   },
   '/login': renderLogin,
   '/register': renderRegister,
@@ -49,8 +73,8 @@ const routes = {
   '/support/:slug': (view, { slug }) => renderSupportPage(slug),
 };
 
-function parseRoute(hash) {
-  const path = hash.replace(/^#/, '').split('?')[0] || '/';
+function parseRoute(pathWithQuery = getCurrentPath()) {
+  const path = normalizeAppPath(pathWithQuery).split('?')[0] || '/';
   for (const pattern of Object.keys(routes)) {
     const regex = new RegExp('^' + pattern.replace(/:([^/]+)/g, '([^/]+)') + '$');
     const match = path.match(regex);
@@ -88,7 +112,8 @@ const adminHeaderMeta = {
       '/admin/bot-config': { title: 'Quản lý bot', subtitle: 'Cấu hình Telegram, Discord và mail hệ thống' },
 };
 
-function updateHeaderMode(hash, isAdmin) {
+function updateHeaderMode(pathWithQuery = getCurrentPath(), isAdmin) {
+  const pathOnly = normalizeAppPath(pathWithQuery).split('?')[0] || '/';
   const header = qs('#header');
   const store = qs('#header-store');
   const storeActions = qs('#header-store-actions');
@@ -108,22 +133,22 @@ function updateHeaderMode(hash, isAdmin) {
   if (hamburger) hamburger.style.display = window.innerWidth <= 1024 ? 'flex' : 'none';
 
   if (isAdmin) {
-    const path = hash.replace(/^#/, '').split('?')[0] || '/admin';
-    const meta = adminHeaderMeta[path] || adminHeaderMeta['/admin'];
+    const meta = adminHeaderMeta[pathOnly] || adminHeaderMeta['/admin'];
     if (bcCurrent) bcCurrent.textContent = meta.title;
   }
 }
 
-function setActiveSidebarItem(hash) {
+function setActiveSidebarItem(pathWithQuery = getCurrentPath()) {
+  const path = normalizeAppPath(pathWithQuery).split('?')[0] || '/';
   qsa('#sidebar-nav .nav-item').forEach((n) => {
-    const href = n.getAttribute('href');
-    const isActive = href === hash || (href !== '#/' && hash.startsWith(`${href}/`));
+    const href = normalizeAppPath(n.getAttribute('href') || '/').split('?')[0] || '/';
+    const isActive = href === path || (href !== '/' && path.startsWith(`${href}/`));
     n.classList.toggle('active', !!isActive);
   });
 }
 
 async function navigate() {
-  const hash = location.hash || '#/';
+  const pathWithQuery = getCurrentPath();
   
   // Chờ thông tin user nếu chưa fetch (tránh mất hash state)
   if (!currentUser && typeof authToken !== 'undefined' && authToken && typeof fetchMe === 'function') {
@@ -131,13 +156,14 @@ async function navigate() {
      updateAuthUI();
   }
 
-  const route = parseRoute(hash);
+  const route = parseRoute(pathWithQuery);
   let view = qs('#app-view');
   if (!view) return;
 
-  const isAdmin = hash.startsWith('#/admin');
-  const isPayosCheckout = hash.startsWith('#/payos-checkout/');
-  updateHeaderMode(hash, isAdmin);
+  const path = pathWithQuery.split('?')[0] || '/';
+  const isAdmin = path.startsWith('/admin');
+  const isPayosCheckout = path.startsWith('/payos-checkout/');
+  updateHeaderMode(pathWithQuery, isAdmin);
 
   const sidebar = qs('#sidebar');
   const header = qs('#header');
@@ -167,7 +193,7 @@ async function navigate() {
           </div>
           <h1 class="page-404-title">Oops! Lạc đường rồi~</h1>
           <p class="page-404-desc">Rem đã tìm khắp nơi nhưng không thấy trang này đâu...<br>Có thể trang đã bị xóa hoặc bạn nhập sai đường dẫn.</p>
-          <a href="#/" class="page-404-btn" onclick="location.reload()"><i class="fa-solid fa-house"></i> Về trang chủ</a>
+          <a href="/" class="page-404-btn"><i class="fa-solid fa-house"></i> Về trang chủ</a>
         </div>
       </div>`;
     // anime.js entrance animations
@@ -184,11 +210,11 @@ async function navigate() {
   }
 
   if (isAdmin && (!currentUser || !currentUser.is_admin)) {
-    view.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-3)">Bạn không có quyền truy cập Admin Panel.<br><a href="#/" style="color:var(--primary)">Quay về trang chủ</a></div>';
+    view.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-3)">Bạn không có quyền truy cập Admin Panel.<br><a href="/" style="color:var(--primary)">Quay về trang chủ</a></div>';
     return;
   }
 
-  const adminPath = hash.replace(/^#/, '').split('?')[0] || '/admin';
+  const adminPath = path || '/admin';
   if (isAdmin && currentUser?.role === 'staff' && !STAFF_ALLOWED_ADMIN_ROUTES.has(adminPath)) {
     view.innerHTML = '<div class="empty-state" style="padding:60px 20px;"><div class="empty-state-icon"><i class="fa-solid fa-lock"></i></div><h3>Không có quyền truy cập</h3><p class="text-muted">Tài khoản nhân viên không được phép vào khu vực này.</p></div>';
     return;
@@ -200,7 +226,7 @@ async function navigate() {
     await loadSidebar();
   }
 
-  setActiveSidebarItem(hash);
+  setActiveSidebarItem(pathWithQuery);
   closeSidebar();
 
   const featureRouteMap = {
@@ -218,7 +244,6 @@ async function navigate() {
     flash_sales: 'Flash Sale', reviews: 'Đánh giá sản phẩm', announcements: 'Thông báo',
     api_docs: 'Tài liệu API',
   };
-  const path = hash.replace(/^#/, '').split('?')[0] || '/';
   const matchedFeature = Object.entries(featureRouteMap).find(([r]) => path === r || path.startsWith(r + '/'))?.[1];
   // Features that default to OFF (must be explicitly enabled)
   const optInFeatures = new Set(['api_docs']);
@@ -233,7 +258,7 @@ async function navigate() {
       <div class="empty-state-icon"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.25;color:var(--text-muted)"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
       <h3 style="margin-top:16px;">Tính năng "${esc(label)}" hiện đang tắt</h3>
       <p class="text-muted" style="max-width:360px;margin:8px auto 0;">Tính năng này tạm thời không khả dụng. Vui lòng quay lại sau hoặc liên hệ quản trị viên nếu cần hỗ trợ.</p>
-      <a href="#/" class="btn btn-primary mt-16">Về trang chủ</a>
+      <a href="/" class="btn btn-primary mt-16">Về trang chủ</a>
     </div>`;
     return;
   }
@@ -252,6 +277,8 @@ async function navigate() {
 // ── Sidebar ─────────────────────────────────────────────────────
 async function loadSidebar() {
   const nav = qs('#sidebar-nav');
+  const path = getCurrentPath().split('?')[0] || '/';
+
   const sidebar = qs('#sidebar');
   if (!nav) return;
   nav.innerHTML = '';
@@ -259,34 +286,34 @@ async function loadSidebar() {
     if (currentNavMode === 'admin') {
       sidebar?.classList.add('sidebar-dark');
       const links = [
-        { href: '#/admin', icon: '<i class="fa-solid fa-chart-pie"></i>', text: 'Dashboard' },
-        { href: '#/admin/orders', icon: '<i class="fa-solid fa-receipt"></i>', text: 'Đơn hàng' },
-        { href: '#/admin/payments', icon: '<i class="fa-solid fa-credit-card"></i>', text: 'Thanh toán' },
-        { href: '#/admin/balance', icon: '<i class="fa-solid fa-users"></i>', text: 'Quản lý user' },
+        { href: '/admin', icon: '<i class="fa-solid fa-chart-pie"></i>', text: 'Dashboard' },
+        { href: '/admin/orders', icon: '<i class="fa-solid fa-receipt"></i>', text: 'Đơn hàng' },
+        { href: '/admin/payments', icon: '<i class="fa-solid fa-credit-card"></i>', text: 'Thanh toán' },
+        { href: '/admin/balance', icon: '<i class="fa-solid fa-users"></i>', text: 'Quản lý user' },
         { divider: 'Sản phẩm' },
-        { href: '#/admin/categories', icon: '<i class="fa-solid fa-folder-tree"></i>', text: 'Danh mục' },
-        { href: '#/admin/products', icon: '<i class="fa-solid fa-bag-shopping"></i>', text: 'Sản phẩm' },
-        { href: '#/admin/stock', icon: '<i class="fa-solid fa-boxes-stacked"></i>', text: 'Kho tài khoản' },
+        { href: '/admin/categories', icon: '<i class="fa-solid fa-folder-tree"></i>', text: 'Danh mục' },
+        { href: '/admin/products', icon: '<i class="fa-solid fa-bag-shopping"></i>', text: 'Sản phẩm' },
+        { href: '/admin/stock', icon: '<i class="fa-solid fa-boxes-stacked"></i>', text: 'Kho tài khoản' },
         { divider: 'Tính năng' },
-        { href: '#/admin/banners', icon: '<i class="fa-solid fa-image"></i>', text: 'Banners' },
-        { href: '#/admin/flash-sales', icon: '<i class="fa-solid fa-bolt"></i>', text: 'Flash Sales' },
-        { href: '#/admin/gift-codes', icon: '<i class="fa-solid fa-gift"></i>', text: 'Mã quà tặng' },
-        { href: '#/admin/affiliates', icon: '<i class="fa-solid fa-user-group"></i>', text: 'Affiliates' },
-        { href: '#/admin/blog', icon: '<i class="fa-solid fa-newspaper"></i>', text: 'Blog' },
+        { href: '/admin/banners', icon: '<i class="fa-solid fa-image"></i>', text: 'Banners' },
+        { href: '/admin/flash-sales', icon: '<i class="fa-solid fa-bolt"></i>', text: 'Flash Sales' },
+        { href: '/admin/gift-codes', icon: '<i class="fa-solid fa-gift"></i>', text: 'Mã quà tặng' },
+        { href: '/admin/affiliates', icon: '<i class="fa-solid fa-user-group"></i>', text: 'Affiliates' },
+        { href: '/admin/blog', icon: '<i class="fa-solid fa-newspaper"></i>', text: 'Blog' },
         { divider: 'Hỗ trợ & Cài đặt' },
-        { href: '#/admin/tickets', icon: '<i class="fa-solid fa-headset"></i>', text: 'Hỗ trợ' },
-        { href: '#/admin/bot-config', icon: '<i class="fa-solid fa-robot"></i>', text: 'Quản lý bot' },
-        { href: '#/admin/support-pages', icon: '<i class="fa-solid fa-file-lines"></i>', text: 'Trang thông tin' },
-        { href: '#/admin/announcements', icon: '<i class="fa-solid fa-bullhorn"></i>', text: 'Thông báo' },
-        { href: '#/admin/oauth-settings', icon: '<i class="fa-brands fa-github"></i>', text: 'Đăng nhập MXH' },
-        { href: '#/admin/api-keys', icon: '<i class="fa-solid fa-key"></i>', text: 'API Keys', feature: 'api_docs' },
-        { href: '#/admin/settings', icon: '<i class="fa-solid fa-gear"></i>', text: 'Cài đặt chung' },
+        { href: '/admin/tickets', icon: '<i class="fa-solid fa-headset"></i>', text: 'Hỗ trợ' },
+        { href: '/admin/bot-config', icon: '<i class="fa-solid fa-robot"></i>', text: 'Quản lý bot' },
+        { href: '/admin/support-pages', icon: '<i class="fa-solid fa-file-lines"></i>', text: 'Trang thông tin' },
+        { href: '/admin/announcements', icon: '<i class="fa-solid fa-bullhorn"></i>', text: 'Thông báo' },
+        { href: '/admin/oauth-settings', icon: '<i class="fa-brands fa-github"></i>', text: 'Đăng nhập MXH' },
+        { href: '/admin/api-keys', icon: '<i class="fa-solid fa-key"></i>', text: 'API Keys', feature: 'api_docs' },
+        { href: '/admin/settings', icon: '<i class="fa-solid fa-gear"></i>', text: 'Cài đặt chung' },
         { divider: '' },
-        { href: '#/', icon: '<i class="fa-solid fa-arrow-left"></i>', text: 'Về trang chủ' }
+        { href: '/', icon: '<i class="fa-solid fa-arrow-left"></i>', text: 'Về trang chủ' }
       ];
 
       const visibleLinks = (currentUser?.role === 'staff'
-        ? links.filter(l => l.divider !== undefined || STAFF_ALLOWED_ADMIN_ROUTES.has((l.href || '').replace(/^#/, '')) || l.href === '#/')
+        ? links.filter(l => l.divider !== undefined || STAFF_ALLOWED_ADMIN_ROUTES.has(l.href || '') || l.href === '/')
         : links
       ).filter(l => {
         if (!l.feature) return true;
@@ -304,7 +331,7 @@ async function loadSidebar() {
             nav.appendChild(el('div', 'sidebar-divider'));
           }
         } else {
-          const item = el('a', 'nav-item' + (location.hash === l.href ? ' active' : ''));
+          const item = el('a', 'nav-item' + (path === l.href ? ' active' : ''));
           item.href = l.href;
           item.innerHTML = `<div class="nav-icon">${l.icon}</div><span>${l.text}</span>`;
           nav.appendChild(item);
@@ -317,8 +344,8 @@ async function loadSidebar() {
     categories = await apiFetch('/categories/');
 
     // ── Trang chủ ──
-    const homeItem = el('a', 'nav-item' + (location.hash === '#/' || !location.hash ? ' active' : ''));
-    homeItem.href = '#/';
+    const homeItem = el('a', 'nav-item' + (path === '/' ? ' active' : ''));
+    homeItem.href = '/';
     homeItem.innerHTML = '<div class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><span>Trang chủ</span>';
     nav.appendChild(homeItem);
 
@@ -326,7 +353,7 @@ async function loadSidebar() {
     nav.innerHTML += '<div class="sidebar-section-title">Danh mục</div>';
     categories.forEach(cat => {
       const item = el('a', 'nav-item');
-      item.href = `#/all?cat=${cat.slug}`;
+      item.href = `/all?cat=${encodeURIComponent(cat.slug)}`;
       const iconUrl = cat.image_url || cat.icon_url;
       const icon = iconUrl ? `<img src="${iconUrl}" alt="" style="width:18px;height:18px;object-fit:contain;border-radius:2px;" />` : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
       item.innerHTML = `<div class="nav-icon">${icon}</div><span>${cat.name}</span>`;
@@ -338,39 +365,39 @@ async function loadSidebar() {
     nav.appendChild(divider);
     nav.appendChild(el('div', 'sidebar-section-title', 'Khác'));
     
-    const offersItem = el('a', 'nav-item' + (location.hash === '#/offers' ? ' active' : ''));
-    offersItem.href = '#/offers';
+    const offersItem = el('a', 'nav-item' + (path === '/offers' ? ' active' : ''));
+    offersItem.href = '/offers';
     offersItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-gift"></i></div><span>Ưu đãi</span>';
     if (appSettings.features?.offers !== false) nav.appendChild(offersItem);
 
     if (currentUser && appSettings.features?.wishlist !== false) {
-      const wlItem = el('a', 'nav-item' + (location.hash === '#/wishlist' ? ' active' : ''));
-      wlItem.href = '#/wishlist';
+      const wlItem = el('a', 'nav-item' + (path === '/wishlist' ? ' active' : ''));
+      wlItem.href = '/wishlist';
       wlItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-heart" style="color:#ef4444;font-size:16px;"></i></div><span>Yêu thích</span>';
       nav.appendChild(wlItem);
     }
 
-    const supportItem = el('a', 'nav-item' + (location.hash.startsWith('#/support') ? ' active' : ''));
-    supportItem.href = '#/support';
+    const supportItem = el('a', 'nav-item' + (path.startsWith('/support') ? ' active' : ''));
+    supportItem.href = '/support';
     supportItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-headset"></i></div><span>Hỗ trợ</span>';
     if (appSettings.features?.support !== false) nav.appendChild(supportItem);
 
-    const blogItem = el('a', 'nav-item' + (location.pathname.startsWith('/blog') || location.hash === '#/blog' ? ' active' : ''));
+    const blogItem = el('a', 'nav-item' + (location.pathname.startsWith('/blog') ? ' active' : ''));
     blogItem.href = '/blog';
     blogItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-newspaper"></i></div><span>Blog</span>';
     if (appSettings.features?.blog !== false) nav.appendChild(blogItem);
 
     if (appSettings.features?.api_docs === true) {
-      const apiItem = el('a', 'nav-item' + (location.hash === '#/api-docs' ? ' active' : ''));
-      apiItem.href = '#/api-docs';
+      const apiItem = el('a', 'nav-item' + (path === '/api-docs' ? ' active' : ''));
+      apiItem.href = '/api-docs';
       apiItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-code"></i></div><span>Tài liệu API</span>';
       nav.appendChild(apiItem);
     }
 
     if (currentUser) {
       if (appSettings.features?.affiliate !== false) {
-        const affItem = el('a', 'nav-item' + (location.hash === '#/affiliate' ? ' active' : ''));
-        affItem.href = '#/affiliate';
+        const affItem = el('a', 'nav-item' + (path === '/affiliate' ? ' active' : ''));
+        affItem.href = '/affiliate';
         affItem.innerHTML = '<div class="nav-icon"><i class="fa-solid fa-user-group"></i></div><span>Giới thiệu bạn bè</span>';
         nav.appendChild(affItem);
       }
@@ -386,6 +413,10 @@ async function init() {
   try {
     loadToken();
     lockViewportZoom();
+    if (location.hash && location.hash.startsWith('#/')) {
+      history.replaceState(null, '', normalizeAppPath(location.hash));
+    }
+
 
     // BẮT BUỘC ĐỢI TẢI THÔNG TIN USER TRƯỚC KHI NAVIGATE
     await fetchMe();
@@ -399,12 +430,7 @@ async function init() {
         localStorage.setItem('aff_ref_code', refCode);
         const cleanUrl = new URL(location);
         cleanUrl.searchParams.delete('ref');
-        // Khi gỡ bỏ ref query parameter, giữ lại phần hash nhưng dùng sessionStorage để lưu hash tạm thời
-        const currentHash = location.hash;
         history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search);
-        if (currentHash) {
-           setTimeout(() => { location.hash = currentHash; }, 10);
-        }
       }
     } catch (_) {}
 
@@ -504,10 +530,23 @@ async function init() {
   }
 
   await loadSidebar();
-  window.addEventListener('hashchange', navigate);
+  window.addEventListener('popstate', navigate);
   await navigate();
 
   const userMenuBtn = qs('#user-menu-btn');
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('a[href]');
+    if (!link || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (link.target && link.target !== '_self') return;
+    const rawHref = link.getAttribute('href') || '';
+    if (!rawHref || rawHref.startsWith('#') || rawHref.startsWith('mailto:') || rawHref.startsWith('tel:')) return;
+    const url = new URL(rawHref, location.origin);
+    if (url.origin !== location.origin) return;
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/static/') || url.pathname.startsWith('/blog') || url.pathname.startsWith('/share/')) return;
+    e.preventDefault();
+    navigateTo(`${url.pathname}${url.search}`);
+  });
+
   const dropdown = qs('#user-dropdown');
   if (userMenuBtn && dropdown) {
     userMenuBtn.onclick = (e) => { e.stopPropagation(); dropdown.classList.toggle('open'); };
@@ -516,23 +555,23 @@ async function init() {
 
   qs('#btn-logout')?.addEventListener('click', () => {
     saveToken(null); currentUser = null; updateAuthUI();
-    toast('Đã đăng xuất', 'info'); location.hash = '/';
+    toast('Đã đăng xuất', 'info'); navigateTo('/');
   });
 
-  const doSearch = () => { const q = (qs('#search-input')?.value || '').trim(); if (q) location.hash = `/all?q=${encodeURIComponent(q)}`; };
+  const doSearch = () => { const q = (qs('#search-input')?.value || '').trim(); if (q) navigateTo(`/all?q=${encodeURIComponent(q)}`); };
   qs('#search-btn')?.addEventListener('click', doSearch);
   qs('#search-input')?.addEventListener('keypress', e => { if (e.key === 'Enter') doSearch(); });
 
   qs('#hamburger')?.addEventListener('click', toggleSidebar);
   qs('#sidebar-overlay')?.addEventListener('click', closeSidebar);
-  window.addEventListener('resize', () => updateHeaderMode(location.hash || '#/', location.hash.startsWith('#/admin')));
+  window.addEventListener('resize', () => updateHeaderMode(getCurrentPath(), getCurrentPath().split('?')[0].startsWith('/admin')));
 
   qs('#modal-close')?.addEventListener('click', closeModal);
   qs('#modal-overlay')?.addEventListener('click', (e) => { if (e.target === qs('#modal-overlay')) closeModal(); });
 
   if (typeof ADMIN_DEBUG !== 'undefined' && ADMIN_DEBUG) {
     document.addEventListener('click', (e) => {
-      if (!location.hash.startsWith('#/admin')) return;
+      if (!getCurrentPath().split('?')[0].startsWith('/admin')) return;
       const target = e.target.closest('button, a, [data-del], [data-del-banner], [data-del-fs], [data-del-gc], [data-del-page], [data-del-ann], [data-del-post], [data-del-cat], [data-cancel-order], [data-delpkg]');
       if (!target) return;
       adminDebugLog('click captured', {
@@ -544,7 +583,7 @@ async function init() {
     }, true);
 
     document.addEventListener('click', (e) => {
-      if (!location.hash.startsWith('#/admin')) return;
+      if (!getCurrentPath().split('?')[0].startsWith('/admin')) return;
       const el = document.elementFromPoint(e.clientX, e.clientY);
       adminDebugLog('click top element', {
         tag: el?.tagName || null,
@@ -554,12 +593,12 @@ async function init() {
     }, true);
 
     window.addEventListener('error', (e) => {
-      if (!location.hash.startsWith('#/admin')) return;
+      if (!getCurrentPath().split('?')[0].startsWith('/admin')) return;
       adminDebugLog('window error', { message: e.message, source: e.filename, line: e.lineno, column: e.colno });
     });
 
     window.addEventListener('unhandledrejection', (e) => {
-      if (!location.hash.startsWith('#/admin')) return;
+      if (!getCurrentPath().split('?')[0].startsWith('/admin')) return;
       adminDebugLog('unhandled rejection', String(e.reason));
     });
   }

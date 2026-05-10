@@ -2222,7 +2222,7 @@ function showBannerModal(banner, onDone) {
       </div>
       <div class="form-group">
         <label class="form-label">Link (hash route hoặc URL)</label>
-        <input class="form-input" id="bn-link" value="${banner?.link || ''}" placeholder="#/category/vpn hoặc https://..." />
+        <input class="form-input" id="bn-link" value="${banner?.link || ''}" placeholder="/category/vpn hoặc https://..." />
       </div>
       <div class="form-group">
         <label class="form-label"><input type="checkbox" id="bn-active" ${banner?.is_active !== false ? 'checked' : ''} /> Hiển thị</label>
@@ -2750,8 +2750,7 @@ async function renderAdminTickets(view) {
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   
   // Check if we have a ticketId in the hash
-  const hashParts = location.hash.split('?');
-  const params = new URLSearchParams(hashParts[1] || '');
+  const params = new URLSearchParams(location.search || '');
   const ticketId = params.get('id');
   
   if (ticketId) {
@@ -2790,7 +2789,7 @@ async function renderAdminTickets(view) {
       content.onclick = (e) => {
         const openBtn = e.target.closest('[data-open-ticket]');
         if (!openBtn) return;
-        location.hash = `#/admin/tickets?id=${openBtn.dataset.openTicket}`;
+        navigateTo(`/admin/tickets?id=${openBtn.dataset.openTicket}`);
       };
     } catch (err) {
       content.innerHTML = `<div class="empty-state"><h3>Lỗi tải tickets</h3><p class="text-muted">${err.message}</p></div>`;
@@ -2866,7 +2865,7 @@ async function renderAdminTicketDetail(content, ticketId) {
     `;
 
     // Back button
-    qs('#btn-back-tickets').onclick = () => { location.hash = '#/admin/tickets'; };
+    qs('#btn-back-tickets').onclick = () => { navigateTo('/admin/tickets'); };
 
     // Scroll messages to bottom
     const msgBox = qs('#ticket-messages');
@@ -2931,13 +2930,13 @@ async function renderAdminTicketDetail(content, ticketId) {
       }
     };
   } catch (err) {
-    content.innerHTML = `<div class="empty-state"><h3>Không tải được ticket</h3><p class="text-muted">${err.message}</p><button class="btn btn-primary mt-12" onclick="location.hash='#/admin/tickets'">Quay lại</button></div>`;
+    content.innerHTML = `<div class="empty-state"><h3>Không tải được ticket</h3><p class="text-muted">${err.message}</p><button class="btn btn-primary mt-12" onclick="navigateTo('/admin/tickets')">Quay lại</button></div>`;
   }
 }
 
 function showAdminTicketModal(ticket, onDone) {
   // Legacy — redirect to detail view
-  location.hash = `#/admin/tickets?id=${ticket.id}`;
+  navigateTo(`/admin/tickets?id=${ticket.id}`);
 }
 
 

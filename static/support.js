@@ -43,7 +43,7 @@ async function renderSupportPage(slug) {
           <div class="empty-state-icon"><i class="fa-solid fa-circle-info" style="font-size:36px;color:var(--text-muted);"></i></div>
           <h3>Chưa có thông tin</h3>
           <p class="text-muted">Nội dung cho trang này chưa được cập nhật.</p>
-          <a href="#/support" class="btn btn-primary mt-12">Quay lại Hỗ trợ</a>
+          <a href="/support" class="btn btn-primary mt-12">Quay lại Hỗ trợ</a>
         </div>
       </div>`;
   }
@@ -75,7 +75,7 @@ async function renderSupportHome(view) {
     // Hero
     const hero = el('div', 'products-hero');
     hero.innerHTML = `
-      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <strong>Hỗ trợ</strong></div>
+      <div class="breadcrumb mb-8"><a href="/">Trang chủ</a> <span>›</span> <strong>Hỗ trợ</strong></div>
       <h1 class="products-hero-title"><i class="fa-solid fa-headset"></i> Hỗ trợ & Liên hệ</h1>
       <p class="products-hero-desc">Chúng tôi luôn sẵn sàng giúp đỡ bạn mọi lúc</p>
     `;
@@ -147,7 +147,7 @@ async function renderSupportHome(view) {
           ${pages.map(p => {
             const meta = pageMeta[p.slug] || { icon: "fa-file-lines", color: "#6b7280" };
             return `
-            <a href="#/support/${p.slug}" style="display:flex;align-items:center;gap:14px;padding:16px 20px;text-decoration:none;border-bottom:1px solid var(--border);transition:background .15s;" onmouseover="this.style.background='var(--bg-page)'" onmouseout="this.style.background='transparent'">
+            <a href="/support/${p.slug}" style="display:flex;align-items:center;gap:14px;padding:16px 20px;text-decoration:none;border-bottom:1px solid var(--border);transition:background .15s;" onmouseover="this.style.background='var(--bg-page)'" onmouseout="this.style.background='transparent'">
               <div style="width:40px;height:40px;border-radius:10px;background:${meta.color}15;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                 <i class="fa-solid ${meta.icon}" style="color:${meta.color};font-size:16px;"></i>
               </div>
@@ -167,7 +167,7 @@ async function renderSupportHome(view) {
     ticketCard.innerHTML = `
       <div class="info-card-head" style="display:flex;justify-content:space-between;align-items:center;">
         <div class="info-card-title"><i class="fa-solid fa-paper-plane"></i> Gửi yêu cầu hỗ trợ</div>
-        <a href="#/support/tickets" style="color:rgba(255,255,255,.8);font-size:13px;text-decoration:none;font-weight:500;">Xem yêu cầu của tôi →</a>
+        <a href="/support/tickets" style="color:rgba(255,255,255,.8);font-size:13px;text-decoration:none;font-weight:500;">Xem yêu cầu của tôi →</a>
       </div>
       <div class="info-card-body">
         ${currentUser ? `
@@ -198,7 +198,7 @@ async function renderSupportHome(view) {
         ` : `
         <div style="text-align:center;padding:24px 0;">
           <p style="color:var(--text-muted);margin:0 0 12px;">Vui lòng đăng nhập để gửi yêu cầu hỗ trợ</p>
-          <a href="#/login" class="btn btn-primary">Đăng nhập</a>
+          <a href="/login" class="btn btn-primary">Đăng nhập</a>
         </div>
         `}
       </div>
@@ -246,7 +246,7 @@ async function renderUserTickets(view) {
 
     const hero = el('div', 'products-hero');
     hero.innerHTML = `
-      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/support">Hỗ trợ</a> <span>›</span> <strong>Yêu cầu của tôi</strong></div>
+      <div class="breadcrumb mb-8"><a href="/">Trang chủ</a> <span>›</span> <a href="/support">Hỗ trợ</a> <span>›</span> <strong>Yêu cầu của tôi</strong></div>
       <h1 class="products-hero-title"><i class="fa-solid fa-clipboard-list"></i> Yêu cầu hỗ trợ</h1>
       <p class="products-hero-desc">Theo dõi trạng thái các yêu cầu hỗ trợ của bạn</p>
     `;
@@ -256,11 +256,11 @@ async function renderUserTickets(view) {
     card.innerHTML = `
       <div class="info-card-head" style="display:flex;justify-content:space-between;align-items:center;">
         <div class="info-card-title"><i class="fa-solid fa-list"></i> Danh sách yêu cầu</div>
-        <a href="#/support" style="color:rgba(255,255,255,.8);font-size:13px;text-decoration:none;font-weight:500;">← Quay lại Hỗ trợ</a>
+        <a href="/support" style="color:rgba(255,255,255,.8);font-size:13px;text-decoration:none;font-weight:500;">← Quay lại Hỗ trợ</a>
       </div>
       <div class="info-card-body" style="padding:0;">
         ${tickets.length ? tickets.map(t => `
-          <a href="#/support/tickets/${t.id}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;text-decoration:none;border-bottom:1px solid var(--border);transition:background .15s;" onmouseover="this.style.background='var(--bg-page)'" onmouseout="this.style.background='transparent'">
+          <a href="/support/tickets/${t.id}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;text-decoration:none;border-bottom:1px solid var(--border);transition:background .15s;" onmouseover="this.style.background='var(--bg-page)'" onmouseout="this.style.background='transparent'">
             <div>
               <div style="font-weight:600;font-size:14px;color:var(--text-heading);">${t.subject}</div>
               <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">#${t.ticket_number || t.id} · ${t.category || 'Chung'} · ${new Date(t.created_at).toLocaleDateString('vi-VN')}</div>
@@ -274,7 +274,7 @@ async function renderUserTickets(view) {
           <div style="text-align:center;padding:48px 20px;">
             <i class="fa-solid fa-inbox" style="font-size:36px;color:var(--text-muted);margin-bottom:12px;"></i>
             <p style="color:var(--text-muted);">Bạn chưa có yêu cầu hỗ trợ nào</p>
-            <a href="#/support" class="btn btn-primary mt-12">Tạo yêu cầu mới</a>
+            <a href="/support" class="btn btn-primary mt-12">Tạo yêu cầu mới</a>
           </div>
         `}
       </div>
@@ -282,7 +282,7 @@ async function renderUserTickets(view) {
     view.appendChild(card);
     window.scrollTo(0, 0);
   } catch (err) {
-    view.innerHTML = `<div class="empty-state" style="margin-top:40px;"><h3>Vui lòng đăng nhập</h3><a href="#/login" class="btn btn-primary mt-12">Đăng nhập</a></div>`;
+    view.innerHTML = `<div class="empty-state" style="margin-top:40px;"><h3>Vui lòng đăng nhập</h3><a href="/login" class="btn btn-primary mt-12">Đăng nhập</a></div>`;
   }
 }
 
@@ -298,7 +298,7 @@ async function renderTicketDetail(ticketId) {
 
     const hero = el('div', 'products-hero');
     hero.innerHTML = `
-      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <a href="#/support">Hỗ trợ</a> <span>›</span> <a href="#/support/tickets">Yêu cầu</a> <span>›</span> <strong>#${ticket.ticket_number || ticket.id}</strong></div>
+      <div class="breadcrumb mb-8"><a href="/">Trang chủ</a> <span>›</span> <a href="/support">Hỗ trợ</a> <span>›</span> <a href="/support/tickets">Yêu cầu</a> <span>›</span> <strong>#${ticket.ticket_number || ticket.id}</strong></div>
       <h1 class="products-hero-title">${ticket.subject}</h1>
       <p class="products-hero-desc">
         <span class="badge badge-${ticket.status === 'open' ? 'blue' : ticket.status === 'closed' ? 'gray' : 'yellow'}" style="margin-right:8px;">${statusLabel(ticket.status)}</span>
@@ -382,7 +382,7 @@ async function renderTicketDetail(ticketId) {
     }
     window.scrollTo(0, 0);
   } catch (err) {
-    view.innerHTML = `<div class="empty-state" style="margin-top:40px;"><h3>Không thể tải chi tiết yêu cầu</h3><a href="#/support/tickets" class="btn btn-primary mt-12">Quay lại</a></div>`;
+    view.innerHTML = `<div class="empty-state" style="margin-top:40px;"><h3>Không thể tải chi tiết yêu cầu</h3><a href="/support/tickets" class="btn btn-primary mt-12">Quay lại</a></div>`;
   }
 }
 

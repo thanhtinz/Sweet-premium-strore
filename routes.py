@@ -105,13 +105,11 @@ def build_share_product_html(product: Product, settings: dict, request: Request,
     image_url = absolute_url(share_image, request)
     favicon_url = absolute_url(settings.get("favicon_url") or settings.get("logo_url") or settings.get("site_logo") or "", request)
     canonical_base = (settings.get("site_url") or str(request.base_url)).rstrip("/") + "/"
-    target_hash = f"#/product/{product.slug}"
+    target_path = f"product/{product.slug}"
     if ref:
-        target_hash += f"?ref={escape(ref)}"
-    target_url = f"{canonical_base}{target_hash.lstrip('#/')}" if settings.get("site_url") else f"{request.base_url}{target_hash}".replace("//#", "/#")
-    redirect_url = f"{canonical_base}{target_hash.lstrip('#/')}" if settings.get("site_url") else f"{request.base_url}#/product/{product.slug}"
-    if ref:
-        redirect_url += f"?ref={escape(ref)}"
+        target_path += f"?ref={escape(ref)}"
+    target_url = f"{canonical_base}{target_path}"
+    redirect_url = f"{canonical_base}{target_path}"
     return f"""<!DOCTYPE html>
 <html lang=\"vi\">
 <head>

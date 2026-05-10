@@ -14,14 +14,14 @@ async function renderApiDocs(view) {
         </div>
         
         <div class="api-docs-nav-group">Bắt đầu</div>
-        <a href="#/api-docs" data-doc-section="auth" class="api-docs-nav-item active"><i class="fa-solid fa-key" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Xác thực</a>
-        <a href="#/api-docs" data-doc-section="errors" class="api-docs-nav-item"><i class="fa-solid fa-circle-exclamation" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Mã lỗi</a>
+        <a href="/api-docs" data-doc-section="auth" class="api-docs-nav-item active"><i class="fa-solid fa-key" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Xác thực</a>
+        <a href="/api-docs" data-doc-section="errors" class="api-docs-nav-item"><i class="fa-solid fa-circle-exclamation" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Mã lỗi</a>
         
         <div class="api-docs-nav-group">Endpoints</div>
-        <a href="#/api-docs" data-doc-section="products" class="api-docs-nav-item"><i class="fa-solid fa-box" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Sản phẩm</a>
-        <a href="#/api-docs" data-doc-section="categories" class="api-docs-nav-item"><i class="fa-solid fa-tags" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Danh mục</a>
-        <a href="#/api-docs" data-doc-section="orders" class="api-docs-nav-item"><i class="fa-solid fa-cart-shopping" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Đơn hàng</a>
-        <a href="#/api-docs" data-doc-section="search" class="api-docs-nav-item"><i class="fa-solid fa-magnifying-glass" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Tìm kiếm</a>
+        <a href="/api-docs" data-doc-section="products" class="api-docs-nav-item"><i class="fa-solid fa-box" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Sản phẩm</a>
+        <a href="/api-docs" data-doc-section="categories" class="api-docs-nav-item"><i class="fa-solid fa-tags" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Danh mục</a>
+        <a href="/api-docs" data-doc-section="orders" class="api-docs-nav-item"><i class="fa-solid fa-cart-shopping" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Đơn hàng</a>
+        <a href="/api-docs" data-doc-section="search" class="api-docs-nav-item"><i class="fa-solid fa-magnifying-glass" style="width:16px;text-align:center;margin-right:6px;opacity:0.6;"></i>Tìm kiếm</a>
       </div>
 
       <div class="api-docs-main">
@@ -33,7 +33,7 @@ async function renderApiDocs(view) {
         <!-- Auth Section -->
         <div class="api-docs-section active" data-doc="auth">
           <h2>Xác thực (Authentication)</h2>
-          <p>Sử dụng API Key để xác thực các request. Bạn có thể tạo key mới tại <a href="#/profile">trang Profile → API Keys</a>.</p>
+          <p>Sử dụng API Key để xác thực các request. Bạn có thể tạo key mới tại <a href="/profile">trang Profile → API Keys</a>.</p>
 
           <h3>Header</h3>
           <div class="api-code-block">

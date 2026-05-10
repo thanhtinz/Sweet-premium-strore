@@ -3,10 +3,8 @@
 // ═══════════════════════════════════════════════════════════════
 
 async function renderBlogList(view) {
-  // window.location.href = '/blog' + (location.hash.includes('?') ? location.hash.slice(location.hash.indexOf('?')) : '');
-  // return;
   view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
-  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  const params = new URLSearchParams(location.search || '');
   const page = parseInt(params.get('page') || '1');
   const catSlug = params.get('category') || '';
 
@@ -21,7 +19,7 @@ async function renderBlogList(view) {
     view.innerHTML = '';
     
     const heroHead = el('div', 'products-hero', `
-      <div class="breadcrumb mb-8"><a href="#/">Trang chủ</a> <span>›</span> <strong>Blog</strong></div>
+      <div class="breadcrumb mb-8"><a href="/">Trang chủ</a> <span>›</span> <strong>Blog</strong></div>
       <h1 class="products-hero-title"><i class="fa-solid fa-newspaper"></i> Góc chia sẻ</h1>
       <p class="products-hero-desc">Cập nhật tin tức, hướng dẫn và mẹo hay mỗi ngày</p>
     `);
@@ -32,12 +30,12 @@ async function renderBlogList(view) {
       const chips = el('div', 'blog-cat-chips mb-16');
       const allChip = el('button', `blog-cat-chip${!catSlug ? ' active' : ''}`);
       allChip.textContent = 'Tất cả';
-      allChip.onclick = () => { location.hash = '/blog'; };
+      allChip.onclick = () => { navigateTo('/blog'); };
       chips.appendChild(allChip);
       categories.forEach(c => {
         const chip = el('button', `blog-cat-chip${catSlug === c.slug ? ' active' : ''}`);
         chip.textContent = `${c.name} (${c.post_count || 0})`;
-        chip.onclick = () => { location.hash = `/blog?category=${c.slug}`; };
+        chip.onclick = () => { navigateTo(`/blog?category=${c.slug}`); };
         chips.appendChild(chip);
       });
       view.appendChild(chips);
@@ -65,7 +63,7 @@ async function renderBlogList(view) {
           </div>
         </div>
       `;
-      card.onclick = () => { location.hash = `/blog/${post.slug}`; };
+      card.onclick = () => { navigateTo(`/blog/${post.slug}`); };
       grid.appendChild(card);
     });
     view.appendChild(grid);
@@ -76,7 +74,7 @@ async function renderBlogList(view) {
       for (let i = 1; i <= pages; i++) {
         const btn = el('button', `pagination-btn${i === page ? ' active' : ''}`);
         btn.textContent = i;
-        btn.onclick = () => { location.hash = `/blog?category=${catSlug}&page=${i}`; };
+        btn.onclick = () => { navigateTo(`/blog?category=${catSlug}&page=${i}`); };
         pag.appendChild(btn);
       }
       view.appendChild(pag);
@@ -93,7 +91,7 @@ async function renderBlogPost(view, { slug }) {
   try {
     const post = await apiFetch(`/blog/posts/${slug}`);
     view.innerHTML = '';
-    view.appendChild(el('div', 'breadcrumb mb-16', `<a href="#/">Trang chủ</a> <span>›</span> <a href="#/blog">Blog</a> <span>›</span> <strong>${post.title}</strong>`));
+    view.appendChild(el('div', 'breadcrumb mb-16', `<a href="/">Trang chủ</a> <span>›</span> <a href="/blog">Blog</a> <span>›</span> <strong>${post.title}</strong>`));
 
     const article = el('div', 'blog-article');
     article.innerHTML = `

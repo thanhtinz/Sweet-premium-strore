@@ -43,13 +43,13 @@ async def google_callback(code: str, request: Request, db: Session = Depends(get
             "grant_type": "authorization_code",
         })
         if token_res.status_code != 200:
-            return RedirectResponse("/#/login?error=google_failed")
+            return RedirectResponse("/login?error=google_failed")
         tokens = token_res.json()
         info_res = await client.get("https://www.googleapis.com/oauth2/v2/userinfo", headers={
             "Authorization": f"Bearer {tokens['access_token']}"
         })
         if info_res.status_code != 200:
-            return RedirectResponse("/#/login?error=google_failed")
+            return RedirectResponse("/login?error=google_failed")
         info = info_res.json()
 
     return _social_login_finish(
@@ -91,13 +91,13 @@ async def discord_callback(code: str, request: Request, db: Session = Depends(ge
             "grant_type": "authorization_code",
         })
         if token_res.status_code != 200:
-            return RedirectResponse("/#/login?error=discord_failed")
+            return RedirectResponse("/login?error=discord_failed")
         tokens = token_res.json()
         info_res = await client.get("https://discord.com/api/users/@me", headers={
             "Authorization": f"Bearer {tokens['access_token']}"
         })
         if info_res.status_code != 200:
-            return RedirectResponse("/#/login?error=discord_failed")
+            return RedirectResponse("/login?error=discord_failed")
         info = info_res.json()
 
     avatar_url = ""
@@ -139,7 +139,7 @@ def _social_login_finish(db: Session, provider: str, provider_id: str, email: st
         db.commit()
         db.refresh(user)
     if not user.is_active:
-        return RedirectResponse("/#/login?error=account_disabled")
+        return RedirectResponse("/login?error=account_disabled")
     if provider == "discord":
         link_platform_account(
             db,
@@ -151,4 +151,4 @@ def _social_login_finish(db: Session, provider: str, provider_id: str, email: st
             verified=True,
         )
     token = _create_token(user)
-    return RedirectResponse(f"/#/auth-callback?token={token}")
+    return RedirectResponse(f"/auth-callback?token={token}")
