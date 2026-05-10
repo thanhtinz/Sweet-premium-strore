@@ -2112,10 +2112,10 @@ async function renderOrders(view) {
     view.innerHTML += `
       <div class="card mb-16" style="padding: 6px;">
         <div style="display:flex; overflow-x:auto; gap:4px; scrollbar-width:none;" id="orders-filter-tabs">
-          <button class="btn btn-primary" data-status="all" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px;">Tất cả <span style="background:rgba(255,255,255,0.2); margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${data.total}</span></button>
-          <button class="btn btn-ghost" data-status="pending" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Chờ xử lý <span style="background:#e2e8f0; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${pendingCount}</span></button>
-          <button class="btn btn-ghost" data-status="processing" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Đang xử lý <span style="background:#e2e8f0; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${processingCount}</span></button>
-          <button class="btn btn-ghost" data-status="completed" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Hoàn thành <span style="background:#e2e8f0; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${completedCount}</span></button>
+          <button class="btn btn-ghost" data-status="all" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; background:#e2e8f0; color:var(--text-heading); font-weight:600;">Tất cả <span style="background:rgba(0,0,0,0.1); margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${data.total}</span></button>
+          <button class="btn btn-ghost" data-status="pending" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Chờ xử lý <span style="background:#f1f5f9; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${pendingCount}</span></button>
+          <button class="btn btn-ghost" data-status="processing" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Đang xử lý <span style="background:#f1f5f9; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${processingCount}</span></button>
+          <button class="btn btn-ghost" data-status="completed" style="flex:1; justify-content:center; border-radius:8px; white-space:nowrap; padding: 10px 16px; color:var(--text-secondary);">Hoàn thành <span style="background:#f1f5f9; margin-left:8px; padding:2px 8px; border-radius:12px; font-size:12px;">${completedCount}</span></button>
         </div>
       </div>
     `;
@@ -2177,16 +2177,18 @@ async function renderOrders(view) {
     tabs.forEach(tab => {
       tab.addEventListener('click', (e) => {
         tabs.forEach(t => {
-          t.className = 'btn btn-ghost';
+          t.style.background = 'transparent';
           t.style.color = 'var(--text-secondary)';
+          t.style.fontWeight = 'normal';
           const span = t.querySelector('span');
-          if(span) { span.style.background = '#e2e8f0'; span.style.color = 'inherit'; }
+          if(span) { span.style.background = '#f1f5f9'; span.style.color = 'inherit'; }
         });
         
-        tab.className = 'btn btn-primary';
-        tab.style.color = '#fff';
+        tab.style.background = '#e2e8f0';
+        tab.style.color = 'var(--text-heading)';
+        tab.style.fontWeight = '600';
         const span = tab.querySelector('span');
-        if(span) { span.style.background = 'rgba(255,255,255,0.2)'; span.style.color = '#fff'; }
+        if(span) { span.style.background = 'rgba(0,0,0,0.1)'; span.style.color = 'inherit'; }
         
         currentFilter = tab.getAttribute('data-status');
         renderList();
