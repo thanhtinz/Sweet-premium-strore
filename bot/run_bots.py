@@ -4,6 +4,7 @@ import logging
 import discord
 from discord import app_commands
 from telegram import BotCommand, Update
+from telegram.error import Conflict
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from db import SessionLocal
@@ -26,6 +27,26 @@ DISCORD_COMMANDS = [
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("bot-runner")
+
+
+def _discord_response_embed(command_name: str, reply: str) -> discord.Embed:
+    titles = {
+        "start": "Hướng dẫn bot",
+        "help": "Danh sách lệnh",
+        "link": "Liên kết tài khoản",
+        "status": "Trạng thái liên kết",
+        "account": "Thông tin tài khoản",
+        "orders": "Đơn hàng gần đây",
+        "support": "Thông tin hỗ trợ",
+        "unlink": "Gỡ liên kết",
+    }
+    embed = discord.Embed(
+        title=titles.get(command_name, "Thông báo"),
+        description=reply or "OK",
+        color=0x5865F2,
+    )
+    return embed
+
 
 
 def _discord_username(user: discord.User) -> str:
@@ -55,7 +76,7 @@ async def _run_discord_bot():
                         metadata={"source": "discord_slash"},
                     )
                     reply = handle_discord_dm(str(interaction.user.id), f"/{command_name}")
-                    await interaction.response.send_message(reply or "OK", ephemeral=True)
+                    await interaction.response.send_message(embed=_discord_response_embed(command_name, reply), ephemeral=False)
                 return callback
 
             async def link_callback(interaction: discord.Interaction, code: str):
@@ -65,7 +86,7 @@ async def _run_discord_bot():
                     metadata={"source": "discord_slash"},
                 )
                 reply = handle_discord_dm(str(interaction.user.id), f"/link {code}")
-                await interaction.response.send_message(reply or "OK", ephemeral=True)
+                await interaction.response.send_message(embed=_discord_response_embed("link", reply), ephemeral=False)
 
             link_callback = app_commands.describe(code="Mã liên kết từ trang tài khoản")(link_callback)
             for name, description in DISCORD_COMMANDS:
@@ -142,7 +163,14 @@ async def _run_telegram_bot(token: str, label: str = "Telegram"):
     await app.initialize()
     await app.bot.set_my_commands(TELEGRAM_COMMANDS)
     await app.start()
-    await app.updater.start_polling(drop_pending_updates=True)
+
+    def polling_error_callback(exc):
+        if isinstance(exc, Conflict):
+            logger.warning("%s bot polling conflict; another instance is already polling this token", label)
+            return
+        logger.error("%s bot polling error: %s", label, exc, exc_info=True)
+
+    await app.updater.start_polling(drop_pending_updates=True, error_callback=polling_error_callback)
     logger.info("%s bot polling started", label)
     try:
         await asyncio.Event().wait()

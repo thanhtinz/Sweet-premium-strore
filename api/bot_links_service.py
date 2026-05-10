@@ -199,6 +199,8 @@ def build_bot_response(db: Session, platform: str, platform_user_id: str, text: 
         if linked:
             return "Liên kết thành công. Bạn đã có thể dùng /status, /account, /orders, /support."
         return "Mã liên kết không hợp lệ hoặc đã hết hạn. Hãy tạo mã mới trong trang tài khoản."
+    if lowered in ("/support", "support"):
+        return build_support_contact_response(db)
     user = get_bot_user_by_platform(db, platform, platform_user_id)
     if not user:
         return "Tài khoản bot này chưa được liên kết. Hãy dùng /link CODE từ trang tài khoản."
@@ -226,6 +228,4 @@ def build_bot_response(db: Session, platform: str, platform_user_id: str, text: 
         for order in orders:
             lines.append(f"• {order['order_code']} — {order['status']} — {order['total_amount']:,.0f}".replace(",", "."))
         return "\n".join(lines)
-    if lowered in ("/support", "support"):
-        return build_support_contact_response(db)
     return "Lệnh chưa được hỗ trợ. Dùng /help để xem danh sách lệnh."
