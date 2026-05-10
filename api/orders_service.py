@@ -37,7 +37,7 @@ def normalize_order_items(data: OrderCreate, db: Session) -> list[NormalizedOrde
         if pkg.is_stock_managed and (pkg.stock_quantity or 0) < raw.quantity:
             raise HTTPException(status_code=400, detail=f"Không đủ tồn kho cho gói {pkg.name}")
 
-        normalized.append(NormalizedOrderItem(pkg=pkg, quantity=raw.quantity, custom_fields_data=raw.custom_fields_data))
+        normalized.append(NormalizedOrderItem(package=pkg, quantity=raw.quantity, custom_fields_data=raw.custom_fields_data))
     return normalized
 
 
