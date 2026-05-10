@@ -2588,7 +2588,7 @@ tr:hover td { background: #FAFBFC; }
   margin-bottom: 24px;
 }
 .info-card-head {
-  background: var(--primary);
+  background: #334155; /* Slate 700 - muted dark blue-gray */
   color: #fff;
   padding: 16px 20px;
 }
@@ -2814,7 +2814,7 @@ tr:hover td { background: #FAFBFC; }
   margin-bottom: 24px;
 }
 .cart-summary-head {
-  background: var(--primary);
+  background: #334155;
   color: #fff;
   padding: 16px 20px;
 }
