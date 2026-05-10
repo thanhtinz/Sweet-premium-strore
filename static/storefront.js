@@ -821,7 +821,7 @@ async function renderProduct(view, { slug }) {
             const shareDesc = (p.description || p.notes || window.appSettings?.site_description || 'Xem ngay sản phẩm này').replace(/<[^>]*>/g, ' ').trim().slice(0, 180);
             const shareImage = withImageFallback(p.image_url || p.category_icon || window.appSettings?.logo_url || window.appSettings?.site_logo);
             const refLink = `${siteBase}/product/${p.slug}?ref=${refCode}`;
-            const shareLanding = `${siteBase}/share/product/${p.slug}?ref=${encodeURIComponent(refCode)}`;
+            const shareLanding = refLink;
             const shareText = encodeURIComponent(`${shareTitle} - ${shareDesc}`);
             const shareUrl = encodeURIComponent(shareLanding);
 
