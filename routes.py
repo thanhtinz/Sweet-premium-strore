@@ -1,10 +1,15 @@
+import asyncio
 import hashlib
+import logging
 import os
 import json
+from contextlib import asynccontextmanager
 from html import escape
 from urllib.parse import urljoin
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request
+
+logger = logging.getLogger("routes")
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -176,8 +181,23 @@ def build_blog_meta(post: BlogPost | None, settings: dict, request: Request) -> 
 
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    """Start bot runner alongside the web server."""
+    from bot.run_bots import main as run_bots_main
+    bot_task = asyncio.create_task(run_bots_main())
+
+    yield
+
+    bot_task.cancel()
+    try:
+        await bot_task
+    except (asyncio.CancelledError, Exception):
+        pass
+
+
 def create_app(static_dir: str) -> FastAPI:
-    app = FastAPI(title="Digital Product Shop", version="1.0.0")
+    app = FastAPI(title="Digital Product Shop", version="1.0.0", lifespan=_lifespan)
 
     # CORS — restrict in production via ALLOWED_ORIGINS env var
     allowed_origins = os.environ.get("ALLOWED_ORIGINS", "").strip()

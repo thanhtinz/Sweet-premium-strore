@@ -115,13 +115,18 @@ async def main():
     if not tasks:
         logger.info("No bot tokens configured, exiting bot runner")
         return
-    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
-    for task in done:
-        exc = task.exception()
-        if exc:
-            raise exc
-    for task in pending:
-        task.cancel()
+    try:
+        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+        for task in done:
+            exc = task.exception()
+            if exc:
+                logger.error("Bot task failed: %s", exc)
+        for task in pending:
+            task.cancel()
+    except asyncio.CancelledError:
+        for task in tasks:
+            task.cancel()
+        raise
 
 
 if __name__ == "__main__":
