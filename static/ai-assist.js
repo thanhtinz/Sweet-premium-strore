@@ -111,19 +111,26 @@
     
     // Thu thập context liên quan trong form để gửi cho bot
     let extraContext = '';
-    const titleField = document.querySelector('#prod-name') || document.querySelector('#bp-title') || document.querySelector('#cat-name');
-    if (titleField && titleField.value) {
-      extraContext += `Tên/Tiêu đề: ${titleField.value}\n`;
-    }
-    const catField = document.querySelector('#prod-category option:checked') || document.querySelector('#bp-category option:checked');
-    if (catField && catField.textContent) {
-      extraContext += `Danh mục: ${catField.textContent}\n`;
+    const form = el.closest('.modal-content') || document.querySelector('.admin-content');
+    if (form) {
+      const titleField = form.querySelector('#prod-name') || form.querySelector('#bp-title') || form.querySelector('#cat-name') || form.querySelector('input[id*="title"], input[id*="name"]');
+      if (titleField && titleField.value) {
+        extraContext += `Tên/Tiêu đề: ${titleField.value}\n`;
+      }
+      const catField = form.querySelector('#prod-category option:checked') || form.querySelector('#bp-category option:checked');
+      if (catField && catField.textContent) {
+        extraContext += `Danh mục: ${catField.textContent}\n`;
+      }
     }
 
     let prompt = `Viết nội dung cho trường "${label}"`;
     if (extraContext) {
-      prompt += ` dựa trên thông tin sau:\n${extraContext}`;
+      prompt += ` dựa trên thông tin chính sau:\n${extraContext}`;
     }
+    if (context) {
+       prompt += `\nVà các thông tin phụ: ${context}`;
+    }
+    
     if (currentVal) {
       prompt += `\nNội dung hiện tại:\n"${currentVal.substring(0, 200)}"\nHãy cải thiện hoặc viết lại đoạn văn này hay hơn, hấp dẫn hơn. Không trả về các câu dẫn nhập như "Đây là nội dung của bạn", chỉ trả về kết quả cuối cùng.`;
     } else {
