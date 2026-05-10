@@ -240,10 +240,12 @@ const data = await res.json();</code></pre>
 }</code></pre>
         </div>
         <h4>Payment Methods</h4>
+        <div class="api-table-wrapper">
         <table class="api-params-table">
           <tr><th>Value</th><th>Mô tả</th></tr>
           <tr><td><code>balance</code></td><td>Thanh toán bằng số dư tài khoản</td></tr>
         </table>
+        </div>
       </div>
 
       <!-- Search Section -->
@@ -256,11 +258,13 @@ const data = await res.json();</code></pre>
           <span class="api-badge">Public</span>
         </div>
         <p>Tìm kiếm sản phẩm theo từ khoá.</p>
+        <div class="api-table-wrapper">
         <table class="api-params-table">
           <tr><th>Param</th><th>Type</th><th>Mô tả</th></tr>
           <tr><td><code>q</code></td><td>string</td><td>Từ khoá tìm kiếm (bắt buộc)</td></tr>
           <tr><td><code>limit</code></td><td>int</td><td>Số kết quả (mặc định: 20)</td></tr>
         </table>
+        </div>
       </div>
 
       <!-- Errors Section -->
@@ -273,6 +277,7 @@ const data = await res.json();</code></pre>
   "detail": "Mô tả lỗi"
 }</code></pre>
         </div>
+        <div class="api-table-wrapper">
         <table class="api-params-table">
           <tr><th>HTTP Code</th><th>Ý nghĩa</th></tr>
           <tr><td><code>200</code></td><td>Thành công</td></tr>
@@ -283,6 +288,7 @@ const data = await res.json();</code></pre>
           <tr><td><code>429</code></td><td>Rate limit exceeded</td></tr>
           <tr><td><code>500</code></td><td>Lỗi server</td></tr>
         </table>
+        </div>
 
         <h3>Rate Limiting</h3>
         <p>API giới hạn <strong>60 request/phút</strong> mỗi API key. Vượt quá sẽ trả về <code>429 Too Many Requests</code>.</p>
