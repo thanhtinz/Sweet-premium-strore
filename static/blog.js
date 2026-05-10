@@ -377,7 +377,7 @@ async function renderAdminBlog(view) {
     bindImageUploads(content);
 
     qs('#bp-cancel', content).onclick = () => { editingPost = null; render(); };
-    qs('#bp-back', content).onclick = () => { editingPost = null; render(); };
+    if(qs('#bp-back', content)) qs('#bp-back', content).onclick = () => { editingPost = null; render(); };
 
     qs('#bp-save', content).onclick = async () => {
       if (window.syncRichTextEditors) window.syncRichTextEditors();
