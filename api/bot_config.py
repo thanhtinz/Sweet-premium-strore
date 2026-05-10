@@ -65,3 +65,40 @@ def update_bot_config(data: dict, db: Session = Depends(get_db)):
         f.write(f"SMTP_FROM_EMAIL={data.get('smtp_from', '')}\n")
         
     return {"message": "Config updated"}
+
+
+from pydantic import BaseModel
+
+class BotTestRequest(BaseModel):
+    token: str
+
+@router.post("/test-telegram", dependencies=[Depends(get_current_admin)])
+async def test_telegram_connection(data: BotTestRequest):
+    import httpx
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"https://api.telegram.org/bot{data.token}/getMe")
+            if resp.status_code == 200:
+                bot_info = resp.json().get("result", {})
+                return {"message": f"Kết nối thành công! Bot: @{bot_info.get('username')}"}
+            else:
+                return {"message": "Kết nối thất bại (Sai Token)"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Lỗi: {str(e)}")
+
+@router.post("/test-discord", dependencies=[Depends(get_current_admin)])
+async def test_discord_connection(data: BotTestRequest):
+    import httpx
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                "https://discord.com/api/v10/users/@me",
+                headers={"Authorization": f"Bot {data.token}"}
+            )
+            if resp.status_code == 200:
+                bot_info = resp.json()
+                return {"message": f"Kết nối thành công! Bot: {bot_info.get('username')}"}
+            else:
+                return {"message": "Kết nối thất bại (Sai Token)"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Lỗi: {str(e)}")

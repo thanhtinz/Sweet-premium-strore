@@ -2812,6 +2812,11 @@ async function renderAdminBotConfig(view) {
                 <textarea class="form-textarea" id="telegram_user_welcome" rows="4" placeholder="Chào mừng bạn đến với bot hỗ trợ...">${config.telegram_user_welcome || ''}</textarea>
                 <div class="help-text">Hiển thị khi người dùng bắt đầu dùng bot Telegram.</div>
               </div>
+              <div class="form-group form-group-full">
+                <button type="button" class="btn btn-outline btn-sm" id="btn-test-telegram">
+                  <i class="fa-brands fa-telegram"></i> Test kết nối Telegram Admin Bot
+                </button>
+              </div>
             </div>
           </section>
 
@@ -2838,6 +2843,11 @@ async function renderAdminBotConfig(view) {
                 <label class="form-label">Legacy admin channel ID</label>
                 <input type="text" class="form-input" id="discord_admin_id" value="${config.discord_admin_id || ''}" placeholder="Để trống nếu không dùng nữa">
                 <div class="help-text">Trường cũ giữ lại để tương thích. Không còn là cấu hình chính cho Discord bot.</div>
+              </div>
+              <div class="form-group form-group-full">
+                <button type="button" class="btn btn-outline btn-sm" id="btn-test-discord">
+                  <i class="fa-brands fa-discord"></i> Test kết nối Discord Bot
+                </button>
               </div>
             </div>
           </section>
@@ -2925,6 +2935,29 @@ async function renderAdminBotConfig(view) {
         showError(err.message);
       }
     };
+
+    qs('#btn-test-telegram').onclick = async () => {
+      const t = qs('#telegram_token').value;
+      if (!t) return toast('Vui lòng nhập Token Telegram trước', 'error');
+      try {
+        const res = await apiFetch('/admin/bot-config/test-telegram', { method: 'POST', body: JSON.stringify({ token: t }) });
+        toast(res.message, 'success');
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+    };
+
+    qs('#btn-test-discord').onclick = async () => {
+      const t = qs('#discord_token').value;
+      if (!t) return toast('Vui lòng nhập Token Discord trước', 'error');
+      try {
+        const res = await apiFetch('/admin/bot-config/test-discord', { method: 'POST', body: JSON.stringify({ token: t }) });
+        toast(res.message, 'success');
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+    };
+
   } catch (err) {
     showError(err.message);
   }
@@ -2995,10 +3028,16 @@ async function renderAdminPayments(view) {
             <div class="form-hint">URL gốc của website, dùng để tạo return/cancel URL cho PayOS</div>
           </div>
           <div id="payos-config-err" class="form-error mb-12" style="display:none"></div>
-          <button type="submit" class="btn btn-primary" ${config.has_env_override ? 'disabled' : ''}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            Lưu cấu hình
-          </button>
+          <div style="display: flex; gap: 8px;">
+            <button type="submit" class="btn btn-primary" ${config.has_env_override ? 'disabled' : ''}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Lưu cấu hình
+            </button>
+            <button type="button" class="btn btn-ghost" id="btn-payos-test">
+              Test kết nối
+            </button>
+          </div>
+          <div id="payos-test-result" class="form-hint mt-8"></div>
         </form>
       </div>
     </div>
@@ -3055,6 +3094,27 @@ async function renderAdminPayments(view) {
       errEl.style.display = 'block';
     }
   });
+
+  const btnTestPayos = qs('#btn-payos-test', content);
+  if (btnTestPayos) {
+    btnTestPayos.onclick = async () => {
+      const resultEl = qs('#payos-test-result', content);
+      resultEl.textContent = 'Đang kiểm tra...';
+      try {
+        const payload = {
+          payos_client_id: qs('#payos-client-id', content).value,
+          payos_api_key: qs('#payos-api-key', content).value,
+          payos_checksum_key: qs('#payos-checksum-key', content).value,
+        };
+        const res = await apiFetch('/payment/test', { method: 'POST', body: JSON.stringify(payload) });
+        resultEl.textContent = '✓ ' + (res.message || 'Kết nối thành công');
+        resultEl.style.color = 'var(--success)';
+      } catch (err) {
+        resultEl.textContent = '✗ ' + err.message;
+        resultEl.style.color = 'var(--danger)';
+      }
+    };
+  }
 
   // ── Payment history filter ──
   qsa('[data-pfilter]', content).forEach(btn => {
