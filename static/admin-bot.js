@@ -33,6 +33,11 @@ async function renderAdminBotConfig(view) {
               <input type="text" class="form-input" id="tg_admin_chat" value="${config.telegram_admin_id || ''}" placeholder="ID admin hoặc group chat">
               <div class="form-hint">Lấy ID qua <strong>@userinfobot</strong></div>
             </div>
+            <div class="form-group">
+              <button type="button" class="btn btn-outline btn-sm" id="btn-test-tg-admin">
+                <i class="fa-brands fa-telegram"></i> Test kết nối Admin Bot
+              </button>
+            </div>
           </div>
         </div>
 
@@ -50,6 +55,11 @@ async function renderAdminBotConfig(view) {
               <label class="form-label">Bot Token</label>
               <input type="text" class="form-input" id="tg_user_token" value="${config.telegram_user_token || ''}" placeholder="Bot riêng cho khách hàng">
               <div class="form-hint">Có thể dùng chung hoặc tạo bot riêng cho user</div>
+            </div>
+            <div class="form-group">
+              <button type="button" class="btn btn-outline btn-sm" id="btn-test-tg-user">
+                <i class="fa-brands fa-telegram"></i> Test kết nối User Bot
+              </button>
             </div>
             <div class="form-group">
               <label class="form-label">Welcome Message</label>
@@ -163,6 +173,28 @@ async function renderAdminBotConfig(view) {
         toast(err.message, 'error');
       }
       btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Lưu tất cả cấu hình';
+    };
+
+    qs('#btn-test-tg-admin').onclick = async () => {
+      const t = qs('#tg_admin_token').value;
+      if (!t) return toast('Vui lòng nhập Token Telegram Admin trước', 'error');
+      try {
+        const res = await apiFetch('/admin/bot-config/test-telegram', { method: 'POST', body: JSON.stringify({ token: t }) });
+        toast(res.message, 'success');
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+    };
+
+    qs('#btn-test-tg-user').onclick = async () => {
+      const t = qs('#tg_user_token').value;
+      if (!t) return toast('Vui lòng nhập Token Telegram User trước', 'error');
+      try {
+        const res = await apiFetch('/admin/bot-config/test-telegram', { method: 'POST', body: JSON.stringify({ token: t }) });
+        toast(res.message, 'success');
+      } catch (e) {
+        toast(e.message, 'error');
+      }
     };
   } catch (err) {
     content.innerHTML = `<div class="empty-state"><h3>Lỗi tải cấu hình</h3><p class="text-muted">${err.message}</p></div>`;

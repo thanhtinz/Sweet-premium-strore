@@ -15,15 +15,19 @@ from db import get_db
 router = APIRouter(prefix="/bot-links", tags=["bot-links"])
 
 
+def _current_user_id(current_user) -> str:
+    return str(current_user["user_id"])
+
+
 @router.get("")
 def get_bot_links(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    return get_user_bot_links_summary(db, str(current_user.id))
+    return get_user_bot_links_summary(db, _current_user_id(current_user))
 
 
 @router.post("/{platform}/code")
 def create_platform_link_code(platform: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     try:
-        item = create_link_code(db, str(current_user.id), platform)
+        item = create_link_code(db, _current_user_id(current_user), platform)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {
@@ -39,7 +43,7 @@ def manual_link_platform(platform: str, data: dict, db: Session = Depends(get_db
     if not platform_user_id:
         raise HTTPException(status_code=400, detail="platform_user_id required")
     try:
-        item = manual_link_platform_user_id(db, str(current_user.id), platform, platform_user_id)
+        item = manual_link_platform_user_id(db, _current_user_id(current_user), platform, platform_user_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {
@@ -52,7 +56,7 @@ def manual_link_platform(platform: str, data: dict, db: Session = Depends(get_db
 @router.get("/{platform}/status")
 def get_platform_status(platform: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     try:
-        return get_platform_link_status(db, str(current_user.id), platform)
+        return get_platform_link_status(db, _current_user_id(current_user), platform)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -60,7 +64,7 @@ def get_platform_status(platform: str, db: Session = Depends(get_db), current_us
 @router.delete("/{platform}")
 def unlink_platform(platform: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     try:
-        removed = unlink_platform_account(db, str(current_user.id), platform)
+        removed = unlink_platform_account(db, _current_user_id(current_user), platform)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     if not removed:

@@ -3001,6 +3001,9 @@ async function renderAdminBotConfig(view) {
                 <button type="button" class="btn btn-outline btn-sm" id="btn-test-telegram">
                   <i class="fa-brands fa-telegram"></i> Test kết nối Telegram Admin Bot
                 </button>
+                <button type="button" class="btn btn-outline btn-sm" id="btn-test-telegram-user">
+                  <i class="fa-brands fa-telegram"></i> Test kết nối Telegram User Bot
+                </button>
               </div>
             </div>
           </section>
@@ -3123,7 +3126,18 @@ async function renderAdminBotConfig(view) {
 
     qs('#btn-test-telegram').onclick = async () => {
       const t = qs('#telegram_token').value;
-      if (!t) return toast('Vui lòng nhập Token Telegram trước', 'error');
+      if (!t) return toast('Vui lòng nhập Token Telegram Admin trước', 'error');
+      try {
+        const res = await apiFetch('/admin/bot-config/test-telegram', { method: 'POST', body: JSON.stringify({ token: t }) });
+        toast(res.message, 'success');
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+    };
+
+    qs('#btn-test-telegram-user').onclick = async () => {
+      const t = qs('#telegram_user_token').value;
+      if (!t) return toast('Vui lòng nhập Token Telegram User trước', 'error');
       try {
         const res = await apiFetch('/admin/bot-config/test-telegram', { method: 'POST', body: JSON.stringify({ token: t }) });
         toast(res.message, 'success');
