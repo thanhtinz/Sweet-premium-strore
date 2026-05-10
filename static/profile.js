@@ -256,7 +256,7 @@ async function renderProfile(view) {
                 <div>
                   <div class="fw-600">Discord DM Bot</div>
                   ${discord.linked
-                    ? `<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--accent);color:#fff;">✓ Đã liên kết</span>`
+                    ? `<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:rgba(52,199,89,.16);color:#34c759;border:1px solid rgba(52,199,89,.45);font-weight:700;">✓ Đã liên kết</span>`
                     : `<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border);">Chưa liên kết</span>`}
                 </div>
               </div>
@@ -300,7 +300,7 @@ async function renderProfile(view) {
                 <div>
                   <div class="fw-600">Telegram Bot</div>
                   ${telegram.linked
-                    ? `<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--accent);color:#fff;">✓ Đã liên kết</span>`
+                    ? `<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:rgba(52,199,89,.16);color:#34c759;border:1px solid rgba(52,199,89,.45);font-weight:700;">✓ Đã liên kết</span>`
                     : `<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border);">Chưa liên kết</span>`}
                 </div>
               </div>
@@ -402,15 +402,24 @@ async function renderProfile(view) {
       const showStatus = async (platform) => {
         try {
           const res = await apiFetch(`/bot-links/${platform}/status`);
+          const linked = !!res.linked;
           openModal(`
             <h3 class="modal-title mb-16">Trạng thái ${platform}</h3>
-            <div class="text-sm text-muted" style="line-height:1.8;">
-              <div>Đã liên kết: ${res.linked ? 'Có' : 'Không'}</div>
-              <div>ID nền tảng: ${esc(res.platform_user_id || '—')}</div>
-              <div>Username: ${esc(res.platform_username || '—')}</div>
-              <div>Linked at: ${esc(res.linked_at || '—')}</div>
-              <div>Last seen: ${esc(res.last_seen_at || '—')}</div>
-              <div>Mã đang hoạt động: ${res.has_active_code ? esc(res.link_code || 'Có') : 'Không'}</div>
+            <div class="text-sm" style="line-height:1.9;">
+              <div style="margin-bottom:10px;">
+                ${linked
+                  ? `<span style="font-size:12px;padding:4px 10px;border-radius:20px;background:rgba(52,199,89,.16);color:#34c759;border:1px solid rgba(52,199,89,.45);font-weight:700;">✓ Đã liên kết</span>`
+                  : `<span style="font-size:12px;padding:4px 10px;border-radius:20px;background:rgba(255,159,10,.14);color:#ff9f0a;border:1px solid rgba(255,159,10,.4);font-weight:700;">Chưa liên kết</span>`}
+              </div>
+              ${linked ? `
+                <div>ID nền tảng: <code>${esc(res.platform_user_id || '—')}</code></div>
+                <div>Username: ${esc(res.platform_username || '—')}</div>
+                <div>Liên kết lúc: ${esc(res.linked_at || '—')}</div>
+                <div>Hoạt động gần nhất: ${esc(res.last_seen_at || '—')}</div>
+              ` : `
+                <div class="text-muted">Tài khoản này chưa liên kết ${platform}.</div>
+                ${res.has_active_code ? `<div>Mã đang hoạt động: <code>${esc(res.link_code || 'Có')}</code></div>` : `<div>Mã đang hoạt động: Không</div>`}
+              `}
             </div>
           `);
         } catch (err) { toast(err.message, 'error'); }

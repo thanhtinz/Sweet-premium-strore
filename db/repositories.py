@@ -82,10 +82,21 @@ class UserBotLinkRepository:
         return self.db.query(UserBotLink).filter(
             UserBotLink.user_id == str(user_id),
             UserBotLink.platform == platform,
+        ).order_by(
+            UserBotLink.is_verified.desc(),
+            UserBotLink.linked_at.desc(),
+            UserBotLink.updated_at.desc(),
+            UserBotLink.id.desc(),
         ).first()
 
     def list_by_user(self, user_id: str) -> list[UserBotLink]:
-        return self.db.query(UserBotLink).filter(UserBotLink.user_id == str(user_id)).all()
+        return self.db.query(UserBotLink).filter(UserBotLink.user_id == str(user_id)).order_by(
+            UserBotLink.platform.asc(),
+            UserBotLink.is_verified.desc(),
+            UserBotLink.linked_at.desc(),
+            UserBotLink.updated_at.desc(),
+            UserBotLink.id.desc(),
+        ).all()
 
     def get_by_link_code(self, platform: str, link_code: str) -> UserBotLink | None:
         normalized_code = (link_code or "").strip().upper()

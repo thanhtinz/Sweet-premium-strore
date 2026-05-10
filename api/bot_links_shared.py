@@ -106,7 +106,10 @@ def get_user_bot_links_summary(db: Session, user_id: str) -> dict:
         "platforms": {},
     }
     for platform in SUPPORTED_BOT_PLATFORMS:
-        result["platforms"][platform] = serialize_platform_link(by_platform.get(platform))
+        candidates = [item for item in items if item.platform == platform]
+        verified = next((item for item in candidates if item.is_verified and item.platform_user_id), None)
+        active_code = next((item for item in candidates if item.link_code), None)
+        result["platforms"][platform] = serialize_platform_link(verified or active_code or (candidates[0] if candidates else None))
     return result
 
 
