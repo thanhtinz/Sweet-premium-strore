@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from db import get_db
 from db.models import Order, OrderItem, ProductPackage, User
 from db.repositories import SiteConfigRepository
-from api.auth import get_current_user
+from api.auth import get_current_user, get_admin_user
 from api.orders import auto_deliver
 
 router = APIRouter(prefix="/payment", tags=["payment"])
@@ -164,6 +164,39 @@ def create_payment_link(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PayOS error: {str(e)}")
+
+
+class PayOSTestRequest(BaseModel):
+    payos_client_id: str
+    payos_api_key: str
+    payos_checksum_key: str
+
+@router.post("/test")
+def test_payos_connection(
+    data: PayOSTestRequest,
+    current_admin: dict = Depends(get_admin_user)
+):
+    try:
+        from payos import PayOS
+        payos = PayOS(
+            client_id=data.payos_client_id,
+            api_key=data.payos_api_key,
+            checksum_key=data.payos_checksum_key
+        )
+        # Attempt to retrieve a non-existent link. 
+        # If credentials are correct, PayOS returns a typical 4xx API error (like "Payment link not found").
+        # If credentials are bad, it returns unauthorized.
+        try:
+            payos.getPaymentLinkInfomation(orderId=9999999999)
+            return {"message": "Kết nối thành công (API credentials hợp lệ)"}
+        except Exception as e:
+            # payos library exceptions usually carry the HTTP status code
+            err_str = str(e).lower()
+            if "unauthorized" in err_str or "invalid" in err_str:
+                raise ValueError("Sai Client ID, API Key hoặc Checksum Key")
+            return {"message": "Kết nối thành công tới PayOS"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Test thất bại: {str(e)}")
 
 
 @router.post("/webhook")
