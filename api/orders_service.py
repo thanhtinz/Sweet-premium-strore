@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from api.orders_shared import NormalizedOrderItem, OrderCreate, OrderItemCreate, money
-from db.models import Order, OrderItem, ProductPackage, StockItem
+from db.models import BalanceTransaction, Order, OrderItem, ProductPackage, StockItem, User
 from db.repositories import SiteConfigRepository
 
 
@@ -74,6 +74,43 @@ def apply_coupon(coupon_code: Optional[str], subtotal: Decimal, db: Session) -> 
 def consume_coupon(coupon_code: Optional[str], db: Session):
     if not coupon_code:
         return
+
+
+def refund_order_to_balance(order: Order, db: Session, reason: str = "Hoàn tiền do lỗi hệ thống") -> Decimal:
+    existing_refund = db.query(BalanceTransaction).filter(
+        BalanceTransaction.reference == order.order_code,
+        BalanceTransaction.type == "refund",
+        BalanceTransaction.status == "completed",
+    ).first()
+    if existing_refund:
+        return Decimal("0")
+    user = db.query(User).filter(User.id == int(order.user_id)).with_for_update().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    refund_amount = Decimal(order.total_amount or 0)
+    user.balance = Decimal(user.balance or 0) + refund_amount
+    db.add(BalanceTransaction(
+        user_id=user.id,
+        amount=refund_amount,
+        balance_after=user.balance,
+        type="refund",
+        status="completed",
+        reference=order.order_code,
+        description=f"{reason}: {order.order_code}",
+    ))
+    return refund_amount
+
+
+def fail_order_with_refund(order: Order, db: Session, reason: str = "Lỗi hệ thống") -> Decimal:
+    refund_amount = Decimal("0")
+    if order.status in {"paid", "processing", "completed"}:
+        refund_amount = refund_order_to_balance(order, db, reason)
+    order.status = "failed"
+    order.notes = f"{order.notes or ''}\n{reason}".strip()
+    order.updated_at = datetime.now(timezone.utc)
+    set_order_items_status(order, "failed")
+    return refund_amount
+
     from api.gift_codes import quote_gift_code
     quote_gift_code(coupon_code, 1, db, consume=True)
 
@@ -146,10 +183,8 @@ def auto_deliver(order: Order, db: Session):
             StockItem.is_sold == False,
         ).with_for_update(skip_locked=True).limit(order_item.quantity).all()
         if len(items) < order_item.quantity:
-            order_item.status = "processing"
-            order_item.updated_at = now
-            all_completed = False
-            continue
+            fail_order_with_refund(order, db, f"Lỗi hệ thống: không đủ kho để giao gói {order_item.package_name_snapshot or package.name}")
+            return
         delivered = []
         for stock_item in items:
             stock_item.is_sold = True

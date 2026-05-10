@@ -149,18 +149,28 @@ async function renderAdminBlog(view) {
   const renderPostsTab = async () => {
     const wrap = qs('#admin-blog-content', content);
     wrap.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+    const selectedIds = new Set();
+    const updateBulkBar = () => {
+      const count = selectedIds.size;
+      qsa('[data-bulk-count]', wrap).forEach(el => { el.textContent = count; });
+      qsa('[data-bulk-delete-posts]', wrap).forEach(btn => { btn.disabled = count === 0; });
+      const boxes = qsa('[data-row-select-post]', wrap);
+      const all = qs('[data-select-all-posts]', wrap);
+      if (all) all.checked = boxes.length > 0 && boxes.every(cb => cb.checked);
+    };
     try {
       const data = await apiFetch('/blog/admin/posts?page=1&limit=50');
       wrap.innerHTML = `
         <div class="d-flex align-center gap-8 mb-16" style="justify-content:space-between">
-          <div class="text-muted text-sm">${data.total} bài viết</div>
-          <button class="btn btn-primary btn-sm" id="blog-add-post">+ Thêm bài viết</button>
+          <div class="text-muted text-sm">${data.total} bài viết · đã chọn <strong data-bulk-count>0</strong></div>
+          <div class="d-flex gap-8"><button class="btn btn-sm btn-outline-danger" data-bulk-delete-posts disabled><i class="fa-solid fa-trash-can"></i> Xóa đã chọn</button><button class="btn btn-primary btn-sm" id="blog-add-post">+ Thêm bài viết</button></div>
         </div>
         <div class="card"><div class="table-wrap"><table>
-          <thead><tr><th>Tiêu đề</th><th>Danh mục</th><th>Trạng thái</th><th>Lượt xem</th><th>Ngày</th><th></th></tr></thead>
+          <thead><tr><th style="width:42px"><input type="checkbox" data-select-all-posts></th><th>Tiêu đề</th><th>Danh mục</th><th>Trạng thái</th><th>Lượt xem</th><th>Ngày</th><th></th></tr></thead>
           <tbody>${data.items.length ? data.items.map(p => `<tr>
-            <td class="td-bold">${p.title}</td>
-            <td>${p.category_name || '—'}</td>
+            <td><input type="checkbox" data-row-select-post value="${p.id}"></td>
+            <td class="td-bold">${esc(p.title)}</td>
+            <td>${esc(p.category_name || '—')}</td>
             <td>${p.is_published ? '<span class="badge badge-green">Published</span>' : '<span class="badge badge-yellow">Draft</span>'}</td>
             <td>${p.view_count || 0}</td>
             <td class="text-sm text-muted">${fmtDate(p.created_at)}</td>
@@ -168,10 +178,28 @@ async function renderAdminBlog(view) {
               <button class="action-btn action-btn-edit" data-edit-post="${p.id}">Sửa</button>
               <button class="action-btn action-btn-delete" data-del-post="${p.id}">Xóa</button>
             </div></td>
-          </tr>`).join('') : '<tr><td colspan="6" class="text-center text-muted">Chưa có bài viết nào</td></tr>'}</tbody>
+          </tr>`).join('') : '<tr><td colspan="7" class="text-center text-muted">Chưa có bài viết nào</td></tr>'}</tbody>
         </table></div></div>
       `;
+      wrap.onchange = (e) => {
+        const all = e.target.closest('[data-select-all-posts]');
+        if (all) {
+          qsa('[data-row-select-post]', wrap).forEach(cb => { cb.checked = all.checked; if (all.checked) selectedIds.add(+cb.value); else selectedIds.delete(+cb.value); });
+          updateBulkBar();
+          return;
+        }
+        const cb = e.target.closest('[data-row-select-post]');
+        if (cb) { if (cb.checked) selectedIds.add(+cb.value); else selectedIds.delete(+cb.value); updateBulkBar(); }
+      };
       wrap.onclick = async (e) => {
+        const bulkBtn = e.target.closest('[data-bulk-delete-posts]');
+        if (bulkBtn) {
+          const ids = [...selectedIds];
+          if (!ids.length || !confirm(`Xóa ${ids.length} bài viết đã chọn?`)) return;
+          try { const res = await apiFetch('/blog/admin/posts/bulk-delete', { method: 'POST', body: JSON.stringify({ ids }) }); toast(`Đã xóa ${res.deleted || 0} bài viết`, 'success'); await renderPostsTab(); }
+          catch (e) { toast(e.message, 'error'); }
+          return;
+        }
         const addBtn = e.target.closest('#blog-add-post');
         if (addBtn) {
           editingPost = 'new';
@@ -204,29 +232,57 @@ async function renderAdminBlog(view) {
   const renderCategoriesTab = async () => {
     const wrap = qs('#admin-blog-content', content);
     wrap.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+    const selectedIds = new Set();
+    const updateBulkBar = () => {
+      const count = selectedIds.size;
+      qsa('[data-bulk-count]', wrap).forEach(el => { el.textContent = count; });
+      qsa('[data-bulk-delete-cats]', wrap).forEach(btn => { btn.disabled = count === 0; });
+      const boxes = qsa('[data-row-select-cat]', wrap);
+      const all = qs('[data-select-all-cats]', wrap);
+      if (all) all.checked = boxes.length > 0 && boxes.every(cb => cb.checked);
+    };
     try {
       const cats = await apiFetch('/blog/admin/categories');
       wrap.innerHTML = `
         <div class="d-flex align-center gap-8 mb-16" style="justify-content:space-between">
-          <div class="text-muted text-sm">${cats.length} danh mục</div>
-          <button class="btn btn-primary btn-sm" id="blog-add-cat">+ Thêm danh mục</button>
+          <div class="text-muted text-sm">${cats.length} danh mục · đã chọn <strong data-bulk-count>0</strong></div>
+          <div class="d-flex gap-8"><button class="btn btn-sm btn-outline-danger" data-bulk-delete-cats disabled><i class="fa-solid fa-trash-can"></i> Xóa đã chọn</button><button class="btn btn-primary btn-sm" id="blog-add-cat">+ Thêm danh mục</button></div>
         </div>
         <div class="card"><div class="table-wrap"><table>
-          <thead><tr><th>Tên</th><th>Slug</th><th>Mô tả</th><th>Thứ tự</th><th>Trạng thái</th><th></th></tr></thead>
+          <thead><tr><th style="width:42px"><input type="checkbox" data-select-all-cats></th><th>Tên</th><th>Slug</th><th>Mô tả</th><th>Thứ tự</th><th>Trạng thái</th><th></th></tr></thead>
           <tbody>${cats.length ? cats.map(c => `<tr>
-            <td class="td-bold">${c.name}</td>
-            <td class="text-sm font-mono">${c.slug || '—'}</td>
-            <td class="text-sm text-muted">${c.description || '—'}</td>
+            <td><input type="checkbox" data-row-select-cat value="${c.id}"></td>
+            <td class="td-bold">${esc(c.name)}</td>
+            <td class="text-sm font-mono">${esc(c.slug || '—')}</td>
+            <td class="text-sm text-muted">${esc(c.description || '—')}</td>
             <td>${c.sort_order || 0}</td>
             <td>${c.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-gray">Off</span>'}</td>
             <td><div class="table-actions">
               <button class="action-btn action-btn-edit" data-edit-cat="${c.id}">Sửa</button>
               <button class="action-btn action-btn-delete" data-del-cat="${c.id}">Xóa</button>
             </div></td>
-          </tr>`).join('') : '<tr><td colspan="6" class="text-center text-muted">Chưa có danh mục nào</td></tr>'}</tbody>
+          </tr>`).join('') : '<tr><td colspan="7" class="text-center text-muted">Chưa có danh mục nào</td></tr>'}</tbody>
         </table></div></div>
       `;
+      wrap.onchange = (e) => {
+        const all = e.target.closest('[data-select-all-cats]');
+        if (all) {
+          qsa('[data-row-select-cat]', wrap).forEach(cb => { cb.checked = all.checked; if (all.checked) selectedIds.add(+cb.value); else selectedIds.delete(+cb.value); });
+          updateBulkBar();
+          return;
+        }
+        const cb = e.target.closest('[data-row-select-cat]');
+        if (cb) { if (cb.checked) selectedIds.add(+cb.value); else selectedIds.delete(+cb.value); updateBulkBar(); }
+      };
       wrap.onclick = async (e) => {
+        const bulkBtn = e.target.closest('[data-bulk-delete-cats]');
+        if (bulkBtn) {
+          const ids = [...selectedIds];
+          if (!ids.length || !confirm(`Xóa ${ids.length} danh mục đã chọn? Bài viết trong danh mục sẽ được gỡ danh mục.`)) return;
+          try { const res = await apiFetch('/blog/admin/categories/bulk-delete', { method: 'POST', body: JSON.stringify({ ids }) }); toast(`Đã xóa ${res.deleted || 0} danh mục`, 'success'); await renderCategoriesTab(); }
+          catch (e) { toast(e.message, 'error'); }
+          return;
+        }
         const addBtn = e.target.closest('#blog-add-cat');
         if (addBtn) {
           showBlogCatModal(null, renderCategoriesTab);

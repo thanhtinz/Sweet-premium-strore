@@ -9,6 +9,7 @@ const routes = {
   '/offers': renderOffers,
   '/wishlist': renderWishlist,
   '/checkout': renderCheckout,
+  '/payos-checkout/:code': renderPayosCheckout,
   '/orders': renderOrders,
   '/orders/:code': renderOrderDetail,
   '/search': (view, params) => {
@@ -135,12 +136,20 @@ async function navigate() {
   if (!view) return;
 
   const isAdmin = hash.startsWith('#/admin');
+  const isPayosCheckout = hash.startsWith('#/payos-checkout/');
   updateHeaderMode(hash, isAdmin);
 
-  const footer = qs('#site-footer');
-  if (footer) footer.style.display = isAdmin ? 'none' : 'block';
+  const sidebar = qs('#sidebar');
+  const header = qs('#header');
+  const appShell = qs('#app-shell');
+  if (sidebar) sidebar.style.display = isPayosCheckout ? 'none' : '';
+  if (header) header.style.display = isPayosCheckout ? 'none' : '';
+  if (appShell) appShell.style.marginLeft = isPayosCheckout ? '0' : '';
 
-  view.style.minHeight = '60vh';
+  const footer = qs('#site-footer');
+  if (footer) footer.style.display = (isAdmin || isPayosCheckout) ? 'none' : 'block';
+
+  view.style.minHeight = isPayosCheckout ? '100vh' : '60vh';
 
   if (!route) {
     // Full-page 404 — hide header, sidebar, footer

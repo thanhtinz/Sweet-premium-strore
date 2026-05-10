@@ -67,7 +67,7 @@ async function renderSupportHome(view) {
       warranty:         { icon: "fa-shield-halved", color: "#3b82f6" },
       "purchase-guide": { icon: "fa-book-open",     color: "#10b981" },
       faq:              { icon: "fa-circle-question",color: "#f59e0b" },
-      privacy:          { icon: "fa-lock",           color: "#8b5cf6" },
+      privacy:          { icon: "fa-lock",           color: "#334155" },
     };
 
     view.innerHTML = '';

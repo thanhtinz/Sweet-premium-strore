@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from db import get_db
@@ -30,6 +30,11 @@ class CategoryCreate(BaseModel):
 class CategoryUpdate(BaseModel):
     name: Optional[str] = None
     slug: Optional[str] = None
+
+
+class BulkIdsRequest(BaseModel):
+    ids: List[int] = Field(default_factory=list)
+
     icon_url: Optional[str] = None
     image_url: Optional[str] = None
     parent_id: Optional[int] = None
@@ -131,3 +136,19 @@ def delete_category(cat_id: int, db: Session = Depends(get_db)):
     db.delete(cat)
     db.commit()
     return {"ok": True}
+
+
+@router.post("/bulk-delete", dependencies=[Depends(get_current_admin)])
+def bulk_delete_categories(body: BulkIdsRequest, db: Session = Depends(get_db)):
+    ids = sorted(set(int(i) for i in (body.ids or []) if int(i) > 0))
+    if not ids:
+        raise HTTPException(status_code=400, detail="Chọn ít nhất một danh mục")
+    cats = db.query(Category).filter(Category.id.in_(ids)).all()
+    from db.models import Product
+    db.query(Product).filter(Product.category_id.in_(ids)).update({"category_id": None}, synchronize_session=False)
+    for child in db.query(Category).filter(Category.parent_id.in_(ids)).all():
+        child.parent_id = None
+    for cat in cats:
+        db.delete(cat)
+    db.commit()
+    return {"ok": True, "requested": len(ids), "deleted": len(cats)}

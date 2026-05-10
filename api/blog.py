@@ -7,7 +7,7 @@ from typing import Optional
 
 from api.feature_guard import require_feature
 from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func
 from api.sanitize import sanitize_html, sanitize_text
 from sqlalchemy.orm import Session
@@ -45,6 +45,10 @@ class BlogPostIn(BaseModel):
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
     is_published: bool = False
+
+
+class BulkIdsRequest(BaseModel):
+    ids: list[int] = Field(default_factory=list)
 
 
 # ══════════════════════════════════════════════════════════
@@ -161,6 +165,24 @@ def admin_create_blog_category(
     db.commit()
     db.refresh(cat)
     return {"id": cat.id, "name": cat.name, "slug": cat.slug}
+
+
+@router.post("/admin/categories/bulk-delete")
+def admin_bulk_delete_blog_categories(
+    body: BulkIdsRequest,
+    _admin=Depends(get_current_staff_or_admin),
+    db: Session = Depends(get_db),
+):
+    ids = sorted(set(int(i) for i in (body.ids or []) if int(i) > 0))
+    if not ids:
+        raise HTTPException(400, "Chọn ít nhất một danh mục")
+    cats = db.query(BlogCategory).filter(BlogCategory.id.in_(ids)).all()
+    db.query(BlogPost).filter(BlogPost.category_id.in_(ids)).update({"category_id": None}, synchronize_session=False)
+    for cat in cats:
+        db.delete(cat)
+    db.commit()
+    return {"ok": True, "requested": len(ids), "deleted": len(cats)}
+
 
 
 @router.put("/admin/categories/{cat_id}")
@@ -293,6 +315,22 @@ def admin_update_blog_post(
 
     db.commit()
     return {"ok": True}
+
+
+@router.post("/admin/posts/bulk-delete")
+def admin_bulk_delete_blog_posts(
+    body: BulkIdsRequest,
+    _admin=Depends(get_current_staff_or_admin),
+    db: Session = Depends(get_db),
+):
+    ids = sorted(set(int(i) for i in (body.ids or []) if int(i) > 0))
+    if not ids:
+        raise HTTPException(400, "Chọn ít nhất một bài viết")
+    posts = db.query(BlogPost).filter(BlogPost.id.in_(ids)).all()
+    for post in posts:
+        db.delete(post)
+    db.commit()
+    return {"ok": True, "requested": len(ids), "deleted": len(posts)}
 
 
 @router.delete("/admin/posts/{post_id}")

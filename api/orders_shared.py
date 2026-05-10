@@ -48,6 +48,10 @@ class OrderCancelRequest(BaseModel):
     notes: Optional[str] = None
 
 
+class BulkIdsRequest(BaseModel):
+    ids: list[int] = Field(default_factory=list)
+
+
 class NormalizedOrderItem:
     def __init__(self, package: ProductPackage, quantity: int, custom_fields_data: Optional[dict] = None):
         self.package = package

@@ -80,8 +80,9 @@ function statusBadge(status) {
     pending: ['badge-yellow', 'Chờ thanh toán'],
     paid: ['badge-blue', 'Đã thanh toán'],
     processing: ['badge-blue', 'Đang xử lý'],
-    completed: ['badge-green', 'Hoàn thành'],
+    completed: ['badge-green', 'Đã giao hàng'],
     cancelled: ['badge-red', 'Đã hủy'],
+    failed: ['badge-red', 'Lỗi / đã hoàn tiền'],
   };
   const [cls, label] = map[status] || ['badge-gray', status];
   return `<span class="badge ${cls}">${label}</span>`;
