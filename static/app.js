@@ -135,6 +135,12 @@ async function navigate() {
 
   view.style.minHeight = '60vh';
 
+  // Chờ thông tin user nếu chưa fetch (giúp tránh lỗi khi refresh thẳng trang yêu cầu đăng nhập)
+  if (!currentUser && authToken && typeof fetchMe === 'function') {
+     await fetchMe();
+     updateAuthUI();
+  }
+
   if (!route) {
     // Full-page 404 — hide header, sidebar, footer
     const header = qs('.header'); if (header) header.style.display = 'none';
@@ -368,24 +374,25 @@ async function loadSidebar() {
 // ═══════════════════════════════════════════════════════════════
 async function init() {
   try {
-  loadToken();
-  lockViewportZoom();
+    loadToken();
+    lockViewportZoom();
 
-  try {
-    const urlParams = new URLSearchParams(location.search);
-    const refCode = urlParams.get('ref');
-    if (refCode) {
-      localStorage.setItem('aff_ref_code', refCode);
-      const cleanUrl = new URL(location);
-      cleanUrl.searchParams.delete('ref');
-      // Khi gỡ bỏ ref query parameter, phải giữ lại phần hash để không làm mất trạng thái của router
-      history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
-    }
-  } catch (_) {}
+    try {
+      const urlParams = new URLSearchParams(location.search);
+      const refCode = urlParams.get('ref');
+      if (refCode) {
+        localStorage.setItem('aff_ref_code', refCode);
+        const cleanUrl = new URL(location);
+        cleanUrl.searchParams.delete('ref');
+        // Khi gỡ bỏ ref query parameter, phải giữ lại phần hash để không làm mất trạng thái của router
+        history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+      }
+    } catch (_) {}
 
-  await fetchMe();
-  updateAuthUI();
-  updateCartCount();
+    // BẮT BUỘC ĐỢI TẢI THÔNG TIN USER TRƯỚC KHI NAVIGATE
+    await fetchMe();
+    updateAuthUI();
+    updateCartCount();
 
   if (currentUser) {
     try {
