@@ -111,11 +111,11 @@ def create_payment_link(
         payos = get_payos_client(db)
 
         items = []
-        order_items = order.items or []
+        order_items = getattr(order, "items", [])
         if order_items:
             for order_item in order_items:
-                package = order_item.package
-                product_name = order_item.product_name_snapshot or (package.product.name if package and package.product else "Sản phẩm số")
+                package = getattr(order_item, "package", None)
+                product_name = order_item.product_name_snapshot or (package.product.name if package and getattr(package, "product", None) else "Sản phẩm số")
                 package_name = order_item.package_name_snapshot or (package.name if package else "Gói")
                 unit_price = int((order_item.line_total or 0) / max(order_item.quantity or 1, 1))
                 items.append(ItemData(
@@ -124,8 +124,9 @@ def create_payment_link(
                     price=unit_price,
                 ))
         else:
-            pkg_name = order.package.name if order.package else "Sản phẩm số"
-            product_name = order.package.product.name if order.package and order.package.product else ""
+            package = getattr(order, "package", None)
+            pkg_name = package.name if package else "Sản phẩm số"
+            product_name = package.product.name if package and getattr(package, "product", None) else ""
             items.append(ItemData(
                 name=f"{product_name} - {pkg_name}"[:50],
                 quantity=order.quantity,
