@@ -1826,6 +1826,23 @@ async function renderAdminSettings(view) {
     try {
       await apiFetch('/admin/settings/unified', { method: 'PUT', body: JSON.stringify(payload) });
       await apiFetch('/admin/settings/database', { method: 'PUT', body: JSON.stringify(collectDatabasePayload()) });
+      
+      // Cũng lưu luôn config AI chung
+      const aiProvider = qs('#ai-provider', content)?.value;
+      if (aiProvider) {
+         const aiBody = {
+          provider: aiProvider,
+          model: qs('#ai-model', content)?.value || null,
+          api_key: qs('#ai-apikey', content)?.value || null,
+          custom_base_url: qs('#ai-baseurl', content)?.value || null,
+        };
+        const res = await apiFetch('/admin/ai/config', { method: 'PUT', body: JSON.stringify(aiBody) });
+        if (res.api_key_masked) {
+          const hint = qs('#ai-apikey', content)?.parentElement?.querySelector('.form-hint');
+          if (hint) hint.textContent = 'Key hiện tại: ' + res.api_key_masked;
+        }
+      }
+
       toast('Đã lưu cài đặt', 'success');
       // Tải lại setting mới và update giao diện lập tức
       appSettings = await apiFetch('/admin/settings/public').catch(() => ({}));
@@ -1874,7 +1891,6 @@ async function renderAdminSettings(view) {
           <input class="form-input" id="ai-baseurl" type="text" value="${cfg.custom_base_url || ''}" placeholder="Để trống để dùng URL mặc định" />
         </div>
         <div class="settings-row" style="gap:8px;margin-top:12px">
-          <button type="button" class="btn btn-primary" id="btn-ai-save">Lưu cấu hình AI</button>
           <button type="button" class="btn btn-ghost" id="btn-ai-test">Test kết nối</button>
           <span id="ai-test-result" class="form-hint" style="margin-left:8px"></span>
         </div>
@@ -1892,26 +1908,6 @@ async function renderAdminSettings(view) {
       if (currentProvider) populateModels(currentProvider);
 
       qs('#ai-provider', content).onchange = (e) => populateModels(e.target.value);
-
-      // Save
-      qs('#btn-ai-save', content).onclick = async () => {
-        const provider = val('ai-provider');
-        if (!provider) { toast('Chọn provider trước', 'error'); return; }
-        const body = {
-          provider,
-          model: val('ai-model') || null,
-          api_key: qs('#ai-apikey', content).value || null,
-          custom_base_url: val('ai-baseurl') || null,
-        };
-        try {
-          const res = await apiFetch('/admin/ai/config', { method: 'PUT', body: JSON.stringify(body) });
-          toast('Đã lưu cấu hình AI', 'success');
-          if (res.api_key_masked) {
-            const hint = qs('#ai-apikey', content)?.parentElement?.querySelector('.form-hint');
-            if (hint) hint.textContent = 'Key hiện tại: ' + res.api_key_masked;
-          }
-        } catch (err) { toast(err.message, 'error'); }
-      };
 
       // Test
       qs('#btn-ai-test', content).onclick = async () => {
