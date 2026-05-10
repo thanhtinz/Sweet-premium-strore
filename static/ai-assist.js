@@ -108,9 +108,26 @@
     const currentVal = editor.getValue()?.trim();
 
     const label = el.closest('.form-group')?.querySelector('.form-label')?.textContent?.trim() || '';
+    
+    // Thu thập context liên quan trong form để gửi cho bot
+    let extraContext = '';
+    const titleField = document.querySelector('#prod-name') || document.querySelector('#bp-title') || document.querySelector('#cat-name');
+    if (titleField && titleField.value) {
+      extraContext += `Tên/Tiêu đề: ${titleField.value}\n`;
+    }
+    const catField = document.querySelector('#prod-category option:checked') || document.querySelector('#bp-category option:checked');
+    if (catField && catField.textContent) {
+      extraContext += `Danh mục: ${catField.textContent}\n`;
+    }
+
     let prompt = `Viết nội dung cho trường "${label}"`;
+    if (extraContext) {
+      prompt += ` dựa trên thông tin sau:\n${extraContext}`;
+    }
     if (currentVal) {
-      prompt += `. Nội dung hiện tại: "${currentVal.substring(0, 200)}". Hãy cải thiện hoặc viết lại hay hơn.`;
+      prompt += `\nNội dung hiện tại:\n"${currentVal.substring(0, 200)}"\nHãy cải thiện hoặc viết lại đoạn văn này hay hơn, hấp dẫn hơn. Không trả về các câu dẫn nhập như "Đây là nội dung của bạn", chỉ trả về kết quả cuối cùng.`;
+    } else {
+       prompt += `\nHãy viết nội dung phù hợp, chuyên nghiệp, hấp dẫn. Không trả về các câu dẫn nhập như "Đây là nội dung của bạn", chỉ trả về kết quả cuối cùng.`;
     }
 
     btn.classList.add('ai-btn-loading');
