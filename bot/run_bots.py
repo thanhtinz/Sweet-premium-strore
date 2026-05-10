@@ -2,16 +2,28 @@ import asyncio
 import logging
 
 import discord
-from telegram import Update
+from discord import app_commands
+from telegram import BotCommand, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from db import SessionLocal
-from api.bot_links import build_bot_response, upsert_platform_identity
+from api.bot_links import BOT_COMMANDS, build_bot_response, upsert_platform_identity
 from bot.config import DISCORD_BOT_TOKEN, TELEGRAM_BOT_TOKEN, TELEGRAM_USER_BOT_TOKEN
 from bot.discord_bot import handle_discord_dm, sync_discord_dm_identity
 
 
 logging.basicConfig(level=logging.INFO)
+
+TELEGRAM_COMMANDS = [
+    BotCommand(item["command"].lstrip("/").split()[0], item["description"])
+    for item in BOT_COMMANDS
+]
+
+DISCORD_COMMANDS = [
+    (item["command"].lstrip("/").split()[0], item["description"])
+    for item in BOT_COMMANDS
+]
+
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("bot-runner")
 
@@ -28,7 +40,42 @@ async def _run_discord_bot():
     intents = discord.Intents.default()
     intents.message_content = True
     intents.dm_messages = True
-    client = discord.Client(intents=intents)
+
+    class ShopBot(discord.Client):
+        def __init__(self):
+            super().__init__(intents=intents)
+            self.tree = app_commands.CommandTree(self)
+
+        async def setup_hook(self):
+            def make_simple_callback(command_name: str):
+                async def callback(interaction: discord.Interaction):
+                    sync_discord_dm_identity(
+                        str(interaction.user.id),
+                        platform_username=_discord_username(interaction.user),
+                        metadata={"source": "discord_slash"},
+                    )
+                    reply = handle_discord_dm(str(interaction.user.id), f"/{command_name}")
+                    await interaction.response.send_message(reply or "OK", ephemeral=True)
+                return callback
+
+            async def link_callback(interaction: discord.Interaction, code: str):
+                sync_discord_dm_identity(
+                    str(interaction.user.id),
+                    platform_username=_discord_username(interaction.user),
+                    metadata={"source": "discord_slash"},
+                )
+                reply = handle_discord_dm(str(interaction.user.id), f"/link {code}")
+                await interaction.response.send_message(reply or "OK", ephemeral=True)
+
+            link_callback = app_commands.describe(code="Mã liên kết từ trang tài khoản")(link_callback)
+            for name, description in DISCORD_COMMANDS:
+                callback = link_callback if name == "link" else make_simple_callback(name)
+                command = app_commands.Command(name=name, description=description[:100], callback=callback)
+                self.tree.add_command(command)
+            await self.tree.sync()
+            logger.info("Discord slash commands synced")
+
+    client = ShopBot()
 
     @client.event
     async def on_ready():
@@ -93,6 +140,7 @@ async def _run_telegram_bot(token: str, label: str = "Telegram"):
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _telegram_reply))
 
     await app.initialize()
+    await app.bot.set_my_commands(TELEGRAM_COMMANDS)
     await app.start()
     await app.updater.start_polling(drop_pending_updates=True)
     logger.info("%s bot polling started", label)
