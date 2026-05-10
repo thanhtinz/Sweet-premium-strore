@@ -272,7 +272,7 @@ async function renderProfile(view) {
                 ${botLinks?.discord_invite ? `<a class="btn btn-ghost btn-sm" href="${esc(botLinks.discord_invite)}" target="_blank" rel="noopener">Mở Discord bot</a>` : ''}
                 ${discordOauthEnabled ? `<a class="btn btn-ghost btn-sm" href="/api/auth/discord">Đăng nhập bằng Discord</a>` : ''}
               </div>
-              <div class="text-sm text-muted mt-8" id="discord-link-code">${discord.link_code ? `Dùng trong DM: /link ${esc(discord.link_code)}` : 'Tạo mã rồi gửi trong DM với bot Discord.'}</div>
+              <div id="discord-link-code" style="margin-top:10px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border-dark);border-radius:var(--radius-xs);font-family:monospace;font-size:13px;color:var(--accent);letter-spacing:.5px;">${discord.link_code ? `/link ${esc(discord.link_code)}` : '<span style="color:var(--text-muted);font-family:inherit;">Tạo mã rồi gửi trong DM với bot Discord.</span>'}</div>
               <div class="text-xs text-muted mt-4" id="discord-link-expiry">${formatExpiryText(discord.link_code_expires_at)}</div>
             </div>
             <div style="padding:16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-page);">
@@ -292,11 +292,12 @@ async function renderProfile(view) {
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button class="btn btn-outline btn-sm" id="telegram-code-btn">Tạo mã /link</button>
+                <button class="btn btn-ghost btn-sm" id="telegram-copy-code-btn">Copy mã</button>
                 <button class="btn btn-ghost btn-sm" id="telegram-status-btn">Xem trạng thái</button>
                 <button class="btn btn-ghost btn-sm" id="telegram-unlink-btn">Gỡ liên kết</button>
                 ${botLinks?.telegram_bot_username ? `<a class="btn btn-ghost btn-sm" href="https://t.me/${esc(botLinks.telegram_bot_username)}" target="_blank" rel="noopener">Mở bot Telegram</a>` : ''}
               </div>
-              <div class="text-sm text-muted mt-8" id="telegram-link-code">${telegram.link_code ? `Dùng trong chat bot: /link ${esc(telegram.link_code)}` : 'Tạo mã rồi gửi trong chat bot Telegram.'}</div>
+              <div id="telegram-link-code" style="margin-top:10px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border-dark);border-radius:var(--radius-xs);font-family:monospace;font-size:13px;color:var(--accent);letter-spacing:.5px;">${telegram.link_code ? `/link ${esc(telegram.link_code)}` : '<span style="color:var(--text-muted);font-family:inherit;">Tạo mã rồi gửi trong chat bot Telegram.</span>'}</div>
             </div>
           </div>
           <div class="mt-16">
@@ -320,11 +321,15 @@ async function renderProfile(view) {
           const res = await apiFetch(`/bot-links/${platform}/code`, { method: 'POST' });
           toast(`Mã liên kết ${platform} đã tạo`, 'success');
           if (platform === 'discord') {
-            qs('#discord-link-code', botCard).textContent = `Dùng trong DM: /link ${res.link_code}`;
+            const dcEl = qs('#discord-link-code', botCard);
+            if (dcEl) dcEl.innerHTML = `/link ${res.link_code}`;
             const expiryEl = qs('#discord-link-expiry', botCard);
             if (expiryEl) expiryEl.textContent = formatExpiryText(res.expires_at);
           }
-          if (platform === 'telegram') qs('#telegram-link-code', botCard).textContent = `Dùng trong chat bot: /link ${res.link_code}`;
+          if (platform === 'telegram') {
+            const tgEl = qs('#telegram-link-code', botCard);
+            if (tgEl) tgEl.innerHTML = `/link ${res.link_code}`;
+          }
         } catch (err) { toast(err.message, 'error'); }
       };
 
@@ -339,6 +344,22 @@ async function renderProfile(view) {
         try {
           await navigator.clipboard.writeText(`/link ${code}`);
           toast('Đã copy mã Discord', 'success');
+        } catch (_) {
+          toast('Không thể copy tự động. Hãy copy thủ công.', 'error');
+        }
+      };
+
+      const copyTelegramCode = async () => {
+        const currentText = qs('#telegram-link-code', botCard)?.textContent || '';
+        const match = currentText.match(/\/link\s+([A-Z0-9]+)/i);
+        const code = match?.[1] || telegram.link_code || '';
+        if (!code) {
+          toast('Chưa có mã Telegram để copy', 'info');
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(`/link ${code}`);
+          toast('Đã copy mã Telegram', 'success');
         } catch (_) {
           toast('Không thể copy tự động. Hãy copy thủ công.', 'error');
         }
@@ -373,6 +394,7 @@ async function renderProfile(view) {
       qs('#discord-code-btn', botCard).onclick = () => createCode('discord');
       qs('#discord-copy-code-btn', botCard).onclick = () => copyDiscordCode();
       qs('#telegram-code-btn', botCard).onclick = () => createCode('telegram');
+      qs('#telegram-copy-code-btn', botCard).onclick = () => copyTelegramCode();
       qs('#discord-status-btn', botCard).onclick = () => showStatus('discord');
       qs('#telegram-status-btn', botCard).onclick = () => showStatus('telegram');
       qs('#discord-unlink-btn', botCard).onclick = () => unlinkPlatform('discord');
