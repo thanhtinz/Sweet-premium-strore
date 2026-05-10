@@ -185,7 +185,14 @@ def build_blog_meta(post: BlogPost | None, settings: dict, request: Request) -> 
 async def _lifespan(app: FastAPI):
     """Start bot runner alongside the web server."""
     from bot.run_bots import main as run_bots_main
-    bot_task = asyncio.create_task(run_bots_main())
+
+    async def _bot_wrapper():
+        try:
+            await run_bots_main()
+        except Exception as exc:
+            logger.error("Bot runner crashed: %s", exc, exc_info=True)
+
+    bot_task = asyncio.create_task(_bot_wrapper())
 
     yield
 
