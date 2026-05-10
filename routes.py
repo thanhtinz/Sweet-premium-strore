@@ -87,12 +87,16 @@ def load_public_settings(db) -> dict:
     return result
 
 
-def absolute_url(url: str, request: Request) -> str:
+def public_base_url(settings: dict, request: Request) -> str:
+    return (settings.get("site_url") or str(request.base_url)).rstrip("/") + "/"
+
+
+def absolute_url(url: str, request: Request, base_url: str | None = None) -> str:
     if not url:
         return ""
     if url.startswith(("http://", "https://")):
         return url
-    return urljoin(str(request.base_url), url.lstrip("/"))
+    return urljoin(base_url or str(request.base_url), url.lstrip("/"))
 
 
 def build_share_product_html(product: Product, settings: dict, request: Request, ref: str | None = None) -> str:
@@ -101,10 +105,10 @@ def build_share_product_html(product: Product, settings: dict, request: Request,
     title = settings.get("seo_title") or f"{product.name} | {site_name}"
     raw_desc = product.description or product.notes or site_description
     description = " ".join(str(raw_desc).replace("<", " ").replace(">", " ").split())[:220]
-    share_image = settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or ""
-    image_url = absolute_url(share_image, request)
-    favicon_url = absolute_url(settings.get("favicon_url") or settings.get("logo_url") or settings.get("site_logo") or "", request)
-    canonical_base = (settings.get("site_url") or str(request.base_url)).rstrip("/") + "/"
+    canonical_base = public_base_url(settings, request)
+    share_image = product.image_url or settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or ""
+    image_url = absolute_url(share_image, request, canonical_base)
+    favicon_url = absolute_url(settings.get("favicon_url") or settings.get("logo_url") or settings.get("site_logo") or "", request, canonical_base)
     target_path = f"product/{product.slug}"
     if ref:
         target_path += f"?ref={escape(ref)}"
@@ -143,8 +147,9 @@ def build_share_product_html(product: Product, settings: dict, request: Request,
 def build_blog_meta(post: BlogPost | None, settings: dict, request: Request) -> dict:
     site_name = settings.get("site_name") or "ShopKey"
     site_description = settings.get("seo_description") or settings.get("site_description") or "Cập nhật tin tức, hướng dẫn và mẹo hay mỗi ngày"
-    logo_url = absolute_url(settings.get("logo_url") or settings.get("site_logo") or "", request)
-    favicon_url = absolute_url(settings.get("favicon_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request)
+    public_base = public_base_url(settings, request)
+    logo_url = absolute_url(settings.get("logo_url") or settings.get("site_logo") or "", request, public_base)
+    favicon_url = absolute_url(settings.get("favicon_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request, public_base)
     twitter_card = settings.get("twitter_card") or "summary_large_image"
     seo_author = settings.get("seo_author") or settings.get("author") or site_name
     seo_keywords = settings.get("seo_keywords") or settings.get("keywords") or site_name
@@ -157,11 +162,11 @@ def build_blog_meta(post: BlogPost | None, settings: dict, request: Request) -> 
         title = post.meta_title or post.title or settings.get("seo_title") or f"Blog | {site_name}"
         raw_desc = post.meta_description or post.excerpt or site_description
         description = " ".join(str(raw_desc).replace("<", " ").replace(">", " ").split())[:220]
-        image_url = absolute_url(post.thumbnail_url or settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request)
+        image_url = absolute_url(post.thumbnail_url or settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request, public_base)
     else:
         title = settings.get("seo_title") or f"Blog | {site_name}"
         description = site_description
-        image_url = absolute_url(settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request)
+        image_url = absolute_url(settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request, public_base)
 
     return {
         "site_name": site_name,
@@ -314,7 +319,7 @@ def create_app(static_dir: str) -> FastAPI:
         nocache = str(int(time.time() * 1000))
         with session_scope() as db:
             settings = load_public_settings(db)
-        canonical_base = (settings.get("site_url") or str(request.base_url)).rstrip("/")
+        canonical_base = public_base_url(settings, request).rstrip("/")
         return templates.TemplateResponse(
             request,
             "index.html",
@@ -329,9 +334,9 @@ def create_app(static_dir: str) -> FastAPI:
                 "seo_author": settings.get("seo_author") or settings.get("author") or (settings.get("site_name") or "ShopKey"),
                 "twitter_card": settings.get("twitter_card") or "summary_large_image",
                 "canonical_url": f"{canonical_base}{request.url.path}",
-                "favicon_url": absolute_url(settings.get("favicon_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request),
-                "seo_image_url": absolute_url(settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "", request),
-                "default_image_url": absolute_url(settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "", request),
+                "favicon_url": absolute_url(settings.get("favicon_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request, canonical_base + "/"),
+                "seo_image_url": absolute_url(settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "", request, canonical_base + "/"),
+                "default_image_url": absolute_url(settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "", request, canonical_base + "/"),
             },
         )
 
