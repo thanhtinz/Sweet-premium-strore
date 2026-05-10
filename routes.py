@@ -125,9 +125,9 @@ def json_ld_text(data: dict | None) -> str:
 
 
 def build_spa_meta(settings: dict, request: Request, **overrides) -> dict:
-    site_name = settings.get("site_name") or "ShopKey"
-    site_description = settings.get("seo_description") or settings.get("site_description") or "Mua tài khoản, key, gift card và các sản phẩm số uy tín"
-    title = overrides.get("title") or settings.get("seo_title") or site_name or "ShopKey — Sản phẩm số"
+    site_name = str(settings.get("site_name") or "ShopKey").strip()
+    site_description = str(settings.get("seo_description") or settings.get("site_description") or "Mua tài khoản, key, gift card và các sản phẩm số uy tín").strip()
+    title = str(overrides.get("title") or settings.get("seo_title") or site_name or "ShopKey — Sản phẩm số").strip()
     description = clean_meta_text(overrides.get("description"), site_description, 220)
     canonical = overrides.get("canonical_url") or canonical_url(settings, request, overrides.get("path"), overrides.get("include_query", False))
     image_url = overrides.get("image_url") or default_meta_image(settings, request)
@@ -146,7 +146,7 @@ def build_spa_meta(settings: dict, request: Request, **overrides) -> dict:
         "seo_image_url": image_url,
         "default_image_url": image_url,
         "og_type": overrides.get("og_type") or "website",
-        "og_image_alt": overrides.get("image_alt") or title,
+        "og_image_alt": (overrides.get("image_alt") or title).strip(),
         "robots": overrides.get("robots") or "index,follow",
         "theme_color": overrides.get("theme_color") or settings.get("theme_color") or "#7c3aed",
         "json_ld": overrides.get("json_ld") or {
@@ -160,9 +160,9 @@ def build_spa_meta(settings: dict, request: Request, **overrides) -> dict:
 
 
 def product_meta(product: Product, settings: dict, request: Request, include_query: bool = False) -> dict:
-    site_name = settings.get("site_name") or "ShopKey"
-    site_description = settings.get("seo_description") or settings.get("site_description") or "Mua tài khoản, key, gift card và các sản phẩm số uy tín"
-    title = f"{product.name} | {site_name}"
+    site_name = str(settings.get("site_name") or "ShopKey").strip()
+    site_description = str(settings.get("seo_description") or settings.get("site_description") or "Mua tài khoản, key, gift card và các sản phẩm số uy tín").strip()
+    title = f"{product.name.strip()} | {site_name}"
     description = clean_meta_text(product.description or product.notes, site_description, 220)
     image_url = absolute_url(product.image_url or default_meta_image(settings, request), request, public_base_url(settings, request))
     clean_url = canonical_url(settings, request, f"/product/{product.slug}")
@@ -214,8 +214,6 @@ def build_share_product_html(product: Product, settings: dict, request: Request,
   <meta property=\"og:image\" content=\"{escape(meta['seo_image_url'])}\" />
   <meta property=\"og:image:secure_url\" content=\"{escape(meta['seo_image_url'])}\" />
   <meta property=\"og:image:alt\" content=\"{escape(meta['og_image_alt'])}\" />
-  <meta property=\"og:image:width\" content=\"1200\" />
-  <meta property=\"og:image:height\" content=\"630\" />
   <link rel=\"image_src\" href=\"{escape(meta['seo_image_url'])}\" />
   <meta itemprop=\"name\" content=\"{escape(meta['seo_title'])}\" />
   <meta itemprop=\"description\" content=\"{escape(meta['seo_description'])}\" />
@@ -239,8 +237,8 @@ def build_share_product_html(product: Product, settings: dict, request: Request,
 
 
 def build_blog_meta(post: BlogPost | None, settings: dict, request: Request) -> dict:
-    site_name = settings.get("site_name") or "ShopKey"
-    site_description = settings.get("seo_description") or settings.get("site_description") or "Cập nhật tin tức, hướng dẫn và mẹo hay mỗi ngày"
+    site_name = str(settings.get("site_name") or "ShopKey").strip()
+    site_description = str(settings.get("seo_description") or settings.get("site_description") or "Cập nhật tin tức, hướng dẫn và mẹo hay mỗi ngày").strip()
     public_base = public_base_url(settings, request)
     logo_url = absolute_url(settings.get("logo_url") or settings.get("site_logo") or "", request, public_base)
     favicon_url = absolute_url(settings.get("favicon_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request, public_base)
@@ -253,9 +251,9 @@ def build_blog_meta(post: BlogPost | None, settings: dict, request: Request) -> 
         canonical_url = f"{base}{request.url.path}"
 
     if post:
-        title = post.meta_title or post.title or settings.get("seo_title") or f"Blog | {site_name}"
+        title = str(post.meta_title or post.title or settings.get("seo_title") or f"Blog | {site_name}").strip()
         raw_desc = post.meta_description or post.excerpt or site_description
-        description = " ".join(str(raw_desc).replace("<", " ").replace(">", " ").split())[:220]
+        description = clean_meta_text(raw_desc, site_description, 220)
         image_url = absolute_url(post.thumbnail_url or settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request, public_base)
         json_ld = {
             "@context": "https://schema.org",
@@ -264,20 +262,17 @@ def build_blog_meta(post: BlogPost | None, settings: dict, request: Request) -> 
             "description": description,
             "image": image_url,
             "url": canonical_url,
-            "author": {"@type": "Organization", "name": seo_author},
+            "author": {"@type": "Organization", "name": str(seo_author).strip()},
             "publisher": {"@type": "Organization", "name": site_name, "logo": {"@type": "ImageObject", "url": logo_url or favicon_url}},
         }
     else:
-        title = settings.get("seo_title") or f"Blog | {site_name}"
-        description = site_description
+        title = str(settings.get("seo_title") or f"Blog | {site_name}").strip()
+        description = clean_meta_text(site_description, "", 220)
         image_url = absolute_url(settings.get("seo_image_url") or settings.get("default_image_url") or settings.get("logo_url") or settings.get("site_logo") or "/static/candy-icon.png", request, public_base)
         json_ld = {
             "@context": "https://schema.org",
             "@type": "Blog",
             "name": title,
-        "theme_color": settings.get("theme_color") or "#7c3aed",
-        "json_ld": json_ld,
-
             "description": description,
             "url": canonical_url,
         }
@@ -292,8 +287,10 @@ def build_blog_meta(post: BlogPost | None, settings: dict, request: Request) -> 
         "canonical_url": canonical_url,
         "copyright_text": settings.get("copyright_text") or f"Copyright © 2026 {site_name}. All rights reserved.",
         "twitter_card": twitter_card,
-        "seo_author": seo_author,
-        "seo_keywords": seo_keywords,
+        "seo_author": str(seo_author).strip(),
+        "seo_keywords": str(seo_keywords).strip(),
+        "theme_color": settings.get("theme_color") or "#7c3aed",
+        "json_ld": json_ld,
     }
 
 
