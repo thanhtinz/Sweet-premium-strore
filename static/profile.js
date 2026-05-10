@@ -459,7 +459,7 @@ async function renderProfile(view) {
     apiKeysCard.innerHTML = `
       <div class="info-card-head" style="display:flex;justify-content:space-between;align-items:center;">
         <div class="info-card-title"><i class="fa-solid fa-key"></i> API Keys</div>
-        <button class="btn btn-primary btn-sm" id="btn-create-apikey">+ Tạo key mới</button>
+        <button class="btn btn-outline btn-sm" id="btn-create-apikey" style="background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.3); color:#fff;">+ Tạo key mới</button>
       </div>
       <div class="info-card-body" id="apikeys-list" style="padding-bottom:16px"><div class="page-loading"><div class="spinner"></div></div></div>
     `;
