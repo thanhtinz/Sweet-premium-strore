@@ -114,7 +114,7 @@ async function renderAdmin(view) {
       <div class="card"><div class="card-header"><div class="card-title">Đơn hàng gần đây</div></div>
       <div class="table-wrap">
         <table><thead><tr><th>Mã đơn</th><th>Khách hàng</th><th>Sản phẩm</th><th>Số tiền</th><th>Trạng thái</th><th>Ngày tạo</th></tr></thead>
-        <tbody>${data.recent_orders.map(o => `<tr><td class="td-mono">${o.order_code}</td><td>${o.user_email || '—'}</td><td>${o.product_name || '—'}</td><td class="text-primary">${fmt(o.total_amount)}</td><td>${statusBadge(o.status)}</td><td class="text-sm text-muted">${fmtDate(o.created_at)}</td></tr>`).join('')}</tbody>
+        <tbody>${data.recent_orders.map(o => `<tr><td class="td-mono">${o.order_code}</td><td>${o.user_email || '—'}</td><td>${o.product_name || '—'}</td><td class="text-primary">${fmt(o.total_amount)}</td><td>${statusBadge(o.status)}${o.api_provider_name ? ` <span class="badge badge-purple" style="font-size:10px">API: ${esc(o.api_provider_name)}</span>` : ''}</td><td class="text-sm text-muted">${fmtDate(o.created_at)}</td></tr>`).join('')}</tbody>
         </table></div></div>
     `;
   } catch (e) { content.innerHTML = `<p class="text-muted">${e.message}</p>`; }
@@ -126,6 +126,7 @@ async function renderAdminCategories(view) {
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   
   let catMap = {};
+  let activeTab = 'premium'; // premium | game
   const selectedIds = new Set();
   const updateBulkBar = () => {
     const count = selectedIds.size;
@@ -138,6 +139,13 @@ async function renderAdminCategories(view) {
   
   // Event delegation — bound once
   content.onclick = async (e) => {
+    const tabBtn = e.target.closest('[data-cat-tab]');
+    if (tabBtn) {
+      activeTab = tabBtn.dataset.catTab;
+      selectedIds.clear();
+      await refresh();
+      return;
+    }
     const bulkBtn = e.target.closest('[data-bulk-delete]');
     if (bulkBtn) {
       const ids = [...selectedIds];
@@ -169,7 +177,7 @@ async function renderAdminCategories(view) {
     const editBtn = e.target.closest('[data-edit]');
     if (editBtn) { showCatModal(catMap[parseInt(editBtn.dataset.edit)], refresh, Object.values(catMap)); return; }
     const addBtn = e.target.closest('#btn-add-cat');
-    if (addBtn) { showCatModal(null, refresh, Object.values(catMap)); return; }
+    if (addBtn) { showCatModal(null, refresh, Object.values(catMap), activeTab); return; }
   };
   content.onchange = (e) => {
     const all = e.target.closest('[data-select-all]');
@@ -194,6 +202,13 @@ async function renderAdminCategories(view) {
     cats.forEach(c => { catMap[c.id] = c; });
     const validIds = new Set(cats.map(c => c.id));
     [...selectedIds].forEach(id => { if (!validIds.has(id)) selectedIds.delete(id); });
+
+    const filterTree = (items, type) => items.filter(c => (c.product_type || 'premium') === type).map(c => ({
+      ...c,
+      children: c.children ? c.children.filter(ch => (ch.product_type || 'premium') === type) : []
+    }));
+    const filtered = filterTree(tree, activeTab);
+
     const renderRows = (items, depth = 0) => items.map(c => {
       const indent = depth > 0 ? `padding-left:${depth * 24}px;` : '';
       const prefix = depth > 0 ? '<span style="color:var(--text-muted);margin-right:6px;">↳</span>' : '';
@@ -204,13 +219,18 @@ async function renderAdminCategories(view) {
     }).join('');
     content.innerHTML = `
       ${cuiPageHeader('Danh mục', 'Tổ chức nhóm sản phẩm và điều hướng', '<button class="btn btn-primary" id="btn-add-cat"><i class="fa-solid fa-plus"></i> Thêm danh mục</button>')}
+      <div class="admin-tabs mb-16">
+        <button class="admin-tab ${activeTab === 'premium' ? 'active' : ''}" data-cat-tab="premium"><i class="fa-solid fa-crown"></i> Premium</button>
+        <button class="admin-tab ${activeTab === 'game' ? 'active' : ''}" data-cat-tab="game"><i class="fa-solid fa-gamepad"></i> Topup Game</button>
+        <button class="admin-tab ${activeTab === 'giftcard' ? 'active' : ''}" data-cat-tab="giftcard"><i class="fa-solid fa-gift"></i> Gift Card</button>
+      </div>
       <div class="d-flex align-center gap-8 mb-12" style="justify-content:space-between">
         <div class="text-muted text-sm">Đã chọn <strong data-bulk-count>${selectedIds.size}</strong> danh mục</div>
         <button class="btn btn-sm btn-outline-danger" data-bulk-delete ${selectedIds.size ? '' : 'disabled'}><i class="fa-solid fa-trash-can"></i> Xóa đã chọn</button>
       </div>
       <div class="table-wrap"><table>
         <thead><tr><th style="width:42px"><input type="checkbox" data-select-all></th><th>ID</th><th>Tên</th><th>Slug</th><th>Trạng thái</th><th>Thứ tự</th><th></th></tr></thead>
-        <tbody>${renderRows(tree)}</tbody>
+        <tbody>${filtered.length ? renderRows(filtered) : '<tr><td colspan="7" class="text-center text-muted" style="padding:32px 0">Chưa có danh mục nào</td></tr>'}</tbody>
       </table></div>
     `;
     updateBulkBar();
@@ -218,9 +238,10 @@ async function renderAdminCategories(view) {
   await refresh();
 }
 
-function showCatModal(cat, refresh, allCats = []) {
+function showCatModal(cat, refresh, allCats = [], defaultType = 'premium') {
   const excludeId = cat?.id;
-  const topLevelCats = allCats.filter(c => !c.parent_id && c.id !== excludeId);
+  const productType = cat?.product_type || defaultType;
+  const topLevelCats = allCats.filter(c => !c.parent_id && c.id !== excludeId && (c.product_type || 'premium') === productType);
   const parentOptions = topLevelCats
     .map(c => `<option value="${c.id}" ${cat?.parent_id === c.id ? 'selected' : ''}>${c.name}</option>`)
     .join('');
@@ -246,6 +267,7 @@ function showCatModal(cat, refresh, allCats = []) {
         </div>
         <div class="admin-upload-preview" id="cf-image-preview">${cat?.image_url ? `<img src="${cat.image_url}" alt="Image preview" />` : '<span>Chưa có ảnh</span>'}</div>
       </div>
+      <div class="form-group"><label class="form-label">Loại sản phẩm</label><select class="form-select" id="cf-product-type"><option value="premium" ${productType === 'premium' ? 'selected' : ''}>Premium</option><option value="game" ${productType === 'game' ? 'selected' : ''}>Game / Topup</option><option value="giftcard" ${productType === 'giftcard' ? 'selected' : ''}>Gift Card</option></select></div>
       <div class="form-row form-row-2">
         <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="cf-order" value="${cat?.sort_order ?? 0}" /></div>
         <div class="form-group"><label class="form-label">Hiển thị</label><select class="form-select" id="cf-active"><option value="true" ${cat?.is_active !== false ? 'selected' : ''}>Hiện</option><option value="false" ${cat?.is_active === false ? 'selected' : ''}>Ẩn</option></select></div>
@@ -261,7 +283,7 @@ function showCatModal(cat, refresh, allCats = []) {
   qs('#cat-form').onsubmit = async (e) => {
     e.preventDefault();
     const parentId = qs('#cf-parent').value;
-    const body = { name: qs('#cf-name').value, slug: qs('#cf-slug').value || undefined, icon_url: qs('#cf-icon').value || undefined, image_url: qs('#cf-image').value || undefined, parent_id: parentId ? parseInt(parentId) : null, sort_order: parseInt(qs('#cf-order').value) || 0, is_active: qs('#cf-active').value === 'true' };
+    const body = { name: qs('#cf-name').value, slug: qs('#cf-slug').value || undefined, icon_url: qs('#cf-icon').value || undefined, image_url: qs('#cf-image').value || undefined, parent_id: parentId ? parseInt(parentId) : null, product_type: qs('#cf-product-type').value, sort_order: parseInt(qs('#cf-order').value) || 0, is_active: qs('#cf-active').value === 'true' };
     try { if (cat) await apiFetch(`/categories/${cat.id}`, { method: 'PUT', body: JSON.stringify(body) }); else await apiFetch('/categories/', { method: 'POST', body: JSON.stringify(body) }); closeModal(); toast(cat ? 'Cập nhật!' : 'Tạo mới!', 'success'); refresh(); }
     catch (err) { const e = qs('#cat-form-err'); e.textContent = err.message; e.style.display = 'block'; }
   };
@@ -273,6 +295,7 @@ async function renderAdminProducts(view) {
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   
   let currentProducts = [], currentCats = [];
+  let activeTab = 'premium'; // premium | game
   const selectedIds = new Set();
   const updateBulkBar = () => {
     const count = selectedIds.size;
@@ -285,6 +308,13 @@ async function renderAdminProducts(view) {
   
   // Event delegation — bound once, survives innerHTML refreshes
   content.onclick = async (e) => {
+    const tabBtn = e.target.closest('[data-prod-tab]');
+    if (tabBtn) {
+      activeTab = tabBtn.dataset.prodTab;
+      selectedIds.clear();
+      await refresh();
+      return;
+    }
     const bulkBtn = e.target.closest('[data-bulk-delete]');
     if (bulkBtn) {
       const ids = [...selectedIds];
@@ -346,15 +376,21 @@ async function renderAdminProducts(view) {
     currentProducts = products; currentCats = cats;
     const validIds = new Set(products.map(p => p.id));
     [...selectedIds].forEach(id => { if (!validIds.has(id)) selectedIds.delete(id); });
+    const filtered = products.filter(p => (p.product_type || 'premium') === activeTab);
     content.innerHTML = `
       ${cuiPageHeader('Sản phẩm', 'Quản lý sản phẩm, gói bán và nội dung hiển thị', '<button class="btn btn-primary" id="btn-add-prod"><i class="fa-solid fa-plus"></i> Thêm</button>')}
+      <div class="admin-tabs mb-16">
+        <button class="admin-tab ${activeTab === 'premium' ? 'active' : ''}" data-prod-tab="premium"><i class="fa-solid fa-crown"></i> Premium</button>
+        <button class="admin-tab ${activeTab === 'game' ? 'active' : ''}" data-prod-tab="game"><i class="fa-solid fa-gamepad"></i> Topup Game</button>
+        <button class="admin-tab ${activeTab === 'giftcard' ? 'active' : ''}" data-prod-tab="giftcard"><i class="fa-solid fa-gift"></i> Gift Card</button>
+      </div>
       <div class="d-flex align-center gap-8 mb-12" style="justify-content:space-between">
         <div class="text-muted text-sm">Đã chọn <strong data-bulk-count>${selectedIds.size}</strong> sản phẩm</div>
         <button class="btn btn-sm btn-outline-danger" data-bulk-delete ${selectedIds.size ? '' : 'disabled'}><i class="fa-solid fa-trash-can"></i> Xóa đã chọn</button>
       </div>
       <div class="table-wrap"><table>
         <thead><tr><th style="width:42px"><input type="checkbox" data-select-all></th><th>Tên</th><th>Danh mục</th><th>Gói</th><th>Giá từ</th><th>Nổi bật</th><th>TT</th><th></th></tr></thead>
-        <tbody>${products.map(p => `<tr><td><input type="checkbox" data-row-select value="${p.id}" ${selectedIds.has(p.id) ? 'checked' : ''}></td><td class="td-bold">${esc(p.name)}</td><td class="text-muted">${esc(p.category_name || '—')}</td><td>${(p.packages||[]).length}</td><td class="text-primary">${p.min_price ? fmt(p.min_price) : '—'}</td><td>${p.is_featured ? ico.starFill : '—'}</td><td>${p.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit="${p.id}">Sửa</button><button class="tbl-btn tbl-view" data-pkg="${p.id}" data-pname="${encodeURIComponent(p.name)}">Gói</button><button class="tbl-btn tbl-delete" data-del="${p.id}">Xóa</button></div></td></tr>`).join('')}</tbody>
+        <tbody>${filtered.length ? filtered.map(p => `<tr><td><input type="checkbox" data-row-select value="${p.id}" ${selectedIds.has(p.id) ? 'checked' : ''}></td><td class="td-bold">${esc(p.name)}</td><td class="text-muted">${esc(p.category_name || '—')}</td><td>${(p.packages||[]).length}</td><td class="text-primary">${p.min_price ? fmt(p.min_price) : '—'}</td><td>${p.is_featured ? ico.starFill : '—'}</td><td>${p.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit="${p.id}">Sửa</button><button class="tbl-btn tbl-view" data-pkg="${p.id}" data-pname="${encodeURIComponent(p.name)}">Gói</button><button class="tbl-btn tbl-delete" data-del="${p.id}">Xóa</button></div></td></tr>`).join('') : '<tr><td colspan="8" class="text-center text-muted" style="padding:32px 0">Chưa có sản phẩm nào</td></tr>'}</tbody>
       </table></div>
     `;
     updateBulkBar();
@@ -402,7 +438,7 @@ function showProductModal(prod, cats, refresh) {
         <div class="form-group"><label class="form-label">Danh mục lớn</label><select class="form-select" id="pf-cat-parent"><option value="">-- Chọn danh mục lớn --</option>${parentOptions}</select></div>
         <div class="form-group"><label class="form-label">Danh mục con</label><select class="form-select" id="pf-cat-child">${childOptionsForParent(selectedParentId)}</select></div>
       </div>
-      <div class="form-group">
+      <div class="form-group" id="pf-desc-group">
         <label class="form-label">Mô tả</label>
         <div class="editor-toolbar" id="pf-desc-toolbar">
           <button type="button" class="btn btn-ghost btn-sm" data-editor-action="bold"><b>B</b></button>
@@ -432,16 +468,31 @@ function showProductModal(prod, cats, refresh) {
         <div class="form-group"><label class="form-label">Nổi bật</label><select class="form-select" id="pf-featured"><option value="false" ${!prod?.is_featured ? 'selected' : ''}>Không</option><option value="true" ${prod?.is_featured ? 'selected' : ''}>Có</option></select></div>
         <div class="form-group"><label class="form-label">Hiển thị</label><select class="form-select" id="pf-active"><option value="true" ${prod?.is_active !== false ? 'selected' : ''}>Hiện</option><option value="false" ${prod?.is_active === false ? 'selected' : ''}>Ẩn</option></select></div>
       </div>
+      <div id="pf-game-tags" class="form-row form-row-2" style="display:none">
+        <div class="form-group"><label class="form-label">Hình thức nạp</label><select class="form-select" id="pf-topup-type"><option value="">-- Không áp dụng --</option><option value="uid" ${prod?.topup_type==='uid'?'selected':''}>UID</option><option value="login" ${prod?.topup_type==='login'?'selected':''}>Login</option></select></div>
+        <div class="form-group"><label class="form-label">Máy chủ</label><select class="form-select" id="pf-server-region"><option value="">-- Không áp dụng --</option><option value="vietnam" ${prod?.server_region==='vietnam'?'selected':''}>Việt Nam</option><option value="global" ${prod?.server_region==='global'?'selected':''}>Quốc tế</option></select></div>
+      </div>
       <div id="prod-form-err" class="form-error mb-12" style="display:none"></div>
       <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">${prod ? 'Cập nhật' : 'Tạo mới'}</button><button type="button" class="btn btn-ghost" id="prod-cancel">Hủy</button></div>
     </form>
   `, prod ? `Sửa: ${prod.name}` : 'Thêm sản phẩm');
 
-  // When parent changes, refresh child options
+  // When parent changes, refresh child options and show/hide game tags
+  const updateGameTags = () => {
+    const parentId = qs('#pf-cat-parent').value;
+    const parentCat = parentId ? catMap[parseInt(parentId)] : null;
+    const pt = parentCat?.product_type;
+    const gameTagsEl = qs('#pf-game-tags');
+    if (gameTagsEl) gameTagsEl.style.display = pt === 'game' ? '' : 'none';
+    const descEl = qs('#pf-desc-group');
+    if (descEl) descEl.style.display = pt === 'giftcard' ? 'none' : '';
+  };
   qs('#pf-cat-parent').onchange = function() {
     const childSelect = qs('#pf-cat-child');
     childSelect.innerHTML = childOptionsForParent(this.value);
+    updateGameTags();
   };
+  updateGameTags();
 
   qs('#prod-cancel').onclick = closeModal;
   bindImageUploads(qs('#modal-content'));
@@ -456,7 +507,7 @@ function showProductModal(prod, cats, refresh) {
     e.preventDefault();
     if (window.syncRichTextEditors) window.syncRichTextEditors();
     const cat_id = qs('#pf-cat-child').value || qs('#pf-cat-parent').value;
-    const body = { name: qs('#pf-name').value, category_id: cat_id ? parseInt(cat_id) : null, description: qs('#pf-desc').value || null, image_url: qs('#pf-img').value || null, sort_order: parseInt(qs('#pf-order').value) || 0, is_featured: qs('#pf-featured').value === 'true', is_active: qs('#pf-active').value === 'true' };
+    const body = { name: qs('#pf-name').value, category_id: cat_id ? parseInt(cat_id) : null, description: qs('#pf-desc').value || null, image_url: qs('#pf-img').value || null, sort_order: parseInt(qs('#pf-order').value) || 0, is_featured: qs('#pf-featured').value === 'true', is_active: qs('#pf-active').value === 'true', topup_type: qs('#pf-topup-type')?.value || null, server_region: qs('#pf-server-region')?.value || null };
     try { if (prod) await apiFetch(`/products/${prod.id}`, { method: 'PUT', body: JSON.stringify(body) }); else await apiFetch('/products/', { method: 'POST', body: JSON.stringify(body) }); closeModal(); toast(prod ? 'Cập nhật!' : 'Tạo mới!', 'success'); refresh(); }
     catch (err) { const e = qs('#prod-form-err'); e.textContent = err.message; e.style.display = 'block'; }
   };
@@ -510,10 +561,17 @@ async function showPackagesModal(productId, productName, prefetchedProduct = nul
         <div class="form-group"><label class="form-label">Giá (đ)</label><input type="number" class="form-input" id="pkg-price" required placeholder="50000" /></div>
       </div>
       <div class="form-row form-row-2">
-        <div class="form-group"><label class="form-label">Giao hàng</label><select class="form-select" id="pkg-delivery"><option value="manual">Thủ công</option><option value="auto">Tự động</option></select></div>
-        <div class="form-group"><label class="form-label">Mô tả</label><input class="form-input" id="pkg-desc" placeholder="Mô tả..." /></div>
+        <div class="form-group"><label class="form-label">Giao hàng</label><select class="form-select" id="pkg-delivery"><option value="manual">Thủ công</option><option value="auto">Tự động (kho)</option></select></div>
+        <div class="form-group" ${prod?.product_type === 'giftcard' ? 'style="display:none"' : ''}><label class="form-label">Mô tả</label><input class="form-input" id="pkg-desc" placeholder="Mô tả..." /></div>
       </div>
-      <div class="form-group"><label class="form-label">Chú ý (hiển thị khi chọn gói)</label>
+      <div class="form-group" ${(prod?.product_type !== 'game' && prod?.product_type !== 'giftcard') ? 'style="display:none"' : ''}><label class="form-label">Ảnh gói</label>
+        <div class="flex gap-8 items-center">
+          <input class="form-input flex-1" id="pkg-image" placeholder="https://... hoặc upload ảnh" />
+          ${imageUploadControl('pkg-image', 'pkg-image-upload', 'Upload', 'pkg-image-preview')}
+        </div>
+        <div class="admin-upload-preview mt-4" id="pkg-image-preview"><span>Chưa có ảnh</span></div>
+      </div>
+      <div class="form-group pkg-notes-group" ${(prod?.product_type === 'game' || prod?.product_type === 'giftcard') ? 'style="display:none"' : ''}><label class="form-label">Chú ý (hiển thị khi chọn gói)</label>
         <div class="editor-toolbar" id="pkg-notes-toolbar">
           <button type="button" class="btn btn-ghost btn-sm" data-editor-action="bold"><b>B</b></button>
           <button type="button" class="btn btn-ghost btn-sm" data-editor-action="italic"><i>I</i></button>
@@ -532,7 +590,39 @@ async function showPackagesModal(productId, productName, prefetchedProduct = nul
           <input type="number" class="form-input" id="pkg-stock-qty" min="0" value="0" placeholder="0" />
         </div>
       </div>
-      <div class="divider mt-12 mb-12"></div>
+      <div class="form-group">
+        <label class="form-label">Giao hàng qua API</label>
+        <label class="toggle-switch"><input type="checkbox" id="pkg-api-toggle" /><span class="toggle-slider"></span></label>
+      </div>
+      <div id="pkg-api-panel" style="display:none">
+        <div class="fw-600 mb-8"><i class="fa-solid fa-plug"></i> Cấu hình API nguồn</div>
+        <div class="form-group"><label class="form-label">Provider</label><select class="form-select" id="pkg-provider"><option value="">-- Chọn provider --</option></select></div>
+        <div class="form-group">
+          <label class="form-label">Nhập ID thủ công</label>
+          <label class="toggle-switch"><input type="checkbox" id="pkg-manual-id" /><span class="toggle-slider"></span></label>
+        </div>
+        <div id="pkg-api-select-mode">
+          <div class="form-group"><label class="form-label">Sản phẩm nguồn</label><select class="form-select" id="pkg-remote-product"><option value="">-- Chọn provider trước --</option></select></div>
+          <div class="form-group"><label class="form-label">Gói nguồn</label><select class="form-select" id="pkg-remote-plan"><option value="">-- Chọn sản phẩm trước --</option></select></div>
+        </div>
+        <div id="pkg-api-manual-mode" style="display:none">
+          <div class="form-row form-row-2">
+            <div class="form-group"><label class="form-label">Product ID</label><input class="form-input" id="pkg-ext-product" placeholder="ID sản phẩm nguồn" /></div>
+            <div class="form-group"><label class="form-label">Plan ID</label><input class="form-input" id="pkg-ext-plan" placeholder="ID gói nguồn" /></div>
+          </div>
+        </div>
+        <div class="form-row form-row-2 mt-8">
+          <div class="form-group">
+            <label class="form-label">Tự động tăng giá</label>
+            <label class="toggle-switch"><input type="checkbox" id="pkg-auto-markup" /><span class="toggle-slider"></span></label>
+          </div>
+          <div class="form-group" id="pkg-markup-pct-group" style="display:none">
+            <label class="form-label">% tăng giá</label>
+            <input type="number" class="form-input" id="pkg-markup-pct" placeholder="10" min="0" max="500" step="0.5" />
+          </div>
+        </div>
+        <div class="divider mt-8 mb-12"></div>
+      </div>
       <div class="fw-600 mb-8"><i class="fa-solid fa-list-check"></i> Trường tùy chỉnh</div>
       <div id="pkg-fields-list"></div>
       <button type="button" class="btn btn-ghost btn-sm mb-8" id="pkg-add-field">+ Thêm trường</button>
@@ -549,21 +639,137 @@ async function showPackagesModal(productId, productName, prefetchedProduct = nul
   const stockQtyGroup = qs('#pkg-stock-qty-group', modal);
   const stockRow = qs('#pkg-stock-row', modal);
 
+  const apiPanel = qs('#pkg-api-panel', modal);
+  const apiToggle = qs('#pkg-api-toggle', modal);
+
   const updateStockVisibility = () => {
-    const isAuto = deliverySelect.value === 'auto';
-    if (isAuto) {
+    const isApi = apiToggle?.checked;
+    if (isApi) {
       stockRow.style.display = 'none';
+      deliverySelect.closest('.form-row').style.display = 'none';
     } else {
       stockRow.style.display = '';
+      deliverySelect.closest('.form-row').style.display = '';
       stockQtyGroup.style.display = stockToggle.checked ? '' : 'none';
     }
+    if (apiPanel) apiPanel.style.display = isApi ? '' : 'none';
   };
   deliverySelect.onchange = updateStockVisibility;
   stockToggle.onchange = updateStockVisibility;
+  if (apiToggle) apiToggle.onchange = updateStockVisibility;
   updateStockVisibility();
+  bindImageUploads(modal);
+
+  const createMarkupToggle = qs('#pkg-auto-markup', modal);
+  const createMarkupPctGroup = qs('#pkg-markup-pct-group', modal);
+  if (createMarkupToggle) {
+    createMarkupToggle.onchange = () => { createMarkupPctGroup.style.display = createMarkupToggle.checked ? '' : 'none'; };
+  }
+
+  // Manual ID toggle
+  let fieldCounter = 0;
+  const manualIdToggle = qs('#pkg-manual-id', modal);
+  if (manualIdToggle) {
+    manualIdToggle.onchange = () => {
+      qs('#pkg-api-select-mode', modal).style.display = manualIdToggle.checked ? 'none' : '';
+      qs('#pkg-api-manual-mode', modal).style.display = manualIdToggle.checked ? '' : 'none';
+    };
+  }
+
+  // Load providers for API panel (create form)
+  const expectedProvType = prod?.product_type === 'game' ? 'topup_game' : prod?.product_type === 'giftcard' ? 'giftcard' : 'account_premium';
+  (async () => {
+    try {
+      const providers = await apiFetch('/api-providers/');
+      const filtered = providers.filter(p => p.provider_type === expectedProvType);
+      const provSelect = qs('#pkg-provider', modal);
+      if (provSelect) {
+        provSelect.innerHTML = '<option value="">-- Chọn provider --</option>' +
+          filtered.map(p => `<option value="${p.id}">${esc(p.name)} (${p.provider_type})</option>`).join('');
+      }
+    } catch(e) {}
+  })();
+
+  const loadCreateRemoteProducts = async (providerId) => {
+    const remoteProdSelect = qs('#pkg-remote-product', modal);
+    const remotePlanSelect = qs('#pkg-remote-plan', modal);
+    if (!remoteProdSelect) return;
+    remoteProdSelect.innerHTML = '<option value="">Đang tải...</option>';
+    try {
+      const products = await apiFetch('/api-providers/' + providerId + '/remote-products');
+      remoteProdSelect.innerHTML = '<option value="">-- Chọn sản phẩm nguồn --</option>' +
+        products.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+      window._remoteProductsCreate = products;
+    } catch(e) { remoteProdSelect.innerHTML = '<option value="">Lỗi tải</option>'; }
+  };
+
+  const pkgProvSelect = qs('#pkg-provider', modal);
+  if (pkgProvSelect) {
+    pkgProvSelect.onchange = function() {
+      if (this.value) loadCreateRemoteProducts(this.value);
+      else {
+        qs('#pkg-remote-product', modal).innerHTML = '<option value="">-- Chọn provider trước --</option>';
+        qs('#pkg-remote-plan', modal).innerHTML = '<option value="">-- Chọn sản phẩm trước --</option>';
+      }
+    };
+  }
+  const pkgRemoteProd = qs('#pkg-remote-product', modal);
+  if (pkgRemoteProd) {
+    pkgRemoteProd.onchange = async function() {
+      const remotePlanSelect = qs('#pkg-remote-plan', modal);
+      const prod = (window._remoteProductsCreate || []).find(p => p.id == this.value);
+      if (prod) {
+        remotePlanSelect.innerHTML = '<option value="">-- Chọn gói nguồn --</option>' +
+          prod.plans.map(pl => `<option value="${pl.id}">${esc(pl.name)} - ${pl.price.toLocaleString()}đ</option>`).join('');
+      } else {
+        remotePlanSelect.innerHTML = '<option value="">-- Chọn sản phẩm trước --</option>';
+      }
+      // Auto-fetch form fields from source
+      const providerId = qs('#pkg-provider', modal)?.value;
+      if (providerId && this.value) {
+        try {
+          const fields = await apiFetch('/api-providers/' + providerId + '/remote-products/' + this.value + '/form-fields');
+          if (fields && fields.length) {
+            const fieldsList = qs('#pkg-fields-list', modal);
+            fieldsList.innerHTML = '';
+            fieldCounter = 0;
+            for (const f of fields) {
+              const idx = fieldCounter++;
+              const isSelect = f.type === 'select';
+              const row = document.createElement('div');
+              row.className = 'mb-4';
+              row.dataset.newField = idx;
+              row.innerHTML = `
+                <div class="flex gap-8 items-center">
+                  <input class="form-input" data-new-fname value="${esc(f.label || f.key)}" style="flex:2" />
+                  <select class="form-select" data-new-ftype style="flex:1">
+                    <option value="text" ${f.type==='text'?'selected':''}>Text</option>
+                    <option value="number" ${f.type==='number'?'selected':''}>Number</option>
+                    <option value="textarea" ${f.type==='textarea'?'selected':''}>Textarea</option>
+                    <option value="email" ${f.type==='email'?'selected':''}>Email</option>
+                    <option value="select" ${isSelect?'selected':''}>Select</option>
+                  </select>
+                  <label class="toggle-switch" style="flex-shrink:0"><input type="checkbox" data-new-freq ${f.required !== false ? 'checked' : ''} /><span class="toggle-slider"></span></label>
+                  <button type="button" class="tbl-btn tbl-delete" data-remove-field>Xóa</button>
+                </div>
+                <div class="new-field-opts" style="display:${isSelect ? '' : 'none'};margin-top:4px;">
+                  <input class="form-input" data-new-fopts value='${isSelect && f.options?.length ? JSON.stringify(f.options) : ''}' placeholder='Options: ["Option 1","Option 2"]' />
+                </div>
+              `;
+              fieldsList.appendChild(row);
+              row.querySelector('[data-remove-field]').onclick = () => row.remove();
+              row.querySelector('[data-new-ftype]').onchange = (e) => {
+                row.querySelector('.new-field-opts').style.display = e.target.value === 'select' ? '' : 'none';
+              };
+            }
+            toast('Đã tải ' + fields.length + ' trường từ nguồn', 'success');
+          }
+        } catch(e) { /* silent */ }
+      }
+    };
+  }
 
   // Dynamic field rows for new package
-  let fieldCounter = 0;
   qs('#pkg-add-field', modal).onclick = () => {
     const idx = fieldCounter++;
     const row = document.createElement('div');
@@ -616,9 +822,8 @@ async function showPackagesModal(productId, productName, prefetchedProduct = nul
     const pkg = packages.find(p => p.id === pkgId);
     if (!pkg) return;
     showPackageFormModal(pkg, () => {
-      // Re-open the packages modal since the sub-modal overwrote #modal-content
       showPackagesModal(productId, productName);
-    });
+    }, prod);
   });
 
   // Edit package fields (opens sub-modal for custom fields)
@@ -644,14 +849,25 @@ async function showPackagesModal(productId, productName, prefetchedProduct = nul
     e.preventDefault();
     if (window.syncRichTextEditors) window.syncRichTextEditors();
     const isStockManaged = qs('#pkg-stock-toggle', modal).checked;
+    const isApi = qs('#pkg-api-toggle', modal)?.checked;
+    const isManualId = qs('#pkg-manual-id', modal)?.checked;
+    const deliveryType = isApi ? 'api' : qs('#pkg-delivery', modal).value;
+    const extProduct = isApi ? (isManualId ? qs('#pkg-ext-product', modal)?.value : qs('#pkg-remote-product', modal)?.value) : null;
+    const extPlan = isApi ? (isManualId ? qs('#pkg-ext-plan', modal)?.value : qs('#pkg-remote-plan', modal)?.value) : null;
     const body = {
       name: qs('#pkg-name', modal).value,
       price: parseFloat(qs('#pkg-price', modal).value),
-      delivery_type: qs('#pkg-delivery', modal).value,
+      delivery_type: deliveryType,
+      image_url: qs('#pkg-image', modal)?.value || null,
+      api_provider_id: isApi ? (parseInt(qs('#pkg-provider', modal)?.value) || null) : null,
+      external_product_id: extProduct || null,
+      external_plan_id: extPlan || null,
       description: qs('#pkg-desc', modal).value || null,
       notes: qs('#pkg-notes', modal).value || null,
       is_stock_managed: isStockManaged,
       stock_quantity: isStockManaged ? parseInt(qs('#pkg-stock-qty', modal).value) || 0 : 0,
+      auto_markup: qs('#pkg-auto-markup', modal)?.checked || false,
+      markup_percent: qs('#pkg-auto-markup', modal)?.checked ? (parseFloat(qs('#pkg-markup-pct', modal)?.value) || null) : null,
     };
     try {
       const np = await apiFetch(`/products/${productId}/packages`, { method: 'POST', body: JSON.stringify(body) });
@@ -692,7 +908,10 @@ async function showPackagesModal(productId, productName, prefetchedProduct = nul
   };
 }
 
-function showPackageFormModal(pkg, refresh) {
+function showPackageFormModal(pkg, refresh, parentProduct) {
+  const isGamePkg = parentProduct?.product_type === 'game';
+  const isGiftcardPkg = parentProduct?.product_type === 'giftcard';
+  const showPkgImage = isGamePkg || isGiftcardPkg;
   openModal(`
     <div class="fw-600 mb-12"><i class="fa-solid fa-box-open"></i> Sửa gói: ${pkg.name}</div>
     <form id="edit-pkg-form">
@@ -701,10 +920,50 @@ function showPackageFormModal(pkg, refresh) {
         <div class="form-group"><label class="form-label">Giá (đ)</label><input type="number" class="form-input" id="epkg-price" required value="${pkg.price}" /></div>
       </div>
       <div class="form-row form-row-2">
-        <div class="form-group"><label class="form-label">Giao hàng</label><select class="form-select" id="epkg-delivery"><option value="manual" ${pkg.delivery_type==='manual'?'selected':''}>Thủ công</option><option value="auto" ${pkg.delivery_type==='auto'?'selected':''}>Tự động</option></select></div>
-        <div class="form-group"><label class="form-label">Mô tả</label><input class="form-input" id="epkg-desc" value="${pkg.description || ''}" placeholder="Mô tả..." /></div>
+        <div class="form-group"><label class="form-label">Giao hàng</label><select class="form-select" id="epkg-delivery"><option value="manual" ${pkg.delivery_type==='manual'?'selected':''}>Thủ công</option><option value="auto" ${pkg.delivery_type==='auto'?'selected':''}>Tự động (kho)</option></select></div>
+        <div class="form-group" ${isGiftcardPkg ? 'style="display:none"' : ''}><label class="form-label">Mô tả</label><input class="form-input" id="epkg-desc" value="${pkg.description || ''}" placeholder="Mô tả..." /></div>
       </div>
-      <div class="form-group"><label class="form-label">Chú ý (hiển thị khi chọn gói)</label>
+      <div class="form-group" ${!showPkgImage ? 'style="display:none"' : ''}><label class="form-label">Ảnh gói</label>
+        <div class="flex gap-8 items-center">
+          <input class="form-input flex-1" id="epkg-image" value="${pkg.image_url || ''}" placeholder="https://... hoặc upload ảnh" />
+          ${imageUploadControl('epkg-image', 'epkg-image-upload', 'Upload', 'epkg-image-preview')}
+        </div>
+        <div class="admin-upload-preview mt-4" id="epkg-image-preview">${pkg.image_url ? `<img src="${pkg.image_url}" style="max-height:80px;border-radius:6px" />` : '<span>Chưa có ảnh</span>'}</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Giao hàng qua API</label>
+        <label class="toggle-switch"><input type="checkbox" id="epkg-api-toggle" ${pkg.delivery_type==='api'?'checked':''} /><span class="toggle-slider"></span></label>
+      </div>
+      <div id="epkg-api-panel" style="display:${pkg.delivery_type==='api'?'':'none'}">
+        <div class="divider mt-8 mb-8"></div>
+        <div class="fw-600 mb-8"><i class="fa-solid fa-plug"></i> Cấu hình API nguồn</div>
+        <div class="form-group"><label class="form-label">Provider</label><select class="form-select" id="epkg-provider"><option value="">-- Chọn provider --</option></select></div>
+        <div class="form-group">
+          <label class="form-label">Nhập ID thủ công</label>
+          <label class="toggle-switch"><input type="checkbox" id="epkg-manual-id" ${pkg.external_product_id && !pkg._fromDropdown ? 'checked' : ''} /><span class="toggle-slider"></span></label>
+        </div>
+        <div id="epkg-api-select-mode">
+          <div class="form-group"><label class="form-label">Sản phẩm nguồn</label><select class="form-select" id="epkg-remote-product"><option value="">-- Chọn provider trước --</option></select></div>
+          <div class="form-group"><label class="form-label">Gói nguồn</label><select class="form-select" id="epkg-remote-plan"><option value="">-- Chọn sản phẩm trước --</option></select></div>
+        </div>
+        <div id="epkg-api-manual-mode" style="display:none">
+          <div class="form-row form-row-2">
+            <div class="form-group"><label class="form-label">Product ID</label><input class="form-input" id="epkg-ext-product" value="${pkg.external_product_id || ''}" placeholder="ID sản phẩm nguồn" /></div>
+            <div class="form-group"><label class="form-label">Plan ID</label><input class="form-input" id="epkg-ext-plan" value="${pkg.external_plan_id || ''}" placeholder="ID gói nguồn" /></div>
+          </div>
+        </div>
+        <div class="form-row form-row-2 mt-8">
+          <div class="form-group">
+            <label class="form-label">Tự động tăng giá</label>
+            <label class="toggle-switch"><input type="checkbox" id="epkg-auto-markup" ${pkg.auto_markup?'checked':''} /><span class="toggle-slider"></span></label>
+          </div>
+          <div class="form-group" id="epkg-markup-pct-group" style="display:${pkg.auto_markup?'':'none'}">
+            <label class="form-label">% tăng giá</label>
+            <input type="number" class="form-input" id="epkg-markup-pct" value="${pkg.markup_percent || ''}" placeholder="10" min="0" max="500" step="0.5" />
+          </div>
+        </div>
+      </div>
+      <div class="form-group" ${(isGamePkg || isGiftcardPkg) ? 'style="display:none"' : ''}><label class="form-label">Chú ý (hiển thị khi chọn gói)</label>
         <div class="editor-toolbar" id="epkg-notes-toolbar">
           <button type="button" class="btn btn-ghost btn-sm" data-editor-action="bold"><b>B</b></button>
           <button type="button" class="btn btn-ghost btn-sm" data-editor-action="italic"><i>I</i></button>
@@ -733,21 +992,105 @@ function showPackageFormModal(pkg, refresh) {
   const stockToggle = qs('#epkg-stock-toggle', emodal);
   const stockQtyGroup = qs('#epkg-stock-qty-group', emodal);
   const stockRow = qs('#epkg-stock-row', emodal);
+  const apiToggleE = qs('#epkg-api-toggle', emodal);
+  const apiPanelE = qs('#epkg-api-panel', emodal);
 
   const updateStockVisibility = () => {
-    const isAuto = deliverySelect.value === 'auto';
-    if (isAuto) {
+    const isApi = apiToggleE?.checked;
+    if (isApi) {
       stockRow.style.display = 'none';
+      deliverySelect.closest('.form-row').style.display = 'none';
     } else {
       stockRow.style.display = '';
+      deliverySelect.closest('.form-row').style.display = '';
       stockQtyGroup.style.display = stockToggle.checked ? '' : 'none';
     }
+    if (apiPanelE) apiPanelE.style.display = isApi ? '' : 'none';
   };
   deliverySelect.onchange = updateStockVisibility;
   stockToggle.onchange = updateStockVisibility;
+  if (apiToggleE) apiToggleE.onchange = updateStockVisibility;
   updateStockVisibility();
+  bindImageUploads(emodal);
+
+  const autoMarkupToggle = qs('#epkg-auto-markup', emodal);
+  const markupPctGroup = qs('#epkg-markup-pct-group', emodal);
+  if (autoMarkupToggle) {
+    autoMarkupToggle.onchange = () => { markupPctGroup.style.display = autoMarkupToggle.checked ? '' : 'none'; };
+  }
 
   qs('#epkg-cancel', emodal).onclick = closeModal;
+
+  // Manual ID toggle for edit form
+  const eManualIdToggle = qs('#epkg-manual-id', emodal);
+  if (eManualIdToggle) {
+    eManualIdToggle.onchange = () => {
+      qs('#epkg-api-select-mode', emodal).style.display = eManualIdToggle.checked ? 'none' : '';
+      qs('#epkg-api-manual-mode', emodal).style.display = eManualIdToggle.checked ? '' : 'none';
+    };
+    // Init state
+    qs('#epkg-api-select-mode', emodal).style.display = eManualIdToggle.checked ? 'none' : '';
+    qs('#epkg-api-manual-mode', emodal).style.display = eManualIdToggle.checked ? '' : 'none';
+  }
+
+  // Load providers for edit form API panel
+  const editExpectedProvType = isGamePkg ? 'topup_game' : isGiftcardPkg ? 'giftcard' : 'account_premium';
+  (async () => {
+    try {
+      const providers = await apiFetch('/api-providers/');
+      const filtered = providers.filter(p => p.provider_type === editExpectedProvType);
+      const provSelect = qs('#epkg-provider', emodal);
+      if (provSelect) {
+        provSelect.innerHTML = '<option value="">-- Chọn provider --</option>' +
+          filtered.map(p => `<option value="${p.id}" ${pkg.api_provider_id == p.id ? 'selected' : ''}>${esc(p.name)} (${p.provider_type})</option>`).join('');
+      }
+      if (pkg.api_provider_id) loadEditRemoteProducts(pkg.api_provider_id, pkg);
+    } catch(e) {}
+  })();
+
+  const loadEditRemoteProducts = async (providerId, existingPkg) => {
+    const remoteProdSelect = qs('#epkg-remote-product', emodal);
+    const remotePlanSelect = qs('#epkg-remote-plan', emodal);
+    if (!remoteProdSelect) return;
+    remoteProdSelect.innerHTML = '<option value="">Đang tải...</option>';
+    try {
+      const products = await apiFetch('/api-providers/' + providerId + '/remote-products');
+      remoteProdSelect.innerHTML = '<option value="">-- Chọn sản phẩm nguồn --</option>' +
+        products.map(p => `<option value="${p.id}" ${existingPkg?.external_product_id == p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+      window._remoteProductsEdit = products;
+      if (existingPkg?.external_product_id) {
+        const match = products.find(p => p.id == existingPkg.external_product_id);
+        if (match) {
+          remotePlanSelect.innerHTML = '<option value="">-- Chọn gói nguồn --</option>' +
+            match.plans.map(pl => `<option value="${pl.id}" ${existingPkg?.external_plan_id == pl.id ? 'selected' : ''}>${esc(pl.name)} - ${pl.price.toLocaleString()}đ</option>`).join('');
+        }
+      }
+    } catch(e) { remoteProdSelect.innerHTML = '<option value="">Lỗi tải</option>'; }
+  };
+
+  const epkgProv = qs('#epkg-provider', emodal);
+  if (epkgProv) {
+    epkgProv.onchange = function() {
+      if (this.value) loadEditRemoteProducts(this.value, {});
+      else {
+        qs('#epkg-remote-product', emodal).innerHTML = '<option value="">-- Chọn provider trước --</option>';
+        qs('#epkg-remote-plan', emodal).innerHTML = '<option value="">-- Chọn sản phẩm trước --</option>';
+      }
+    };
+  }
+  const epkgRemoteProd = qs('#epkg-remote-product', emodal);
+  if (epkgRemoteProd) {
+    epkgRemoteProd.onchange = function() {
+      const remotePlanSelect = qs('#epkg-remote-plan', emodal);
+      const prod = (window._remoteProductsEdit || []).find(p => p.id == this.value);
+      if (prod) {
+        remotePlanSelect.innerHTML = '<option value="">-- Chọn gói nguồn --</option>' +
+          prod.plans.map(pl => `<option value="${pl.id}">${esc(pl.name)} - ${pl.price.toLocaleString()}đ</option>`).join('');
+      } else {
+        remotePlanSelect.innerHTML = '<option value="">-- Chọn sản phẩm trước --</option>';
+      }
+    };
+  }
 
   createRichTextEditor({
     textareaId: 'epkg-notes',
@@ -759,14 +1102,25 @@ function showPackageFormModal(pkg, refresh) {
     e.preventDefault();
     if (window.syncRichTextEditors) window.syncRichTextEditors();
     const isStockManaged = qs('#epkg-stock-toggle', emodal).checked;
+    const isApiE = qs('#epkg-api-toggle', emodal)?.checked;
+    const isManualIdE = qs('#epkg-manual-id', emodal)?.checked;
+    const deliveryVal = isApiE ? 'api' : qs('#epkg-delivery', emodal).value;
+    const extProductE = isApiE ? (isManualIdE ? qs('#epkg-ext-product', emodal)?.value : qs('#epkg-remote-product', emodal)?.value) : null;
+    const extPlanE = isApiE ? (isManualIdE ? qs('#epkg-ext-plan', emodal)?.value : qs('#epkg-remote-plan', emodal)?.value) : null;
     const body = {
       name: qs('#epkg-name', emodal).value,
       price: parseFloat(qs('#epkg-price', emodal).value),
-      delivery_type: qs('#epkg-delivery', emodal).value,
+      delivery_type: deliveryVal,
       description: qs('#epkg-desc', emodal).value || null,
       notes: qs('#epkg-notes', emodal).value || null,
+      image_url: qs('#epkg-image', emodal)?.value || null,
       is_stock_managed: isStockManaged,
       stock_quantity: isStockManaged ? parseInt(qs('#epkg-stock-qty', emodal).value) || 0 : 0,
+      api_provider_id: isApiE ? (parseInt(qs('#epkg-provider', emodal)?.value) || null) : null,
+      external_product_id: extProductE || null,
+      external_plan_id: extPlanE || null,
+      auto_markup: qs('#epkg-auto-markup', emodal)?.checked || false,
+      markup_percent: qs('#epkg-auto-markup', emodal)?.checked ? (parseFloat(qs('#epkg-markup-pct', emodal)?.value) || null) : null,
     };
     try {
       await apiFetch(`/products/packages/${pkg.id}`, { method: 'PUT', body: JSON.stringify(body) });
@@ -1134,38 +1488,62 @@ async function renderAdminStock(view) {
   try {
     const products = await apiFetch('/products/admin/all');
     const autoProducts = products.filter(p => p.packages?.some(pkg => pkg.delivery_type === 'auto'));
-    
-    let html = `
-      ${cuiPageHeader('Kho hàng', 'Theo dõi tồn kho và dữ liệu giao tự động')}
-      
-      <div class="card">
-        <div class="card-header"><div class="card-title">Gói giao tự động</div></div>
-        <div class="table-wrap">
-          <table class="table">
-            <thead><tr><th>ID</th><th>Sản phẩm</th><th>Tên gói</th><th>Trong kho</th><th></th></tr></thead>
-            <tbody>
-    `;
-    
-    if (autoProducts.length) {
-      autoProducts.forEach(p => {
+
+    const tabs = [
+      { key: 'premium', label: 'Premium', icon: 'fa-crown' },
+      { key: 'game', label: 'Topup Game', icon: 'fa-gamepad' },
+      { key: 'giftcard', label: 'Gift Card', icon: 'fa-gift' },
+    ];
+
+    const renderTable = (type) => {
+      const filtered = autoProducts.filter(p => (p.product_type || 'premium') === type);
+      if (!filtered.length) return `<tr><td colspan="5" class="text-center text-muted" style="padding:32px">Chưa có gói giao tự động nào cho loại này.</td></tr>`;
+      let rows = '';
+      filtered.forEach(p => {
         p.packages.filter(pk => pk.delivery_type === 'auto').forEach(pk => {
-          html += `
-            <tr>
-              <td class="text-muted">#${pk.id}</td>
-              <td class="fw-600">${esc(p.name)}</td>
-              <td><span class="badge badge-blue">${esc(pk.name)}</span></td>
-              <td><span class="badge ${pk.stock_count > 0 ? 'badge-green' : 'badge-red'}">${pk.stock_count}</span></td>
-              <td><button class="btn btn-sm btn-primary" data-viewstock="${pk.id}" data-pkgname="${encodeURIComponent(p.name + ' - ' + pk.name)}">Quản lý kho</button></td>
-            </tr>
-          `;
+          rows += `<tr>
+            <td class="text-muted">#${pk.id}</td>
+            <td class="fw-600">${esc(p.name)}</td>
+            <td><span class="badge badge-blue">${esc(pk.name)}</span></td>
+            <td><span class="badge ${pk.stock_count > 0 ? 'badge-green' : 'badge-red'}">${pk.stock_count}</span></td>
+            <td><button class="btn btn-sm btn-primary" data-viewstock="${pk.id}" data-pkgname="${encodeURIComponent(p.name + ' - ' + pk.name)}">Quản lý kho</button></td>
+          </tr>`;
         });
       });
-    } else {
-      html += `<tr><td colspan="5" class="text-center text-muted">Chưa có gói giao tự động nào. Tạo gói với kiểu giao hàng "Tự động" trong trang Sản phẩm.</td></tr>`;
-    }
-    html += `</tbody></table></div></div>`;
-    
+      return rows;
+    };
+
+    let html = `
+      ${cuiPageHeader('Kho hàng', 'Theo dõi tồn kho và dữ liệu giao tự động')}
+      <div class="admin-tabs mb-16">
+        ${tabs.map((t, i) => `<button class="admin-tab ${i === 0 ? 'active' : ''}" data-stock-tab="${t.key}"><i class="fa-solid ${t.icon}"></i> ${t.label}</button>`).join('')}
+      </div>
+      ${tabs.map((t, i) => `
+        <div class="stock-tab-pane" data-stock-pane="${t.key}" style="${i === 0 ? '' : 'display:none'}">
+          <div class="card">
+            <div class="card-header"><div class="card-title">${t.label}</div></div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>ID</th><th>Sản phẩm</th><th>Tên gói</th><th>Trong kho</th><th></th></tr></thead>
+                <tbody>${renderTable(t.key)}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    `;
+
     content.innerHTML = html;
+
+    // Tab switching
+    content.querySelectorAll('[data-stock-tab]').forEach(btn => {
+      btn.onclick = () => {
+        content.querySelectorAll('[data-stock-tab]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        content.querySelectorAll('[data-stock-pane]').forEach(p => p.style.display = 'none');
+        content.querySelector(`[data-stock-pane="${btn.dataset.stockTab}"]`).style.display = '';
+      };
+    });
 
     content.onclick = (e) => {
       const viewBtn = e.target.closest('[data-viewstock]');
@@ -1448,8 +1826,8 @@ async function renderAdminSettings(view) {
 
   content.innerHTML = `
     ${cuiPageHeader('Cài đặt hệ thống', 'Thiết lập hệ thống, giao diện và tính năng')}
-    <div class="settings-tabs" role="tablist">
-      ${tabs.map((t, i) => `<button class="settings-tab ${i === 0 ? 'active' : ''}" data-tab="${t.id}" role="tab" aria-selected="${i === 0}">${t.icon} ${t.label}</button>`).join('')}
+    <div class="admin-tabs" role="tablist">
+      ${tabs.map((t, i) => `<button class="admin-tab ${i === 0 ? 'active' : ''}" data-tab="${t.id}" role="tab" aria-selected="${i === 0}">${t.icon} ${t.label}</button>`).join('')}
     </div>
 
     <form id="settings-unified-form">
@@ -1800,9 +2178,9 @@ async function renderAdminSettings(view) {
   `;
 
   // ── Tab switching ──
-  qsa('.settings-tab', content).forEach(tab => {
+  qsa('.admin-tab', content).forEach(tab => {
     tab.onclick = () => {
-      qsa('.settings-tab', content).forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+      qsa('.admin-tab', content).forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
       qsa('.settings-section', content).forEach(s => s.classList.remove('active'));
       tab.classList.add('active');
       tab.setAttribute('aria-selected', 'true');
@@ -3212,12 +3590,12 @@ async function renderAdminPayments(view) {
     ${cuiPageHeader('Thanh toán', 'Kiểm tra giao dịch và cấu hình thanh toán')}
 
     <!-- Tabs -->
-    <div class="settings-tabs" role="tablist">
-      <button class="settings-tab active" data-paytab="config" role="tab" aria-selected="true">
+    <div class="admin-tabs" role="tablist">
+      <button class="admin-tab active" data-paytab="config" role="tab" aria-selected="true">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         Cấu hình PayOS
       </button>
-      <button class="settings-tab" data-paytab="history" role="tab" aria-selected="false">
+      <button class="admin-tab" data-paytab="history" role="tab" aria-selected="false">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         Lịch sử giao dịch
       </button>
@@ -3509,7 +3887,7 @@ function showAnnouncementModal(ann, onDone) {
 
   const ta = qs('#ann-content');
   const preview = qs('#ann-preview');
-  const updatePreview = () => { if (window.syncRichTextEditors) window.syncRichTextEditors(); preview.innerHTML = ta.value; };
+  const updatePreview = () => { if (window.syncRichTextEditors) window.syncRichTextEditors(); preview.innerHTML = DOMPurify?.sanitize ? DOMPurify.sanitize(ta.value) : ta.value.replace(/<script[\s\S]*?<\/script>/gi, ''); };
   ta.oninput = updatePreview;
   updatePreview();
 
@@ -3563,10 +3941,10 @@ async function renderAdminBalance(view) {
           <button class="btn btn-primary btn-sm" id="admin-create-user-btn">Thêm user</button>
       `)}
 
-      <div class="settings-tabs" role="tablist">
-        <button class="settings-tab ${activeTab === 'users' ? 'active' : ''}" data-tab-btn="users" role="tab" aria-selected="${activeTab === 'users'}">Người dùng</button>
-        <button class="settings-tab ${activeTab === 'txn' ? 'active' : ''}" data-tab-btn="txn" role="tab" aria-selected="${activeTab === 'txn'}">Giao dịch</button>
-        <button class="settings-tab ${activeTab === 'withdraw' ? 'active' : ''}" data-tab-btn="withdraw" role="tab" aria-selected="${activeTab === 'withdraw'}">
+      <div class="admin-tabs" role="tablist">
+        <button class="admin-tab ${activeTab === 'users' ? 'active' : ''}" data-tab-btn="users" role="tab" aria-selected="${activeTab === 'users'}">Người dùng</button>
+        <button class="admin-tab ${activeTab === 'txn' ? 'active' : ''}" data-tab-btn="txn" role="tab" aria-selected="${activeTab === 'txn'}">Giao dịch</button>
+        <button class="admin-tab ${activeTab === 'withdraw' ? 'active' : ''}" data-tab-btn="withdraw" role="tab" aria-selected="${activeTab === 'withdraw'}">
           Yêu cầu rút ${pendingCount > 0 ? `<span class="badge badge-red" style="margin-left:4px">${pendingCount}</span>` : ''}
         </button>
       </div>
@@ -3880,4 +4258,212 @@ async function renderAdminApiKeys(view) {
   } catch (err) {
     content.innerHTML = `<div class="empty-state"><h3>Lỗi</h3><p class="text-muted">${err.message}</p></div>`;
   }
+}
+
+
+// ── API PROVIDERS ──────────────────────────────────
+async function renderAdminApiProviders(view) {
+  if (!view) return;
+  const content = view;
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+
+  const refresh = async () => {
+    const providers = await apiFetch('/api-providers/');
+    content.innerHTML = `
+      ${cuiPageHeader('Đấu nối API', 'Kết nối nguồn sản phẩm bên ngoài', '<button class="btn btn-primary" id="btn-add-provider"><i class="fa-solid fa-plus"></i> Thêm nguồn</button>')}
+      ${providers.length === 0 ? '<div class="empty-state"><i class="fa-solid fa-plug"></i><p>Chưa có nguồn API nào</p></div>' : `
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Tên</th><th>Loại</th><th>Domain</th><th>Số dư</th><th>Trạng thái</th><th></th></tr></thead>
+        <tbody>${providers.map(p => `
+          <tr>
+            <td class="text-muted">#${p.id}</td>
+            <td class="td-bold">${esc(p.name)}</td>
+            <td><span class="badge ${p.provider_type === 'account_premium' ? 'badge-blue' : p.provider_type === 'giftcard' ? 'badge-orange' : 'badge-purple'}">${p.provider_type === 'account_premium' ? 'Account Premium' : p.provider_type === 'giftcard' ? 'Gift Card' : 'Topup Game'}</span></td>
+            <td class="td-mono text-sm">${esc(p.base_url)}</td>
+            <td class="td-balance" id="bal-${p.id}"><span class="text-muted">—</span></td>
+            <td>${p.is_active ? '<span class="badge badge-green">Hoạt động</span>' : '<span class="badge badge-gray">Tắt</span>'}</td>
+            <td><div class="tbl-actions">
+              <button class="tbl-btn" data-test-provider="${p.id}"><i class="fa-solid fa-wifi"></i> Test</button>
+              <button class="tbl-btn tbl-edit" data-edit-provider="${p.id}">Sửa</button>
+              <button class="tbl-btn tbl-delete" data-del-provider="${p.id}">Xóa</button>
+            </div></td>
+          </tr>
+        `).join('')}</tbody>
+      </table></div>`}
+    `;
+    // Auto-fetch balance for active providers
+    for (const p of providers) {
+      if (!p.is_active) continue;
+      const cell = document.getElementById('bal-' + p.id);
+      if (!cell) continue;
+      cell.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-muted"></i>';
+      apiFetch('/api-providers/' + p.id + '/test', { method: 'POST' }).then(res => {
+        if (res.ok && res.data) {
+          const d = res.data;
+          const bal = d.balance !== undefined ? Number(d.balance).toLocaleString('vi-VN') + ' ₫' : (d.formatted || '—');
+          cell.innerHTML = '<span class="text-success fw-600">' + bal + '</span>';
+        } else {
+          cell.innerHTML = '<span class="text-danger">Lỗi</span>';
+        }
+      }).catch(() => { cell.innerHTML = '<span class="text-danger">Lỗi</span>'; });
+    }
+  };
+
+  content.onclick = async (e) => {
+    const addBtn = e.target.closest('#btn-add-provider');
+    if (addBtn) { showProviderModal(null, refresh); return; }
+
+    const editBtn = e.target.closest('[data-edit-provider]');
+    if (editBtn) {
+      const providers = await apiFetch('/api-providers/');
+      const p = providers.find(x => x.id === parseInt(editBtn.dataset.editProvider));
+      showProviderModal(p, refresh);
+      return;
+    }
+
+    const delBtn = e.target.closest('[data-del-provider]');
+    if (delBtn) {
+      if (!confirm('Xóa nguồn API này?')) return;
+      try {
+        await apiFetch('/api-providers/' + delBtn.dataset.delProvider, { method: 'DELETE' });
+        toast('Đã xóa', 'success');
+        refresh();
+      } catch(err) { toast(err.message, 'error'); }
+      return;
+    }
+
+    const testBtn = e.target.closest('[data-test-provider]');
+    if (testBtn) {
+      testBtn.disabled = true;
+      testBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang test...';
+      try {
+        const res = await apiFetch('/api-providers/' + testBtn.dataset.testProvider + '/test', { method: 'POST' });
+        if (res.ok) {
+          const d = res.data || {};
+          const info = d.formatted || (d.balance !== undefined ? Number(d.balance).toLocaleString('vi-VN') + ' ₫' : '') || d.username || 'OK';
+          toast('Kết nối thành công! ' + info, 'success');
+          // Update balance cell
+          const cell = document.getElementById('bal-' + testBtn.dataset.testProvider);
+          if (cell && d.balance !== undefined) {
+            cell.innerHTML = '<span class="text-success fw-600">' + Number(d.balance).toLocaleString('vi-VN') + ' ₫</span>';
+          }
+        } else {
+          toast('Lỗi: ' + (res.error || res.detail || 'Unknown'), 'error');
+        }
+      } catch(err) { toast('Test thất bại: ' + (err.message || err), 'error'); }
+      testBtn.disabled = false;
+      testBtn.innerHTML = '<i class="fa-solid fa-wifi"></i> Test';
+    }
+  };
+
+  await refresh();
+}
+
+function showProviderModal(prov, refresh) {
+  const isEdit = !!prov;
+  openModal(`
+    <form id="provider-form">
+      <div class="form-group"><label class="form-label">Tên hiển thị<span class="req">*</span></label><input class="form-input" id="prov-name" value="${prov?.name || ''}" required placeholder="Ví dụ: Shop ABC" /></div>
+      <div class="form-group"><label class="form-label">Loại API<span class="req">*</span></label>
+        <select class="form-select" id="prov-type" ${isEdit ? 'disabled' : ''}>
+          <option value="account_premium" ${prov?.provider_type === 'account_premium' || !prov ? 'selected' : ''}>Account Premium</option>
+          <option value="topup_game" ${prov?.provider_type === 'topup_game' ? 'selected' : ''}>Topup Game</option>
+          <option value="giftcard" ${prov?.provider_type === 'giftcard' ? 'selected' : ''}>Gift Card</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Domain / Base URL<span class="req">*</span></label><input class="form-input" id="prov-url" value="${prov?.base_url || ''}" required placeholder="https://shop.example.com" /></div>
+      <div class="form-group"><label class="form-label">API Key<span class="req">*</span></label><input class="form-input" id="prov-key" value="" required placeholder="${isEdit ? '(giữ nguyên nếu không đổi)' : 'Nhập API Key'}" ${isEdit ? '' : ''} /></div>
+      <div class="form-group" id="prov-secret-group"><label class="form-label">API Secret</label><input class="form-input" id="prov-secret" value="" placeholder="${isEdit ? '(giữ nguyên nếu không đổi)' : 'Nhập API Secret'}" /></div>
+      <div class="form-group" id="prov-partner-group" style="display:none"><label class="form-label">Partner ID</label><input class="form-input" id="prov-partner-id" value="${prov?.partner_id || ''}" placeholder="Partner ID từ hệ thống thẻ cào" /></div>
+      <div class="form-group" id="prov-callback-group" style="display:none">
+        <label class="form-label">Callback URL</label>
+        <input class="form-input" id="prov-callback-url" readonly value="${location.origin}/api/card-charge/callback" />
+        <div class="text-muted text-sm mt-4">Copy link này dán vào cấu hình callback bên nhà cung cấp thẻ</div>
+      </div>
+      <div id="prov-exchange-group" style="display:none">
+        <div class="form-group">
+          <label class="form-label">Đổi thẻ (nạp số dư)</label>
+          <label class="toggle-switch"><input type="checkbox" id="prov-exchange-toggle" ${prov?.card_rates?.discount_rate != null ? 'checked' : ''} /><span class="toggle-slider"></span></label>
+          <div class="text-muted text-sm mt-4">Bật để cho phép user nạp thẻ cào đổi số dư</div>
+        </div>
+        <div id="prov-exchange-panel" style="display:${prov?.card_rates?.discount_rate != null ? '' : 'none'}">
+          <div class="form-group">
+            <label class="form-label">Chiết khấu chung (%)</label>
+            <input type="number" class="form-input" id="prov-discount-rate" value="${prov?.card_rates?.discount_rate ?? ''}" placeholder="20" min="0" max="100" step="0.5" />
+            <div class="text-muted text-sm mt-4">Áp dụng cho tất cả nhà mạng. VD: 20% → thẻ 100k nhận 80k</div>
+          </div>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Trạng thái</label><select class="form-select" id="prov-active"><option value="true" ${prov?.is_active !== false ? 'selected' : ''}>Hoạt động</option><option value="false" ${prov?.is_active === false ? 'selected' : ''}>Tắt</option></select></div>
+      <div id="prov-form-err" class="form-error mb-12" style="display:none"></div>
+      <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">${isEdit ? 'Cập nhật' : 'Tạo mới'}</button><button type="button" class="btn btn-ghost" id="prov-cancel">Hủy</button></div>
+    </form>
+  `, isEdit ? 'Sửa nguồn API' : 'Thêm nguồn API');
+
+  const typeSelect = qs('#prov-type');
+  const secretGroup = qs('#prov-secret-group');
+  const partnerGroup = qs('#prov-partner-group');
+  const callbackGroup = qs('#prov-callback-group');
+  const exchangeGroup = qs('#prov-exchange-group');
+  const updateSecretVis = () => {
+    const t = typeSelect.value;
+    secretGroup.style.display = t === 'account_premium' ? '' : 'none';
+    partnerGroup.style.display = t === 'giftcard' ? '' : 'none';
+    callbackGroup.style.display = t === 'giftcard' ? '' : 'none';
+    exchangeGroup.style.display = t === 'giftcard' ? '' : 'none';
+    // Update API Key label based on type
+    const keyLabel = qs('#prov-key').closest('.form-group').querySelector('.form-label');
+    if (keyLabel) keyLabel.innerHTML = t === 'giftcard' ? 'Partner Key<span class="req">*</span>' : 'API Key<span class="req">*</span>';
+  };
+  typeSelect.onchange = updateSecretVis;
+  updateSecretVis();
+
+  // Exchange toggle
+  const exchangeToggle = qs('#prov-exchange-toggle');
+  const exchangePanel = qs('#prov-exchange-panel');
+  if (exchangeToggle) {
+    exchangeToggle.onchange = () => { exchangePanel.style.display = exchangeToggle.checked ? '' : 'none'; };
+  }
+
+  // Copy callback URL on click
+  const cbUrl = qs('#prov-callback-url');
+  if (cbUrl) cbUrl.onclick = () => { navigator.clipboard.writeText(cbUrl.value); toast('Đã copy callback URL', 'success'); };
+
+  qs('#prov-cancel').onclick = closeModal;
+  qs('#provider-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const provType = prov?.provider_type || qs('#prov-type').value;
+    const body = {
+      name: qs('#prov-name').value,
+      provider_type: provType,
+      base_url: qs('#prov-url').value,
+      api_key: qs('#prov-key').value,
+      api_secret: provType === 'account_premium' ? (qs('#prov-secret').value || undefined) : null,
+      is_active: qs('#prov-active').value === 'true',
+    };
+    if (provType === 'giftcard') {
+      body.partner_id = qs('#prov-partner-id')?.value || null;
+      if (qs('#prov-exchange-toggle')?.checked) {
+        const dr = parseFloat(qs('#prov-discount-rate')?.value);
+        body.card_rates = { discount_rate: isNaN(dr) ? 0 : dr, exchange_enabled: true };
+      } else {
+        body.card_rates = { exchange_enabled: false };
+      }
+    }
+    // If editing and key is empty, don't send it (keep old)
+    if (isEdit && !body.api_key) delete body.api_key;
+    if (isEdit && body.api_secret === undefined) delete body.api_secret;
+
+    try {
+      if (isEdit) await apiFetch('/api-providers/' + prov.id, { method: 'PUT', body: JSON.stringify(body) });
+      else await apiFetch('/api-providers/', { method: 'POST', body: JSON.stringify(body) });
+      closeModal();
+      toast(isEdit ? 'Đã cập nhật' : 'Đã tạo nguồn mới', 'success');
+      refresh();
+    } catch(err) {
+      const el = qs('#prov-form-err');
+      el.textContent = err.message;
+      el.style.display = 'block';
+    }
+  };
 }

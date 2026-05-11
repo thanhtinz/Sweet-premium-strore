@@ -293,4 +293,30 @@ def delete_field(field_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+@router.get("/packages/{pkg_id}/api-fields")
+async def get_api_fields(pkg_id: int, db: Session = Depends(get_db)):
+    """Public endpoint: get fields from API provider for an api-backed package."""
+    from db.models import ApiProvider as ApiProviderModel
+    pkg = db.query(ProductPackage).filter(ProductPackage.id == pkg_id).first()
+    if not pkg or pkg.delivery_type != "api" or not pkg.api_provider_id:
+        return []
+    provider_row = db.query(ApiProviderModel).filter(ApiProviderModel.id == pkg.api_provider_id).first()
+    if not provider_row:
+        return []
+    try:
+        from api.providers import get_provider
+        adapter = get_provider(provider_row)
+        plans = await adapter.get_plans(pkg.external_product_id or "")
+        # Find matching plan
+        for plan in plans:
+            if plan.id == pkg.external_plan_id:
+                return plan.fields
+        # If no exact match, return fields from first plan
+        if plans:
+            return plans[0].fields
+        return []
+    except Exception:
+        return []
+
+
 __all__ = ["router", "slugify", "pkg_to_dict", "product_to_dict"]

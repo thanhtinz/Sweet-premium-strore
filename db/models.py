@@ -23,6 +23,23 @@ class UploadedImage(Base):
     created_at = Column(DateTime(timezone=True), default=now_utc)
 
 
+class ApiProvider(Base):
+    __tablename__ = "api_providers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    provider_type = Column(String(50), nullable=False)  # account_premium | topup_game | giftcard
+    partner_id = Column(String(100), nullable=True)  # giftcard protocol: partner_id
+    card_rates = Column(JSON, nullable=True)  # giftcard: {"VIETTEL":{"10000":20,...},...} = % chiết khấu nạp thẻ
+    base_url = Column(String(500), nullable=False)
+    api_key = Column(Text, nullable=False)
+    api_secret = Column(Text, nullable=True)  # only account_premium
+    is_active = Column(Boolean, default=True)
+    settings = Column(JSON, default={})
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+    updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
+
+
 class Category(Base):
     __tablename__ = "categories"
 
@@ -32,6 +49,7 @@ class Category(Base):
     icon_url = Column(Text)
     image_url = Column(String(500), nullable=True)
     parent_id = Column(Integer, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
+    product_type = Column(String(20), default="premium")  # premium | game | giftcard
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=now_utc)
@@ -65,6 +83,8 @@ class Product(Base):
     is_featured = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     sort_order = Column(Integer, default=0)
+    topup_type = Column(String(20), nullable=True)    # uid | login (game only)
+    server_region = Column(String(20), nullable=True)  # vietnam | global (game only)
     created_at = Column(DateTime(timezone=True), default=now_utc)
     updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
 
@@ -83,14 +103,21 @@ class ProductPackage(Base):
     original_price = Column(Numeric(12, 2))
     description = Column(Text)
     notes = Column(Text)  # warnings/notes specific to this package
-    delivery_type = Column(String(20), default="manual")  # manual | auto
+    image_url = Column(Text, nullable=True)  # package image/icon
+    delivery_type = Column(String(20), default="manual")  # manual | auto | api
     is_stock_managed = Column(Boolean, default=False)  # toggle kho cho gói thủ công
     stock_quantity = Column(Integer, default=0)  # số lượng tồn kho (cho gói bật quản lý kho)
+    api_provider_id = Column(Integer, ForeignKey("api_providers.id", ondelete="SET NULL"), nullable=True)
+    external_product_id = Column(String(255), nullable=True)  # product ID on source
+    external_plan_id = Column(String(255), nullable=True)     # plan ID on source
+    auto_markup = Column(Boolean, default=False)  # auto price = source × (1 + markup/100)
+    markup_percent = Column(Numeric(5, 2), nullable=True)  # % tăng giá, VD: 15 = +15%
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=now_utc)
 
     product = relationship("Product", back_populates="packages")
+    api_provider = relationship("ApiProvider")
     stock_items = relationship("StockItem", back_populates="package", cascade="all, delete-orphan")
     fields = relationship("PackageField", back_populates="package", cascade="all, delete-orphan")
 
@@ -143,10 +170,13 @@ class Order(Base):
     custom_fields_data = Column(JSON)
     delivery_data = Column(Text)
     notes = Column(Text)
+    api_provider_id = Column(Integer, ForeignKey("api_providers.id", ondelete="SET NULL"), nullable=True)
+    external_order_id = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=now_utc)
     updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
 
     package = relationship("ProductPackage")
+    api_provider = relationship("ApiProvider")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
 
 
@@ -164,6 +194,8 @@ class OrderItem(Base):
     custom_fields_data = Column(JSON)
     delivery_data = Column(Text)
     status = Column(String(20), default="pending")
+    external_order_id = Column(String(255), nullable=True)
+    api_status = Column(String(50), nullable=True)
     created_at = Column(DateTime(timezone=True), default=now_utc)
     updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
 
@@ -491,3 +523,31 @@ class ApiKey(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=now_utc)
     last_used_at = Column(DateTime(timezone=True), nullable=True)
+
+
+# ── Card Charge (đổi thẻ nạp số dư) ─────────────────
+
+class CardChargeTransaction(Base):
+    __tablename__ = "card_charge_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    telco = Column(String(30), nullable=False)  # VIETTEL, VINAPHONE, MOBIFONE, VNMOBI...
+    code = Column(String(100), nullable=False)
+    serial = Column(String(100), nullable=False)
+    declared_amount = Column(Numeric(12, 2), nullable=False)  # mệnh giá khai báo
+    real_value = Column(Numeric(12, 2), nullable=True)  # mệnh giá thực (từ callback)
+    discount_rate = Column(Numeric(5, 2), nullable=False, default=0)  # % chiết khấu tại thời điểm gửi
+    credited_amount = Column(Numeric(12, 2), nullable=True)  # tiền cộng cho user (0 nếu sai/lỗi)
+    request_id = Column(String(100), unique=True, nullable=False, index=True)
+    trans_id = Column(String(100), nullable=True)  # mã GD bên đối tác
+    api_provider_id = Column(Integer, ForeignKey("api_providers.id", ondelete="SET NULL"), nullable=True)
+    status = Column(String(20), default="pending")  # pending|success|wrong_amount|failed|maintenance
+    callback_data = Column(JSON, nullable=True)  # raw callback JSON
+    balance_transaction_id = Column(Integer, ForeignKey("balance_transactions.id"), nullable=True)
+    ip_address = Column(String(50), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+    updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
+
+    user = relationship("User")
+    api_provider = relationship("ApiProvider")

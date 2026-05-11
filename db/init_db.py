@@ -4,7 +4,8 @@ from db import Base, DATABASE_PROVIDER, engine
 from db.models import (  # noqa: F401 — import to register models
     Category, Product, ProductPackage, StockItem,
     PackageField, Order, OrderItem, SiteSetting, AdminUser, User,
-    Announcement, UploadedImage, UserBotLink, ApiKey
+    Announcement, UploadedImage, UserBotLink, ApiKey, ApiProvider,
+    CardChargeTransaction,
 )
 from db.schema_version import LATEST_SCHEMA_VERSION, apply_versioned_patches
 
@@ -129,6 +130,90 @@ def _patch_v3(conn):
         ])
 
 
+def _patch_v4(conn):
+    """Add API provider support: new columns on categories, products, product_packages, orders, order_items."""
+    inspector = inspect(conn)
+    timestamp_type = "TIMESTAMP WITH TIME ZONE" if _dialect_name() == "postgresql" else "TIMESTAMP NULL"
+
+    # Category: product_type
+    _add_missing_columns(conn, inspector, "categories", [
+        ("product_type", "product_type VARCHAR(20) DEFAULT 'premium'"),
+    ])
+
+    # Product: topup_type, server_region
+    _add_missing_columns(conn, inspector, "products", [
+        ("topup_type", "topup_type VARCHAR(20)"),
+        ("server_region", "server_region VARCHAR(20)"),
+    ])
+
+    # ProductPackage: image_url, api fields
+    _add_missing_columns(conn, inspector, "product_packages", [
+        ("image_url", "image_url TEXT"),
+        ("api_provider_id", "api_provider_id INTEGER REFERENCES api_providers(id) ON DELETE SET NULL"),
+        ("external_product_id", "external_product_id VARCHAR(255)"),
+        ("external_plan_id", "external_plan_id VARCHAR(255)"),
+    ])
+
+    # Order: api fields
+    _add_missing_columns(conn, inspector, "orders", [
+        ("api_provider_id", "api_provider_id INTEGER REFERENCES api_providers(id) ON DELETE SET NULL"),
+        ("external_order_id", "external_order_id VARCHAR(255)"),
+    ])
+
+    # OrderItem: api fields
+    _add_missing_columns(conn, inspector, "order_items", [
+        ("external_order_id", "external_order_id VARCHAR(255)"),
+        ("api_status", "api_status VARCHAR(50)"),
+    ])
+
+
+def _patch_v5(conn):
+    """Add giftcard support: card_charge_transactions table, api_providers partner_id/card_rates, package auto_markup."""
+    inspector = inspect(conn)
+
+    # api_providers: partner_id + card_rates
+    _add_missing_columns(conn, inspector, "api_providers", [
+        ("partner_id", "partner_id VARCHAR(100)"),
+        ("card_rates", "card_rates JSON"),
+    ])
+
+    # product_packages: auto_markup
+    _add_missing_columns(conn, inspector, "product_packages", [
+        ("auto_markup", "auto_markup BOOLEAN DEFAULT FALSE"),
+        ("markup_percent", "markup_percent NUMERIC(5,2)"),
+    ])
+
+    # card_charge_transactions table
+    if not inspector.has_table("card_charge_transactions"):
+        num_type = "NUMERIC(12,2)"
+        rate_type = "NUMERIC(5,2)"
+        ts_type = "TIMESTAMP WITH TIME ZONE" if _dialect_name() == "postgresql" else "TIMESTAMP NULL"
+        conn.execute(text(f"""
+            CREATE TABLE card_charge_transactions (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                telco VARCHAR(30) NOT NULL,
+                code VARCHAR(100) NOT NULL,
+                serial VARCHAR(100) NOT NULL,
+                declared_amount {num_type} NOT NULL,
+                real_value {num_type},
+                discount_rate {rate_type} NOT NULL DEFAULT 0,
+                credited_amount {num_type},
+                request_id VARCHAR(100) NOT NULL UNIQUE,
+                trans_id VARCHAR(100),
+                api_provider_id INTEGER REFERENCES api_providers(id) ON DELETE SET NULL,
+                status VARCHAR(20) DEFAULT 'pending',
+                callback_data JSON,
+                balance_transaction_id INTEGER REFERENCES balance_transactions(id),
+                ip_address VARCHAR(50),
+                created_at {ts_type} DEFAULT NOW(),
+                updated_at {ts_type} DEFAULT NOW()
+            )
+        """))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_card_charge_user ON card_charge_transactions(user_id)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_card_charge_request ON card_charge_transactions(request_id)"))
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
     with engine.begin() as conn:
@@ -136,6 +221,8 @@ def init_db():
             (1, _patch_v1),
             (2, _patch_v2),
             (3, _patch_v3),
+            (4, _patch_v4),
+            (5, _patch_v5),
         ])
-        if LATEST_SCHEMA_VERSION < 3:
+        if LATEST_SCHEMA_VERSION < 5:
             raise RuntimeError("LATEST_SCHEMA_VERSION is behind applied patch definitions")

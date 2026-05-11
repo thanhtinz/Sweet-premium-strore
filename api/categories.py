@@ -23,6 +23,7 @@ class CategoryCreate(BaseModel):
     icon_url: Optional[str] = None
     image_url: Optional[str] = None
     parent_id: Optional[int] = None
+    product_type: str = "premium"  # premium | game
     sort_order: int = 0
     is_active: bool = True
 
@@ -33,6 +34,7 @@ class CategoryUpdate(BaseModel):
     icon_url: Optional[str] = None
     image_url: Optional[str] = None
     parent_id: Optional[int] = None
+    product_type: Optional[str] = None
     sort_order: Optional[int] = None
     is_active: Optional[bool] = None
 
@@ -55,6 +57,7 @@ def cat_to_dict(cat: Category, include_children=False) -> dict:
         "icon_url": cat.icon_url,
         "image_url": cat.image_url,
         "parent_id": cat.parent_id,
+        "product_type": cat.product_type or "premium",
         "sort_order": cat.sort_order,
         "is_active": cat.is_active,
         "created_at": cat.created_at.isoformat() if cat.created_at else None,

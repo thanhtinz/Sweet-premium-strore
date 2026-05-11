@@ -122,20 +122,83 @@ async function renderProfile(view) {
       view.appendChild(balanceCard);
 
       // Topup modal
-      qs('#btn-topup', balanceCard).onclick = () => {
+      qs('#btn-topup', balanceCard).onclick = async () => {
+      // Fetch card charge rates
+      let cardRates = { available: false, exchange_enabled: false, telcos: [], amounts: [], rates: {} };
+      try { cardRates = await apiFetch('/card-charge/rates'); } catch(e) {}
+
       openModal(`
         <h3 class="modal-title mb-16"><i class="fa-solid fa-plus-circle"></i> Nạp tiền vào tài khoản</h3>
-        <div class="form-group">
-          <label class="form-label">Số tiền nạp</label>
-          <input type="number" class="form-input" id="topup-amount" min="10000" max="10000000" step="1000" placeholder="Nhập số tiền..." style="font-size:18px;font-weight:700;" />
-          <div class="form-hint">Tối thiểu 10,000 candy — Tối đa 10,000,000 candy</div>
+        <div class="settings-tabs mb-16" id="topup-tabs">
+          <button class="settings-tab active" data-topup-tab="bank"><i class="fa-solid fa-building-columns"></i> Chuyển khoản</button>
+          ${cardRates.exchange_enabled ? '<button class="settings-tab" data-topup-tab="card"><i class="fa-solid fa-credit-card"></i> Thẻ cào</button>' : ''}
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-          ${[50000,100000,200000,500000,1000000].map(v => `<button class="btn btn-ghost btn-sm topup-preset" data-amount="${v}">${fmt(v)}</button>`).join('')}
+        <div id="topup-bank-panel">
+          <div class="form-group">
+            <label class="form-label">Số tiền nạp</label>
+            <input type="number" class="form-input" id="topup-amount" min="10000" max="10000000" step="1000" placeholder="Nhập số tiền..." style="font-size:18px;font-weight:700;" />
+            <div class="form-hint">Tối thiểu 10,000 candy — Tối đa 10,000,000 candy</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+            ${[50000,100000,200000,500000,1000000].map(v => `<button class="btn btn-ghost btn-sm topup-preset" data-amount="${v}">${fmt(v)}</button>`).join('')}
+          </div>
+          <div id="topup-err" class="form-error mb-12" style="display:none"></div>
+          <button class="btn btn-primary btn-full" id="btn-topup-submit"><i class="fa-solid fa-qrcode"></i> Nạp qua PayOS</button>
         </div>
-        <div id="topup-err" class="form-error mb-12" style="display:none"></div>
-        <button class="btn btn-primary btn-full" id="btn-topup-submit"><i class="fa-solid fa-qrcode"></i> Nạp qua PayOS</button>
+        <div id="topup-card-panel" style="display:none">
+          <div class="form-group">
+            <label class="form-label">Nhà mạng</label>
+            <select class="form-select" id="card-telco">
+              ${cardRates.telcos.map(t => `<option value="${t}">${t}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mệnh giá</label>
+            <select class="form-select" id="card-amount">
+              ${cardRates.amounts.map(a => `<option value="${a}">${Number(a).toLocaleString('vi-VN')}đ</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mã thẻ</label>
+            <input class="form-input" id="card-code" placeholder="Nhập mã thẻ cào" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Serial</label>
+            <input class="form-input" id="card-serial" placeholder="Nhập số serial" required />
+          </div>
+          <div id="card-discount-info" class="text-sm text-muted mb-12"></div>
+          <div id="card-err" class="form-error mb-12" style="display:none"></div>
+          <button class="btn btn-primary btn-full" id="btn-card-submit"><i class="fa-solid fa-paper-plane"></i> Gửi thẻ</button>
+          <div class="text-xs text-muted mt-8" style="text-align:center">⚠️ Thẻ sai mệnh giá sẽ bị mất, không được hoàn trả</div>
+        </div>
       `);
+      // Tab switching
+      qsa('[data-topup-tab]').forEach(tab => {
+        tab.onclick = () => {
+          qsa('[data-topup-tab]').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          const isBank = tab.dataset.topupTab === 'bank';
+          qs('#topup-bank-panel').style.display = isBank ? '' : 'none';
+          qs('#topup-card-panel').style.display = isBank ? 'none' : '';
+        };
+      });
+
+      // Card discount info
+      const updateCardDiscount = () => {
+        const amount = parseInt(qs('#card-amount')?.value || 0);
+        const discount = cardRates.discount_rate || 0;
+        const credited = Math.round(amount * (1 - discount / 100));
+        const infoEl = qs('#card-discount-info');
+        if (infoEl) {
+          infoEl.innerHTML = discount > 0
+            ? `Chiết khấu <strong>${discount}%</strong> — Thực nhận: <strong style="color:#10b981">${Number(credited).toLocaleString('vi-VN')}đ</strong>`
+            : 'Không có chiết khấu';
+        }
+      };
+      if (qs('#card-telco')) { qs('#card-telco').onchange = updateCardDiscount; }
+      if (qs('#card-amount')) { qs('#card-amount').onchange = updateCardDiscount; }
+      updateCardDiscount();
+
       qsa('.topup-preset').forEach(btn => {
         btn.onclick = () => { qs('#topup-amount').value = btn.dataset.amount; };
       });
@@ -158,6 +221,39 @@ async function renderProfile(view) {
           btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-qrcode"></i> Nạp qua PayOS';
         }
       };
+
+      // Card charge submit
+      if (qs('#btn-card-submit')) {
+        qs('#btn-card-submit').onclick = async () => {
+          const telco = qs('#card-telco').value;
+          const amount = parseInt(qs('#card-amount').value);
+          const code = qs('#card-code').value.trim();
+          const serial = qs('#card-serial').value.trim();
+          const errEl = qs('#card-err');
+          if (!code || !serial) {
+            errEl.textContent = 'Vui lòng nhập mã thẻ và serial'; errEl.style.display = 'block'; return;
+          }
+          const btn = qs('#btn-card-submit');
+          btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang gửi...';
+          try {
+            const res = await apiFetch('/card-charge/submit', { method: 'POST', body: JSON.stringify({ telco, amount, code, serial }) });
+            closeModal();
+            if (res.status === 'success') {
+              toast(`Nạp thẻ thành công! +${Number(res.credited_amount).toLocaleString('vi-VN')}đ`, 'success');
+            } else if (res.status === 'pending') {
+              toast('Thẻ đang được xử lý, vui lòng chờ...', 'info', 5000);
+            } else if (res.status === 'wrong_amount') {
+              toast('Thẻ sai mệnh giá — không được cộng tiền', 'error', 5000);
+            } else {
+              toast(res.message || 'Nạp thẻ thất bại', 'error');
+            }
+            renderProfile(view);
+          } catch(err) {
+            errEl.textContent = err.message; errEl.style.display = 'block';
+            btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Gửi thẻ';
+          }
+        };
+      }
     };
 
     // Affiliate withdraw
@@ -744,8 +840,8 @@ async function renderProfile(view) {
     view.appendChild(txCard);
 
     const txWrap = qs('#profile-tx-list', view);
-    const typeLabels = { topup:'Nạp tiền', purchase:'Mua hàng', affiliate_withdraw:'Rút hoa hồng', admin_adjust:'Admin điều chỉnh', refund:'Hoàn tiền' };
-    const typeIcons = { topup:'fa-plus-circle', purchase:'fa-shopping-cart', affiliate_withdraw:'fa-arrow-right-from-bracket', admin_adjust:'fa-sliders', refund:'fa-rotate-left' };
+    const typeLabels = { topup:'Nạp tiền', purchase:'Mua hàng', affiliate_withdraw:'Rút hoa hồng', admin_adjust:'Admin điều chỉnh', refund:'Hoàn tiền', card_charge:'Nạp thẻ cào' };
+    const typeIcons = { topup:'fa-plus-circle', purchase:'fa-shopping-cart', affiliate_withdraw:'fa-arrow-right-from-bracket', admin_adjust:'fa-sliders', refund:'fa-rotate-left', card_charge:'fa-credit-card' };
     const statusLabels = { pending:'Đang chờ', completed:'Thành công', failed:'Thất bại' };
     const statusClasses = { pending:'badge-yellow', completed:'badge-green', failed:'badge-red' };
     const renderTxItem = (t) => {

@@ -62,6 +62,7 @@ const routes = {
   '/admin/payments': renderAdminPayments,
   '/admin/balance': renderAdminBalance,
   '/admin/api-keys': renderAdminApiKeys,
+  '/admin/api-providers': renderAdminApiProviders,
   '/blog': renderBlogList,
   '/blog/:slug': renderBlogPost,
   '/profile': renderProfile,
@@ -294,6 +295,7 @@ async function loadSidebar() {
         { href: '/admin/categories', icon: '<i class="fa-solid fa-folder-tree"></i>', text: 'Danh mục' },
         { href: '/admin/products', icon: '<i class="fa-solid fa-bag-shopping"></i>', text: 'Sản phẩm' },
         { href: '/admin/stock', icon: '<i class="fa-solid fa-boxes-stacked"></i>', text: 'Kho tài khoản' },
+        { href: '/admin/api-providers', icon: '<i class="fa-solid fa-plug"></i>', text: 'Đấu nối API' },
         { divider: 'Tính năng' },
         { href: '/admin/banners', icon: '<i class="fa-solid fa-image"></i>', text: 'Banners' },
         { href: '/admin/flash-sales', icon: '<i class="fa-solid fa-bolt"></i>', text: 'Flash Sales' },
@@ -352,9 +354,9 @@ async function loadSidebar() {
     // ── Danh mục ──
     nav.innerHTML += '<div class="sidebar-section-title">Danh mục</div>';
     const defaultIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
-    categories.forEach(cat => {
-      const subs = (cat.children || []).filter(s => s.is_active !== false);
-      const hasSubs = subs.length > 0;
+    categories.filter(cat => !cat.product_type || cat.product_type === 'premium').forEach(cat => {
+      const subs = [];
+      const hasSubs = false;
       const iconUrl = cat.image_url || cat.icon_url;
       const icon = iconUrl ? `<img src="${iconUrl}" alt="" style="width:18px;height:18px;object-fit:contain;border-radius:2px;" />` : defaultIcon;
 

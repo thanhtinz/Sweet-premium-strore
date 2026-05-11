@@ -1,7 +1,7 @@
 from sqlalchemy import inspect, text
 
 SCHEMA_VERSION_TABLE = "schema_version_state"
-LATEST_SCHEMA_VERSION = 3
+LATEST_SCHEMA_VERSION = 5
 
 
 def ensure_schema_version_table(conn):

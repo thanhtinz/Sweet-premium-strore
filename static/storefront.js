@@ -6,13 +6,20 @@ async function renderHome(view) {
   if (!view) return;
   
   // ── Parallel API calls ───────────────────────────────────
-  const [banners, flashSales, featuredData, announcementsData] = await Promise.all([
+  // Identify game categories
+  const gameCatSlugs = categories.filter(c => c.product_type === 'game').map(c => c.slug);
+  const hasGameCats = gameCatSlugs.length > 0;
+
+  const [banners, flashSales, featuredData, announcementsData, gameProductsData] = await Promise.all([
     apiFetch('/banners/').catch(() => []),
     apiFetch('/flash-sales/active').catch(() => []),
     apiFetch('/products/featured?limit=12').catch(() => []),
     appSettings.features && appSettings.features.announcements !== false
       ? apiFetch('/announcements/').catch(() => ({ items: [] }))
-      : Promise.resolve({ items: [] })
+      : Promise.resolve({ items: [] }),
+    hasGameCats
+      ? apiFetch(`/products/?category_slug=${gameCatSlugs[0]}&limit=18`).catch(() => ({ items: [] }))
+      : Promise.resolve({ items: [] }),
   ]);
 
   // Also fetch home category products in parallel
@@ -27,7 +34,6 @@ async function renderHome(view) {
     const catResults = await Promise.all(catFetches);
     catResults.forEach(r => { if (r.data) homeCatProducts[r.slug] = r.data; });
   }
-
   // Once data is ready, clear the loading state and rebuild UI
   view.innerHTML = '';
   const heroBanners = banners.filter(b => b.banner_type === 'hero');
@@ -175,8 +181,9 @@ function paymentMethodLabel(method) {
     }
   }
 
-  // ── Category Tabs + Subcategory Grid ──────────────────────
-  if (categories.length) {
+  // ── Category Tabs + Subcategory Grid (exclude game categories) ──
+  const premiumCategories = categories.filter(c => c.product_type !== 'game' && c.product_type !== 'giftcard');
+  if (premiumCategories.length) {
     const catSection = el('div', 'cat-section');
 
     // Parent category pills
@@ -184,7 +191,7 @@ function paymentMethodLabel(method) {
     const allPill = el('button', 'cat-pill active', `${ico.grid} <span>Tất cả</span>`);
     allPill.dataset.slug = '';
     pills.appendChild(allPill);
-    categories.forEach(cat => {
+    premiumCategories.forEach(cat => {
       const pill = el('button', 'cat-pill');
       const iconUrl = cat.image_url || cat.icon_url;
       const iconHtml = iconUrl ? `<img src="${withImageFallback(iconUrl)}" alt="" loading="lazy" decoding="async" onerror="${onImgFallback()}" style="width:16px;height:16px;object-fit:contain;border-radius:2px;margin-right:4px;" />` : ico.box;
@@ -204,8 +211,8 @@ function paymentMethodLabel(method) {
       let children = [];
       let parent = null;
       if (!parentSlug) {
-        // "Tất cả" — show all children from all parents
-        categories.forEach(c => { if (c.children?.length) children.push(...c.children); });
+        // "Tất cả" — show all children from all premium parents
+        premiumCategories.forEach(c => { if (c.children?.length) children.push(...c.children); });
       } else {
         parent = categories.find(c => c.slug === parentSlug);
         if (parent?.children?.length) children = parent.children;
@@ -349,6 +356,142 @@ function paymentMethodLabel(method) {
         frag.appendChild(el('p', 'text-muted mb-32', 'Đang cập nhật sản phẩm...'));
       }
     }
+  }
+
+  // ── Topup Game Section ─────────────────────────────────
+  const gameItems = gameProductsData?.items || gameProductsData || [];
+  if (hasGameCats && gameItems.length) {
+    const gameHead = el('div', 'section-head mt-32');
+    gameHead.innerHTML = `<div class="section-title mb-0"><i class="fa-solid fa-gamepad"></i> Topup Game</div><a href="/all?cat=${gameCatSlugs[0]}" class="btn btn-primary btn-sm" style="font-weight: 600;">Xem tất cả <i class="fa-solid fa-arrow-right"></i></a>`;
+    frag.appendChild(gameHead);
+    const gameGrid = el('div', 'home-game-slider');
+    const perPage = 6;
+    const totalPages = Math.ceil(gameItems.length / perPage);
+    const track = el('div', 'hgs-track');
+    for (let page = 0; page < totalPages; page++) {
+      const pageEl = el('div', 'hgs-page');
+      gameItems.slice(page * perPage, (page + 1) * perPage).forEach(p => {
+        const card = el('div', 'home-game-card');
+        card.onclick = () => navigateTo(`/product/${p.slug}`);
+        card.innerHTML = `
+          <div class="hgc-img">${p.image_url ? `<img src="${p.image_url}" alt="${esc(p.name)}" loading="lazy" />` : `<div class="hgc-img-ph"><i class="fa-solid fa-gamepad"></i></div>`}
+            ${p.topup_type ? `<span class="hgc-tag hgc-tag-topup">${p.topup_type === 'uid' ? '<i class="fa-solid fa-id-badge"></i> UID' : '<i class="fa-solid fa-right-to-bracket"></i> Login'}</span>` : ''}
+            ${p.server_region ? `<span class="hgc-tag hgc-tag-server">${p.server_region === 'vietnam' ? '🇻🇳 VN' : '🌐 Global'}</span>` : ''}
+          </div>
+          <div class="hgc-body">
+            <div class="hgc-name">${esc(p.name)}</div>
+            <div class="hgc-meta">
+              <span class="hgc-rating"><i class="fa-solid fa-star"></i> ${p.review_avg ? p.review_avg.toFixed(1) : '0'}</span>
+              ${p.sold_count > 0 ? `<span class="hgc-sold">${p.sold_count > 1000 ? (p.sold_count / 1000).toFixed(1) + 'K' : p.sold_count} Sold</span>` : ''}
+            </div>
+          </div>
+        `;
+        pageEl.appendChild(card);
+      });
+      track.appendChild(pageEl);
+    }
+    gameGrid.appendChild(track);
+
+    // Dots
+    if (totalPages > 1) {
+      const dots = el('div', 'hgs-dots');
+      for (let i = 0; i < totalPages; i++) {
+        const dot = el('span', 'hgs-dot' + (i === 0 ? ' active' : ''));
+        dot.dataset.page = i;
+        dots.appendChild(dot);
+      }
+      gameGrid.appendChild(dots);
+
+      let currentPage = 0;
+      const goTo = (idx) => {
+        currentPage = idx;
+        track.style.transform = `translateX(-${idx * 100}%)`;
+        dots.querySelectorAll('.hgs-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+      };
+      dots.onclick = (e) => { const d = e.target.closest('.hgs-dot'); if (d) goTo(parseInt(d.dataset.page)); };
+
+      // Touch swipe
+      let startX = 0, startY = 0, dragging = false;
+      track.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; startY = e.touches[0].clientY; dragging = true; }, { passive: true });
+      track.addEventListener('touchend', (e) => {
+        if (!dragging) return;
+        dragging = false;
+        const dx = e.changedTouches[0].clientX - startX;
+        const dy = e.changedTouches[0].clientY - startY;
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+          if (dx < 0 && currentPage < totalPages - 1) goTo(currentPage + 1);
+          else if (dx > 0 && currentPage > 0) goTo(currentPage - 1);
+        }
+      }, { passive: true });
+    }
+
+    frag.appendChild(gameGrid);
+
+  // ── Gift Card Section (tabs by category + logo grid) ─────
+  const giftcardCats = categories.filter(c => c.product_type === 'giftcard' && c.is_active);
+  if (giftcardCats.length) {
+    const gcSection = el('div', 'gc-section mt-32');
+
+    // Header
+    const gcHead = el('div', 'section-head');
+    gcHead.innerHTML = `<div class="section-title mb-0"><i class="fa-solid fa-gift"></i> Gift Card</div>`;
+    gcSection.appendChild(gcHead);
+
+    // Tabs (one per giftcard category)
+    const gcTabs = el('div', 'gc-tabs');
+    giftcardCats.forEach((cat, i) => {
+      const tab = el('button', 'gc-tab' + (i === 0 ? ' active' : ''));
+      tab.dataset.gcCat = cat.slug;
+      tab.textContent = cat.name;
+      gcTabs.appendChild(tab);
+    });
+    gcSection.appendChild(gcTabs);
+
+    // Grid container
+    const gcGrid = el('div', 'gc-grid');
+    gcGrid.innerHTML = '<div class="gc-grid-loading"><div class="spinner"></div></div>';
+    gcSection.appendChild(gcGrid);
+
+    // Load products for a category
+    const loadGcCat = async (slug) => {
+      gcGrid.innerHTML = '<div class="gc-grid-loading"><div class="spinner"></div></div>';
+      try {
+        const data = await apiFetch(`/products/?category_slug=${slug}&limit=30`);
+        const items = data.items || data || [];
+        if (!items.length) {
+          gcGrid.innerHTML = '<div class="text-muted text-center" style="padding:32px 0;grid-column:1/-1">Chưa có sản phẩm</div>';
+          return;
+        }
+        gcGrid.innerHTML = '';
+        items.forEach(p => {
+          const card = el('div', 'gc-card');
+          card.onclick = () => navigateTo(`/product/${p.slug}`);
+          if (p.image_url) {
+            card.innerHTML = `<img src="${p.image_url}" alt="${esc(p.name)}" loading="lazy" decoding="async" />`;
+          } else {
+            card.innerHTML = `<div class="gc-card-name">${esc(p.name)}</div>`;
+          }
+          gcGrid.appendChild(card);
+        });
+      } catch(e) {
+        gcGrid.innerHTML = '<div class="text-muted text-center" style="padding:32px 0;grid-column:1/-1">Lỗi tải dữ liệu</div>';
+      }
+    };
+
+    // Tab click handler
+    gcTabs.addEventListener('click', (e) => {
+      const tab = e.target.closest('.gc-tab');
+      if (!tab) return;
+      gcTabs.querySelectorAll('.gc-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      loadGcCat(tab.dataset.gcCat);
+    });
+
+    // Load first tab
+    if (giftcardCats[0]) loadGcCat(giftcardCats[0].slug);
+
+    frag.appendChild(gcSection);
+  }
   }
 
   // ── Wishlist / Favorites on Home ──────────────────────────
@@ -639,6 +782,27 @@ function productListCard(p) {
 }
 
 function productCard(p) {
+  // ── Game product: use home game card style ──
+  if (p.product_type === 'game' || p.product_type === 'giftcard') {
+    const card = el('div', 'home-game-card');
+    card.onclick = () => navigateTo(`/product/${p.slug}`);
+    card.innerHTML = `
+      <div class="hgc-img">${p.image_url ? `<img src="${p.image_url}" alt="${esc(p.name)}" loading="lazy" />` : `<div class="hgc-img-ph"><i class="fa-solid ${p.product_type === 'giftcard' ? 'fa-gift' : 'fa-gamepad'}"></i></div>`}
+        ${p.product_type === 'giftcard' ? '<span class="hgc-tag hgc-tag-topup"><i class="fa-solid fa-gift"></i> Gift Card</span>' : (p.topup_type ? `<span class="hgc-tag hgc-tag-topup">${p.topup_type === 'uid' ? '<i class="fa-solid fa-id-badge"></i> UID' : '<i class="fa-solid fa-right-to-bracket"></i> Login'}</span>` : '')}
+        ${p.product_type !== 'giftcard' && p.server_region ? `<span class="hgc-tag hgc-tag-server">${p.server_region === 'vietnam' ? '🇻🇳 VN' : '🌐 Global'}</span>` : ''}
+      </div>
+      <div class="hgc-body">
+        <div class="hgc-name">${esc(p.name)}</div>
+        <div class="hgc-meta">
+          <span class="hgc-rating"><i class="fa-solid fa-star"></i> ${p.review_avg ? p.review_avg.toFixed(1) : '0'}</span>
+          ${p.sold_count > 0 ? `<span class="hgc-sold">${p.sold_count > 1000 ? (p.sold_count / 1000).toFixed(1) + 'K' : p.sold_count} Sold</span>` : ''}
+        </div>
+      </div>
+    `;
+    return card;
+  }
+
+  // ── Premium product: standard card ──
   const card = el('div', 'product-card');
   const imgHtml = p.image_url
     ? `<img class="product-card-img" src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" decoding="async" />`
@@ -648,9 +812,21 @@ function productCard(p) {
   let tagHtml = '';
   if (p.packages?.length) {
     const pkg = p.packages[0];
-    tagHtml = pkg.delivery_type === 'auto'
+    tagHtml = pkg.delivery_type === 'api'
+      ? `<span class="pcard-tag pcard-tag-auto"><i class="fa-solid fa-plug"></i> API</span>`
+      : pkg.delivery_type === 'auto'
       ? `<span class="pcard-tag pcard-tag-auto"><i class="fa-solid fa-bolt"></i> Tự động</span>`
       : `<span class="pcard-tag pcard-tag-manual"><i class="fa-solid fa-hand-holding-heart"></i> Thủ công</span>`;
+  }
+  // Game tags on card
+  let gameTagsHtml = '';
+  if (p.product_type === 'game') {
+    const tags = [];
+    if (p.topup_type) tags.push(`<span class="pcard-game-tag">${p.topup_type === 'uid' ? 'UID' : 'Login'}</span>`);
+    if (p.server_region) tags.push(`<span class="pcard-game-tag">${p.server_region === 'vietnam' ? 'VN' : 'Global'}</span>`);
+    if (tags.length) gameTagsHtml = `<div class="pcard-game-tags">${tags.join('')}</div>`;
+  } else if (p.product_type === 'giftcard') {
+    gameTagsHtml = `<div class="pcard-game-tags"><span class="pcard-game-tag"><i class="fa-solid fa-gift"></i> Gift Card</span></div>`;
   }
 
   // Rating & sold
@@ -672,6 +848,7 @@ function productCard(p) {
     </div>
     <div class="product-card-body">
       <div class="product-card-name">${esc(p.name)}</div>
+      ${gameTagsHtml}
       <div class="product-card-price">${p.min_price ? (p.max_price && p.max_price > p.min_price ? fmt(p.min_price) + ' ~ ' + fmt(p.max_price) : fmt(p.min_price)) : '<span class="price-contact">Liên hệ</span>'}</div>
       ${metaItems.length ? `<div class="pcard-meta">${metaItems.join('<span class="pcard-meta-sep">·</span>')}</div>` : ''}
     </div>
@@ -694,11 +871,13 @@ async function renderProduct(view, { slug }) {
 
     // ── Helpers ──
     const isOutOfStock = (pkg) => {
+      if (pkg.delivery_type === 'api') return false; // API stock managed by source
       if (pkg.delivery_type === 'auto') return pkg.stock_count < 1;
       if (pkg.is_stock_managed) return pkg.stock_quantity < 1;
       return false;
     };
     const getStockBadge = (pkg) => {
+      if (pkg.delivery_type === 'api') return `<span class="pd-badge pd-badge-green"><i class="fa-solid fa-bolt"></i> Tự động qua API</span>`;
       if (pkg.delivery_type === 'auto') {
         return pkg.stock_count > 0
           ? `<span class="pd-badge pd-badge-green">Còn hàng (${pkg.stock_count})</span>`
@@ -759,10 +938,47 @@ async function renderProduct(view, { slug }) {
         }
       }
       // ── Top section: stacked layout ──
-      const topSection = el('div', 'pd-top-section');
+      const topSection = el('div', 'pd-top-section' + ((p.product_type === 'game' || p.product_type === 'giftcard') ? ' pd-top-game' : ''));
 
       // Breadcrumb inside top section
       topSection.appendChild(el('div', 'breadcrumb', `<a href="/">Trang chủ</a> <span>›</span> ${bcParentHtml}${p.category_name ? `<a href="${bcCatHref}">${esc(p.category_name)}</a> <span>›</span> ` : ''}${esc(p.name)}`));
+
+      const isGame = p.product_type === 'game' || p.product_type === 'giftcard';
+      const isGiftcard = p.product_type === 'giftcard';
+
+      if (isGame) {
+        // ── Game: compact horizontal header ──
+        const gameHeader = el('div', 'pd-game-header');
+        const gameImg = el('div', 'pd-game-thumb');
+        if (p.image_url) {
+          gameImg.innerHTML = `<img src="${p.image_url}" alt="${p.name}" />`;
+        } else {
+          gameImg.innerHTML = `<div class="pd-game-thumb-ph"><i class="fa-solid ${isGiftcard ? 'fa-gift' : 'fa-gamepad'}"></i></div>`;
+        }
+        const gameInfo = el('div', 'pd-game-info');
+        const siteName = window.appSettings?.site_name || window.appSettings?.title || 'Store';
+        const uppercaseLetters = (siteName.match(/[A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯẠ-Ỵ]/g) || []).join('');
+        const siteInitials = (uppercaseLetters || siteName.split(/\s+/).filter(Boolean).map(w => w[0]).join('')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]/g, '') || 's';
+        const productCode = `${siteInitials}${String(p.id || '').padStart(4, '0')}`;
+        gameInfo.innerHTML = `
+          <span class="pd-game-tag pd-tag-topup-badge">${isGiftcard ? '<i class="fa-solid fa-gift"></i> GIFT CARD' : '<i class="fa-solid fa-gamepad"></i> TOP UP'}</span>
+          <div class="pd-game-name-row">
+            <h1 class="pd-game-name">${p.name}</h1>
+            <span class="pd-game-rating-compact"><i class="fa-solid fa-star"></i> ${p.review_avg ? p.review_avg.toFixed(1) : '0'}</span>
+          </div>
+          <div class="pd-game-sub">
+            <span class="pd-game-code"><span class="pd-code-row"><i class="fa-solid fa-barcode"></i> Mã SP: <span>${productCode}</span></span></span>
+            ${!isGiftcard && p.topup_type ? `<span class="pd-game-tag pd-tag-topup">${p.topup_type === 'uid' ? '<i class="fa-solid fa-id-badge"></i> UID' : '<i class="fa-solid fa-right-to-bracket"></i> Login'}</span>` : ''}
+            ${!isGiftcard && p.server_region ? `<span class="pd-game-tag pd-tag-server">${p.server_region === 'vietnam' ? '🇻🇳 Việt Nam' : '🌐 Quốc tế'}</span>` : ''}
+          </div>
+          <div class="pd-game-meta">
+          </div>
+        `;
+        gameHeader.appendChild(gameImg);
+        gameHeader.appendChild(gameInfo);
+        topSection.appendChild(gameHeader);
+      } else {
+      // ── Premium: full stacked layout ──
 
       // Image with overlay badges
       const imgWrap = el('div', 'pd-hero-img');
@@ -807,14 +1023,15 @@ async function renderProduct(view, { slug }) {
         </div>
       `;
       topSection.appendChild(nameRow);
+      } // end premium branch
 
       // Wire share button
-      const shareBtn = qs('#pd-share-btn', nameRow);
+      const shareBtn = qs('#pd-share-btn', topSection);
       if (shareBtn) {
         // Load commission rate for badge
         apiFetch('/affiliate/me').then(aff => {
           if (aff.registered || aff.commission_rate) {
-            const badge = qs('#pd-share-badge', nameRow);
+            const badge = qs('#pd-share-badge', topSection);
             if (badge) { badge.textContent = `${aff.commission_rate || 5}%`; badge.style.display = ''; }
           }
         }).catch(() => {});
@@ -915,7 +1132,7 @@ async function renderProduct(view, { slug }) {
       }
 
       // Wire heart/wishlist button
-      const heartBtn = qs('#pd-heart-btn', nameRow);
+      const heartBtn = qs('#pd-heart-btn', topSection);
       if (heartBtn) {
         heartBtn.onclick = async () => {
           if (!currentUser) { toast('Đăng nhập để yêu thích', 'error'); return navigateTo('/login'); }
@@ -939,7 +1156,8 @@ async function renderProduct(view, { slug }) {
         if (currentUser && window._wishlistIds?.has(p.id)) heartBtn.classList.add('active');
       }
 
-      // Rating + category + sold — single row
+      // Rating + category + sold — single row (premium only, game has it in header)
+      if (!isGame) {
       // Rating row
       const ratingRow = el('div', 'pd-rating-row');
       ratingRow.innerHTML = `
@@ -975,6 +1193,7 @@ async function renderProduct(view, { slug }) {
         metaRow.innerHTML = chips.join('');
         topSection.appendChild(metaRow);
       }
+      } // end !isGame rating/meta
 
       view.appendChild(topSection);
 
@@ -1006,8 +1225,8 @@ async function renderProduct(view, { slug }) {
       // ── Card: Chọn gói sản phẩm ──
       if (p.packages?.length) {
         const pkgCard = el('div', 'pd-card');
-        pkgCard.innerHTML = '<div class="pd-card-title">Chọn gói sản phẩm</div>';
-        const pkgGrid = el('div', 'pd-pkg-grid');
+        pkgCard.innerHTML = `<div class="pd-card-title">${isGame && p.sold_count > 0 ? `<span>Chọn gói sản phẩm</span><span class="pd-card-title-right">🔥 ${p.sold_count} đã bán</span>` : 'Chọn gói sản phẩm'}</div>`;
+        const pkgGrid = el('div', isGame ? 'pd-pkg-grid-game' : 'pd-pkg-grid');
 
         p.packages.forEach(pkg => {
           const oos = isOutOfStock(pkg);
@@ -1016,51 +1235,82 @@ async function renderProduct(view, { slug }) {
           const strikePrice = getStrikePrice(pkg);
           const discountPct = (fs && pkg.price > 0) ? Math.round((1 - fs.sale_price / pkg.price) * 100) : 0;
 
-          const pill = el('div', 'pd-pkg-pill' + (selectedPkg?.id === pkg.id ? ' selected' : '') + (oos ? ' oos' : '') + (fs ? ' flash' : ''));
-          const deliveryIcon = pkg.delivery_type === 'auto' ? '<i class="fa-solid fa-bolt pd-pkg-dtype-icon" title="Giao tự động"></i>' : '<i class="fa-solid fa-truck pd-pkg-dtype-icon" title="Giao thủ công"></i>';
-          const stockInfo = (() => {
-            const boxIcon = '<i class="fa-solid fa-box"></i>';
-            if (pkg.delivery_type === 'auto') {
-              if (pkg.stock_count <= 0) return `<span class="pd-pkg-stock pd-stock-red">${boxIcon} Hết hàng</span>`;
-              if (pkg.stock_count <= 5) return `<span class="pd-pkg-stock pd-stock-orange">${boxIcon} Còn ${pkg.stock_count}</span>`;
-              return `<span class="pd-pkg-stock pd-stock-green">${boxIcon} Còn ${pkg.stock_count}</span>`;
-            }
-            if (pkg.is_stock_managed) {
-              const sq = pkg.stock_quantity || 0;
-              if (sq <= 0) return `<span class="pd-pkg-stock pd-stock-red">${boxIcon} Hết hàng</span>`;
-              if (sq <= 5) return `<span class="pd-pkg-stock pd-stock-orange">${boxIcon} Còn ${sq}</span>`;
-              return `<span class="pd-pkg-stock pd-stock-green">${boxIcon} Còn ${sq}</span>`;
-            }
-            return `<span class="pd-pkg-stock pd-stock-green">${deliveryIcon} Sẵn hàng</span>`;
-          })();
-          pill.innerHTML = `
-            <div class="pd-pkg-main">
-              <div class="pd-pkg-name${oos ? ' oos-text' : ''}">${pkg.name}</div>
-              ${pkg.description ? `<div class="pd-pkg-desc">${pkg.description}</div>` : ''}
-              <div class="pd-pkg-badges">
-                ${stockInfo}
-                ${fs ? `<span class="pd-badge pd-badge-flash">${ico.zap} -${discountPct}%</span>` : ''}
+          if (isGame) {
+            // ── Game: 2-column card layout ──
+            const card = el('div', 'pd-gpkg-card' + (selectedPkg?.id === pkg.id ? ' selected' : '') + (oos ? ' oos' : ''));
+            const imgHtml = pkg.image_url
+              ? `<img src="${pkg.image_url}" alt="${pkg.name}" class="pd-gpkg-img" />`
+              : `<div class="pd-gpkg-icon"><i class="fa-solid fa-cube"></i></div>`;
+            card.innerHTML = `
+              ${fs ? `<span class="pd-gpkg-sale-badge">-${discountPct}%</span>` : ''}
+              ${imgHtml}
+              <div class="pd-gpkg-name">${pkg.name}</div>
+              <div class="pd-gpkg-price">
+                <span class="pd-gpkg-amount${fs ? ' flash-price' : ''}">${fmt(displayPrice)}</span>
+                ${strikePrice ? `<span class="pd-gpkg-strike">${fmt(strikePrice)}</span>` : ''}
               </div>
-              ${fs?.ends_at ? `<div class="pd-pkg-timer" data-end="${fs.ends_at}">⏳ --:--:--</div>` : ''}
-            </div>
-            <div class="pd-pkg-pricing">
-              <div class="pd-pkg-price${fs ? ' flash-price' : ''}">${fmt(displayPrice)}</div>
-              ${strikePrice ? `<div class="pd-pkg-strike">${fmt(strikePrice)}</div>` : ''}
-            </div>
-          `;
-          if (!oos) {
-            pill.onclick = () => {
-              appliedCoupon = null;
-
-              selectedPkg = pkg;
-              quantity = 1;
-              qsa('.pd-pkg-pill', pkgGrid).forEach(e => e.classList.remove('selected'));
-              pill.classList.add('selected');
-              renderOrderForm();
-              if (typeof updateNotesCard === 'function') updateNotesCard();
-            };
+              ${oos ? '<div class="pd-gpkg-oos">Hết hàng</div>' : ''}
+            `;
+            if (!oos) {
+              card.onclick = () => {
+                appliedCoupon = null;
+                selectedPkg = pkg;
+                quantity = 1;
+                qsa('.pd-gpkg-card', pkgGrid).forEach(e => e.classList.remove('selected'));
+                card.classList.add('selected');
+                renderOrderForm();
+                if (typeof updateNotesCard === 'function') updateNotesCard();
+              };
+            }
+            pkgGrid.appendChild(card);
+          } else {
+            // ── Premium: pill layout ──
+            const pill = el('div', 'pd-pkg-pill' + (selectedPkg?.id === pkg.id ? ' selected' : '') + (oos ? ' oos' : '') + (fs ? ' flash' : ''));
+            const deliveryIcon = pkg.delivery_type === 'api' ? '<i class="fa-solid fa-plug pd-pkg-dtype-icon" title="API tự động"></i>' : pkg.delivery_type === 'auto' ? '<i class="fa-solid fa-bolt pd-pkg-dtype-icon" title="Giao tự động"></i>' : '<i class="fa-solid fa-truck pd-pkg-dtype-icon" title="Giao thủ công"></i>';
+            const stockInfo = (() => {
+              const boxIcon = '<i class="fa-solid fa-box"></i>';
+              if (pkg.delivery_type === 'auto') {
+                if (pkg.stock_count <= 0) return `<span class="pd-pkg-stock pd-stock-red">${boxIcon} Hết hàng</span>`;
+                if (pkg.stock_count <= 5) return `<span class="pd-pkg-stock pd-stock-orange">${boxIcon} Còn ${pkg.stock_count}</span>`;
+                return `<span class="pd-pkg-stock pd-stock-green">${boxIcon} Còn ${pkg.stock_count}</span>`;
+              }
+              if (pkg.is_stock_managed) {
+                const sq = pkg.stock_quantity || 0;
+                if (sq <= 0) return `<span class="pd-pkg-stock pd-stock-red">${boxIcon} Hết hàng</span>`;
+                if (sq <= 5) return `<span class="pd-pkg-stock pd-stock-orange">${boxIcon} Còn ${sq}</span>`;
+                return `<span class="pd-pkg-stock pd-stock-green">${boxIcon} Còn ${sq}</span>`;
+              }
+              if (pkg.delivery_type === 'api') return `<span class="pd-pkg-stock pd-stock-green">${deliveryIcon} Tự động</span>`;
+              return `<span class="pd-pkg-stock pd-stock-green">${deliveryIcon} Sẵn hàng</span>`;
+            })();
+            pill.innerHTML = `
+              <div class="pd-pkg-main">
+                <div class="pd-pkg-name${oos ? ' oos-text' : ''}">${pkg.name}</div>
+                ${pkg.description ? `<div class="pd-pkg-desc">${pkg.description}</div>` : ''}
+                <div class="pd-pkg-badges">
+                  ${stockInfo}
+                  ${fs ? `<span class="pd-badge pd-badge-flash">${ico.zap} -${discountPct}%</span>` : ''}
+                </div>
+                ${fs?.ends_at ? `<div class="pd-pkg-timer" data-end="${fs.ends_at}">⏳ --:--:--</div>` : ''}
+              </div>
+              <div class="pd-pkg-pricing">
+                <div class="pd-pkg-price${fs ? ' flash-price' : ''}">${fmt(displayPrice)}</div>
+                ${strikePrice ? `<div class="pd-pkg-strike">${fmt(strikePrice)}</div>` : ''}
+              </div>
+            `;
+            if (!oos) {
+              pill.onclick = () => {
+                appliedCoupon = null;
+                selectedPkg = pkg;
+                quantity = 1;
+                qsa('.pd-pkg-pill', pkgGrid).forEach(e => e.classList.remove('selected'));
+                pill.classList.add('selected');
+                renderOrderForm();
+                if (typeof updateNotesCard === 'function') updateNotesCard();
+              };
+            }
+            pkgGrid.appendChild(pill);
           }
-          pkgGrid.appendChild(pill);
         });
 
         pkgCard.appendChild(pkgGrid);
@@ -1088,7 +1338,7 @@ async function renderProduct(view, { slug }) {
         orderCard.appendChild(orderBody);
         cards.appendChild(orderCard);
 
-        const renderOrderForm = () => {
+        const renderOrderForm = async () => {
           orderBody.innerHTML = '';
           if (!selectedPkg) {
             orderBody.innerHTML = '<p class="text-muted">Vui lòng chọn gói sản phẩm</p>';
@@ -1101,8 +1351,26 @@ async function renderProduct(view, { slug }) {
           const infoSection = el('div', 'pd-order-info');
           const infoTitle = el('div', 'pd-order-info-title', 'Thông tin Order');
           infoSection.appendChild(infoTitle);
-          if (selectedPkg.fields?.length) {
-            selectedPkg.fields.forEach(f => {
+
+          // For API packages, fetch fields from provider
+          let fieldsToRender = selectedPkg.fields || [];
+          if (selectedPkg.delivery_type === 'api' && selectedPkg.api_provider_id) {
+            try {
+              const apiFields = await apiFetch('/products/packages/' + selectedPkg.id + '/api-fields');
+              if (apiFields?.length) {
+                fieldsToRender = apiFields.map(f => ({
+                  field_name: f.label || f.key || f.field_name,
+                  field_type: f.type || 'text',
+                  is_required: f.required !== false,
+                  options: f.options || null,
+                  _api_key: f.key || f.field_name,
+                }));
+              }
+            } catch(e) { /* fallback to local fields */ }
+          }
+
+          if (fieldsToRender.length) {
+            fieldsToRender.forEach(f => {
               const fg = el('div', 'form-group');
               const label = el('label', 'form-label', f.field_name + (f.is_required ? ' *' : ''));
               fg.appendChild(label);
@@ -1116,7 +1384,7 @@ async function renderProduct(view, { slug }) {
               } else if (f.field_type === 'number') { input = el('input', 'form-input pd-order-input'); input.type = 'number'; input.placeholder = f.field_name; }
               else if (f.field_type === 'email') { input = el('input', 'form-input pd-order-input'); input.type = 'email'; input.placeholder = f.field_name; }
               else { input = el('input', 'form-input pd-order-input'); input.type = 'text'; input.placeholder = f.field_name; }
-              input.dataset.field = f.field_name;
+              input.dataset.field = f._api_key || f.field_name;
               input.required = f.is_required;
               fg.appendChild(input);
               infoSection.appendChild(fg);
@@ -1124,6 +1392,10 @@ async function renderProduct(view, { slug }) {
           } else {
             const noFields = el('div', 'pd-order-no-fields', 'Không có trường thông tin nào cần điền');
             infoSection.appendChild(noFields);
+          }
+          // For API packages with fields, update the section title
+          if (selectedPkg.delivery_type === 'api' && fieldsToRender.length) {
+            infoTitle.textContent = 'Nhập thông tin';
           }
           orderBody.appendChild(infoSection);
 
@@ -1269,7 +1541,9 @@ async function renderProduct(view, { slug }) {
         cards.appendChild(noPkgCard);
       }
 
-      // ── Card: Lưu ý ──
+      // ── Card: Lưu ý (not for game) ──
+      let updateNotesCard;
+      if (!isGame) {
       const notesCard = el('div', 'pd-card pd-card-notes');
       notesCard.id = 'pd-notes-card';
       notesCard.style.display = 'none';
@@ -1279,7 +1553,7 @@ async function renderProduct(view, { slug }) {
         cards.appendChild(notesCard);
       }
 
-      const updateNotesCard = () => {
+      updateNotesCard = () => {
         const productNotes = p.notes || '';
         const pkgNotes = selectedPkg?.notes || '';
         if (!productNotes && !pkgNotes) {
@@ -1299,6 +1573,7 @@ async function renderProduct(view, { slug }) {
         `;
       };
       updateNotesCard();
+      } // end !isGame notes
 
       // ── Card 5: Đánh giá ──
       if (appSettings.features?.reviews !== false) {

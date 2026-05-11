@@ -1062,6 +1062,24 @@ img { max-width: 100%; display: block; }
   color: #fff;
 }
 
+/* Product Card - Game Tags */
+.pcard-game-tags {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+.pcard-game-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  letter-spacing: 0.02em;
+}
+
 /* Product Card - Meta (rating, sold) */
 .pcard-meta {
   display: flex;
@@ -2257,6 +2275,230 @@ tr:hover td { background: #FAFBFC; }
 }
 
 /* Wishlist Empty Hint */
+/* ── Home Game Slider ── */
+.home-game-slider {
+  overflow: hidden;
+  position: relative;
+}
+.hgs-track {
+  display: flex;
+  transition: transform 0.35s ease;
+}
+.hgs-page {
+  flex: 0 0 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.hgs-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 14px;
+}
+.hgs-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.hgs-dot.active {
+  background: var(--primary);
+  width: 20px;
+  border-radius: 4px;
+}
+.home-game-card {
+  cursor: pointer;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+.home-game-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  transform: translateY(-2px);
+}
+.hgc-img {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--bg-page);
+}
+.hgc-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.hgc-img-ph {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: var(--text-muted);
+}
+.hgc-discount {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #f97316;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.hgc-tag {
+  position: absolute;
+  padding: 2px 8px;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  backdrop-filter: blur(4px);
+}
+.hgc-tag-topup {
+  top: 8px;
+  right: 8px;
+  background: rgba(99, 102, 241, 0.85);
+}
+.hgc-tag-server {
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.hgc-body {
+  padding: 10px;
+}
+.hgc-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-heading);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.hgc-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.hgc-rating {
+  font-weight: 700;
+  color: #f59e0b;
+}
+.hgc-rating i {
+  font-size: 11px;
+}
+.hgc-sold {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+@media (max-width: 480px) {
+  .hgs-page { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .hgc-name { font-size: 12px; }
+  .hgc-body { padding: 8px; }
+}
+
+/* ── Gift Card Section ─────────────────────────── */
+.gc-section { margin-bottom: 8px; }
+.gc-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  border-bottom: 2px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.gc-tabs::-webkit-scrollbar { display: none; }
+.gc-tab {
+  background: none;
+  border: none;
+  padding: 10px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  position: relative;
+  transition: color 0.2s;
+}
+.gc-tab:hover { color: var(--text-heading); }
+.gc-tab.active {
+  color: var(--primary);
+}
+.gc-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--primary);
+  border-radius: 3px 3px 0 0;
+}
+.gc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  min-height: 120px;
+}
+.gc-grid-loading {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+}
+.gc-card {
+  background: var(--card-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  aspect-ratio: 5 / 3;
+  overflow: hidden;
+}
+.gc-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  transform: translateY(-2px);
+}
+.gc-card img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.gc-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-heading);
+  text-align: center;
+  word-break: break-word;
+}
+@media (max-width: 600px) {
+  .gc-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .gc-card { padding: 10px; border-radius: 10px; }
+  .gc-tab { padding: 8px 14px; font-size: 13px; }
+}
+@media (max-width: 360px) {
+  .gc-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 .home-wl-scroll {
   display: flex;
   gap: 16px;
@@ -4402,7 +4644,12 @@ a.support-contact-value:hover {
   border-radius: var(--radius-sm);
   padding: 4px;
   width: fit-content;
+  margin-bottom: 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+.admin-tabs::-webkit-scrollbar { display: none; }
 .admin-tab {
   padding: 8px 20px;
   border-radius: var(--radius-xs);
@@ -4413,6 +4660,10 @@ a.support-contact-value:hover {
   transition: all var(--transition);
   border: none;
   background: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 .admin-tab:hover { color: var(--text-heading); }
 .admin-tab.active {
@@ -4527,8 +4778,17 @@ a.support-contact-value:hover {
   display: flex; flex-direction: column; gap: 16px;
   margin: -24px -28px 28px;
   padding: 24px 28px 24px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%);
+  background:
+    linear-gradient(135deg, rgba(99,102,241,0.07) 25%, transparent 25%) -50px 0,
+    linear-gradient(225deg, rgba(139,92,246,0.06) 25%, transparent 25%) -50px 0,
+    linear-gradient(315deg, rgba(99,102,241,0.07) 25%, transparent 25%),
+    linear-gradient(45deg, rgba(139,92,246,0.06) 25%, transparent 25%);
+  background-size: 100px 100px;
+  background-color: rgba(99,102,241,0.03);
   border-bottom: 1px solid var(--border);
+}
+.pd-top-game {
+  /* same pattern, already inherited */
 }
 @media (max-width: 768px) {
   .pd-top-section { margin: -16px -16px 20px; padding: 16px 16px 20px; }
@@ -4584,6 +4844,236 @@ a.support-contact-value:hover {
   color: var(--text-heading);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   letter-spacing: 0.04em;
+}
+
+/* Game tags */
+.pd-game-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.pd-game-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.pd-tag-topup {
+  background: rgba(99, 102, 241, 0.85);
+  color: #fff;
+  border: none;
+  backdrop-filter: blur(4px);
+}
+.pd-tag-server {
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border: none;
+  backdrop-filter: blur(4px);
+}
+.pd-tag-topup-badge {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  border: none;
+  text-transform: uppercase;
+}
+
+/* Game package card grid */
+.pd-game-header {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.pd-game-thumb {
+  flex-shrink: 0;
+  width: 90px;
+  height: 90px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+.pd-game-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pd-game-thumb-ph {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: var(--primary);
+  background: rgba(99, 102, 241, 0.06);
+}
+.pd-game-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pd-game-info > .pd-game-tag.pd-tag-topup-badge {
+  align-self: flex-start;
+}
+.pd-game-name {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-heading);
+  line-height: 1.2;
+  margin: 2px 0 0 0;
+}
+.pd-game-name-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pd-game-rating-compact {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #f59e0b;
+  white-space: nowrap;
+}
+.pd-game-rating-compact i {
+  font-size: 14px;
+}
+.pd-game-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+.pd-game-code {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.pd-game-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  margin-top: 2px;
+}
+.pd-game-sold {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.pd-pkg-grid-game {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+.pd-gpkg-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 12px;
+  border-radius: 14px;
+  border: 2px solid var(--border);
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+.pd-gpkg-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.1);
+}
+.pd-gpkg-card.selected {
+  border-color: var(--primary);
+  background: rgba(99, 102, 241, 0.04);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+.pd-gpkg-card.oos {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pd-gpkg-img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  margin-bottom: 10px;
+  border-radius: 8px;
+}
+.pd-gpkg-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  font-size: 22px;
+  color: var(--primary);
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: 10px;
+}
+.pd-gpkg-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-heading);
+  margin-bottom: 6px;
+  line-height: 1.3;
+  word-break: break-word;
+}
+.pd-gpkg-price {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.pd-gpkg-amount {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+}
+.pd-gpkg-amount.flash-price {
+  color: #ef4444;
+}
+.pd-gpkg-strike {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+.pd-gpkg-sale-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.pd-gpkg-oos {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #ef4444;
+  font-weight: 600;
+}
+@media (max-width: 380px) {
+  .pd-pkg-grid-game { gap: 8px; }
+  .pd-gpkg-card { padding: 12px 8px; }
+  .pd-gpkg-name { font-size: 13px; }
 }
 
 
@@ -4658,6 +5148,12 @@ a.support-contact-value:hover {
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 8px;
+}
+.pd-card-title-right {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 /* ── Card 1: Package selector ── */

@@ -30,6 +30,8 @@ class ProductCreate(BaseModel):
     is_featured: bool = False
     is_active: bool = True
     sort_order: int = 0
+    topup_type: Optional[str] = None      # uid | login (game only)
+    server_region: Optional[str] = None    # vietnam | global (game only)
 
 
 class ProductUpdate(BaseModel):
@@ -42,6 +44,8 @@ class ProductUpdate(BaseModel):
     is_featured: Optional[bool] = None
     is_active: Optional[bool] = None
     sort_order: Optional[int] = None
+    topup_type: Optional[str] = None
+    server_region: Optional[str] = None
 
 
 class PackageCreate(BaseModel):
@@ -50,9 +54,15 @@ class PackageCreate(BaseModel):
     original_price: Optional[float] = None
     description: Optional[str] = None
     notes: Optional[str] = None
+    image_url: Optional[str] = None
     delivery_type: str = "manual"
     is_stock_managed: bool = False
     stock_quantity: int = 0
+    api_provider_id: Optional[int] = None
+    external_product_id: Optional[str] = None
+    external_plan_id: Optional[str] = None
+    auto_markup: bool = False
+    markup_percent: Optional[float] = None
     sort_order: int = 0
     is_active: bool = True
 
@@ -66,8 +76,8 @@ class PackageCreate(BaseModel):
     @field_validator("delivery_type")
     @classmethod
     def valid_delivery(cls, v):
-        if v not in ("manual", "auto"):
-            raise ValueError("delivery_type must be 'manual' or 'auto'")
+        if v not in ("manual", "auto", "api"):
+            raise ValueError("delivery_type must be 'manual', 'auto' or 'api'")
         return v
 
     @field_validator("stock_quantity")
@@ -84,9 +94,15 @@ class PackageUpdate(BaseModel):
     original_price: Optional[float] = None
     description: Optional[str] = None
     notes: Optional[str] = None
+    image_url: Optional[str] = None
     delivery_type: Optional[str] = None
     is_stock_managed: Optional[bool] = None
     stock_quantity: Optional[int] = None
+    api_provider_id: Optional[int] = None
+    external_product_id: Optional[str] = None
+    external_plan_id: Optional[str] = None
+    auto_markup: Optional[bool] = None
+    markup_percent: Optional[float] = None
     sort_order: Optional[int] = None
     is_active: Optional[bool] = None
 
@@ -135,9 +151,15 @@ def pkg_to_dict(pkg: ProductPackage, db: Session = None) -> dict:
         "original_price": float(pkg.original_price) if pkg.original_price else None,
         "description": pkg.description,
         "notes": pkg.notes,
+        "image_url": pkg.image_url,
         "delivery_type": pkg.delivery_type,
         "is_stock_managed": pkg.is_stock_managed if pkg.is_stock_managed else False,
         "stock_quantity": pkg.stock_quantity if pkg.stock_quantity else 0,
+        "api_provider_id": pkg.api_provider_id,
+        "external_product_id": pkg.external_product_id,
+        "external_plan_id": pkg.external_plan_id,
+        "auto_markup": pkg.auto_markup if pkg.auto_markup else False,
+        "markup_percent": float(pkg.markup_percent) if pkg.markup_percent else None,
         "sort_order": pkg.sort_order,
         "is_active": pkg.is_active,
         "stock_count": stock_count,
@@ -178,12 +200,15 @@ def product_to_dict(p: Product, include_packages=True, db=None) -> dict:
         "category_name": p.category.name if p.category else None,
         "category_slug": p.category.slug if p.category else None,
         "category_icon": p.category.icon_url if p.category else None,
+        "product_type": p.category.product_type if p.category else "premium",
         "description": p.description,
         "notes": p.notes,
         "image_url": p.image_url,
         "is_featured": p.is_featured,
         "is_active": p.is_active,
         "sort_order": p.sort_order,
+        "topup_type": p.topup_type,
+        "server_region": p.server_region,
         "created_at": p.created_at.isoformat() if p.created_at else None,
         "avg_rating": avg_rating,
         "review_count": review_count,

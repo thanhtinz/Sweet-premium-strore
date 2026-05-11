@@ -82,6 +82,8 @@ def serialize_order_item(item: OrderItem) -> dict:
         "custom_fields_data": item.custom_fields_data,
         "delivery_data": item.delivery_data,
         "status": item.status,
+        "external_order_id": item.external_order_id,
+        "api_status": item.api_status,
         "created_at": item.created_at.isoformat() if item.created_at else None,
         "updated_at": item.updated_at.isoformat() if item.updated_at else None,
     }
@@ -126,6 +128,9 @@ def order_to_dict(o: Order) -> dict:
         "custom_fields_data": o.custom_fields_data,
         "delivery_data": o.delivery_data,
         "notes": o.notes,
+        "api_provider_id": o.api_provider_id,
+        "api_provider_name": o.api_provider.name if o.api_provider_id and hasattr(o, 'api_provider') and o.api_provider else None,
+        "external_order_id": o.external_order_id,
         "items": items,
         "item_count": len(items),
         "created_at": o.created_at.isoformat() if o.created_at else None,
