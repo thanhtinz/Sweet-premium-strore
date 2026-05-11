@@ -426,6 +426,7 @@ function paymentMethodLabel(method) {
     }
 
     frag.appendChild(gameGrid);
+  }
 
   // ── Gift Card Section (tabs by category + logo grid) ─────
   const giftcardCats = categories.filter(c => c.product_type === 'giftcard' && c.is_active);
@@ -491,7 +492,6 @@ function paymentMethodLabel(method) {
     if (giftcardCats[0]) loadGcCat(giftcardCats[0].slug);
 
     frag.appendChild(gcSection);
-  }
   }
 
   // ── Wishlist / Favorites on Home ──────────────────────────
@@ -782,14 +782,23 @@ function productListCard(p) {
 }
 
 function productCard(p) {
+  // ── Gift Card product: portrait card style ──
+  if (p.product_type === 'giftcard') {
+    const card = el('div', 'gc-card');
+    card.onclick = () => navigateTo(`/product/${p.slug}`);
+    card.innerHTML = `
+      ${p.image_url ? `<img src="${p.image_url}" alt="${esc(p.name)}" loading="lazy" />` : `<div class="gc-card-ph"><i class="fa-solid fa-gift"></i><span>${esc(p.name)}</span></div>`}
+    `;
+    return card;
+  }
   // ── Game product: use home game card style ──
-  if (p.product_type === 'game' || p.product_type === 'giftcard') {
+  if (p.product_type === 'game') {
     const card = el('div', 'home-game-card');
     card.onclick = () => navigateTo(`/product/${p.slug}`);
     card.innerHTML = `
-      <div class="hgc-img">${p.image_url ? `<img src="${p.image_url}" alt="${esc(p.name)}" loading="lazy" />` : `<div class="hgc-img-ph"><i class="fa-solid ${p.product_type === 'giftcard' ? 'fa-gift' : 'fa-gamepad'}"></i></div>`}
-        ${p.product_type === 'giftcard' ? '<span class="hgc-tag hgc-tag-topup"><i class="fa-solid fa-gift"></i> Gift Card</span>' : (p.topup_type ? `<span class="hgc-tag hgc-tag-topup">${p.topup_type === 'uid' ? '<i class="fa-solid fa-id-badge"></i> UID' : '<i class="fa-solid fa-right-to-bracket"></i> Login'}</span>` : '')}
-        ${p.product_type !== 'giftcard' && p.server_region ? `<span class="hgc-tag hgc-tag-server">${p.server_region === 'vietnam' ? '🇻🇳 VN' : '🌐 Global'}</span>` : ''}
+      <div class="hgc-img">${p.image_url ? `<img src="${p.image_url}" alt="${esc(p.name)}" loading="lazy" />` : `<div class="hgc-img-ph"><i class="fa-solid fa-gamepad"></i></div>`}
+        ${p.topup_type ? `<span class="hgc-tag hgc-tag-topup">${p.topup_type === 'uid' ? '<i class="fa-solid fa-id-badge"></i> UID' : '<i class="fa-solid fa-right-to-bracket"></i> Login'}</span>` : ''}
+        ${p.server_region ? `<span class="hgc-tag hgc-tag-server">${p.server_region === 'vietnam' ? '🇻🇳 VN' : '🌐 Global'}</span>` : ''}
       </div>
       <div class="hgc-body">
         <div class="hgc-name">${esc(p.name)}</div>
@@ -1225,8 +1234,8 @@ async function renderProduct(view, { slug }) {
       // ── Card: Chọn gói sản phẩm ──
       if (p.packages?.length) {
         const pkgCard = el('div', 'pd-card');
-        pkgCard.innerHTML = `<div class="pd-card-title">${isGame && p.sold_count > 0 ? `<span>Chọn gói sản phẩm</span><span class="pd-card-title-right">🔥 ${p.sold_count} đã bán</span>` : 'Chọn gói sản phẩm'}</div>`;
-        const pkgGrid = el('div', isGame ? 'pd-pkg-grid-game' : 'pd-pkg-grid');
+        pkgCard.innerHTML = `<div class="pd-card-title">${(isGame || isGiftcard) && p.sold_count > 0 ? `<span>Chọn gói sản phẩm</span><span class="pd-card-title-right">🔥 ${p.sold_count} đã bán</span>` : 'Chọn gói sản phẩm'}</div>`;
+        const pkgGrid = el('div', isGiftcard ? 'pd-pkg-grid-gc' : (isGame ? 'pd-pkg-grid-game' : 'pd-pkg-grid'));
 
         p.packages.forEach(pkg => {
           const oos = isOutOfStock(pkg);
@@ -1235,7 +1244,32 @@ async function renderProduct(view, { slug }) {
           const strikePrice = getStrikePrice(pkg);
           const discountPct = (fs && pkg.price > 0) ? Math.round((1 - fs.sale_price / pkg.price) * 100) : 0;
 
-          if (isGame) {
+          if (isGiftcard) {
+            // ── Gift Card: full image card, price badge overlay ──
+            const card = el('div', 'pd-gcpkg-card' + (selectedPkg?.id === pkg.id ? ' selected' : '') + (oos ? ' oos' : ''));
+            const imgHtml = pkg.image_url
+              ? `<img src="${pkg.image_url}" alt="${pkg.name}" class="pd-gcpkg-img" />`
+              : `<div class="pd-gcpkg-ph"><i class="fa-solid fa-gift"></i></div>`;
+            card.innerHTML = `
+              ${imgHtml}
+              <span class="pd-gcpkg-price${fs ? ' flash-price' : ''}">${fmt(displayPrice)}</span>
+              ${strikePrice ? `<span class="pd-gcpkg-strike">${fmt(strikePrice)}</span>` : ''}
+              ${fs ? `<span class="pd-gcpkg-sale">-${discountPct}%</span>` : ''}
+              ${oos ? '<span class="pd-gcpkg-oos">Hết hàng</span>' : ''}
+            `;
+            if (!oos) {
+              card.onclick = () => {
+                appliedCoupon = null;
+                selectedPkg = pkg;
+                quantity = 1;
+                qsa('.pd-gcpkg-card', pkgGrid).forEach(e => e.classList.remove('selected'));
+                card.classList.add('selected');
+                renderOrderForm();
+                if (typeof updateNotesCard === 'function') updateNotesCard();
+              };
+            }
+            pkgGrid.appendChild(card);
+          } else if (isGame) {
             // ── Game: 2-column card layout ──
             const card = el('div', 'pd-gpkg-card' + (selectedPkg?.id === pkg.id ? ' selected' : '') + (oos ? ' oos' : ''));
             const imgHtml = pkg.image_url

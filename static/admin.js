@@ -675,7 +675,7 @@ async function showPackagesModal(productId, productName, prefetchedProduct = nul
         <div class="form-group"><label class="form-label">Giá (đ)</label><input type="number" class="form-input" id="pkg-price" required placeholder="50000" /></div>
       </div>
       <div class="form-row form-row-2">
-        <div class="form-group"><label class="form-label">Giao hàng</label><select class="form-select" id="pkg-delivery"><option value="manual">Thủ công</option><option value="auto">Tự động (kho)</option></select></div>
+        <div class="form-group"><label class="form-label">Giao hàng</label><select class="form-select" id="pkg-delivery"><option value="manual">Thủ công</option><option value="auto">Tự động (kho)</option><option value="api">API</option></select></div>
         <div class="form-group" ${prod?.product_type === 'giftcard' ? 'style="display:none"' : ''}><label class="form-label">Mô tả</label><input class="form-input" id="pkg-desc" placeholder="Mô tả..." /></div>
       </div>
       <div class="form-group" ${(prod?.product_type !== 'game' && prod?.product_type !== 'giftcard') ? 'style="display:none"' : ''}><label class="form-label">Ảnh gói</label>
@@ -693,20 +693,6 @@ async function showPackagesModal(productId, productName, prefetchedProduct = nul
           <button type="button" class="btn btn-ghost btn-sm" data-editor-action="ul"><i class="fa-solid fa-list-ul"></i></button>
         </div>
         <textarea class="form-textarea" id="pkg-notes" rows="4" placeholder="Lưu ý riêng cho gói này..."></textarea>
-      </div>
-      <div class="form-row form-row-2" id="pkg-stock-row">
-        <div class="form-group">
-          <label class="form-label">Quản lý kho</label>
-          <label class="toggle-switch"><input type="checkbox" id="pkg-stock-toggle" /><span class="toggle-slider"></span></label>
-        </div>
-        <div class="form-group" id="pkg-stock-qty-group" style="display:none">
-          <label class="form-label">Số lượng tồn kho</label>
-          <input type="number" class="form-input" id="pkg-stock-qty" min="0" value="0" placeholder="0" />
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Giao hàng qua API</label>
-        <label class="toggle-switch"><input type="checkbox" id="pkg-api-toggle" /><span class="toggle-slider"></span></label>
       </div>
       <div id="pkg-api-panel" style="display:none">
         <div class="fw-600 mb-8"><i class="fa-solid fa-plug"></i> Cấu hình API nguồn</div>
@@ -747,31 +733,16 @@ async function showPackagesModal(productId, productName, prefetchedProduct = nul
 
   const modal = qs('#modal-content');
 
-  // Toggle stock quantity visibility
+  // Toggle delivery visibility
   const deliverySelect = qs('#pkg-delivery', modal);
-  const stockToggle = qs('#pkg-stock-toggle', modal);
-  const stockQtyGroup = qs('#pkg-stock-qty-group', modal);
-  const stockRow = qs('#pkg-stock-row', modal);
-
   const apiPanel = qs('#pkg-api-panel', modal);
-  const apiToggle = qs('#pkg-api-toggle', modal);
 
-  const updateStockVisibility = () => {
-    const isApi = apiToggle?.checked;
-    if (isApi) {
-      stockRow.style.display = 'none';
-      deliverySelect.closest('.form-row').style.display = 'none';
-    } else {
-      stockRow.style.display = '';
-      deliverySelect.closest('.form-row').style.display = '';
-      stockQtyGroup.style.display = stockToggle.checked ? '' : 'none';
-    }
-    if (apiPanel) apiPanel.style.display = isApi ? '' : 'none';
+  const updateDeliveryVisibility = () => {
+    const val = deliverySelect.value;
+    if (apiPanel) apiPanel.style.display = val === 'api' ? '' : 'none';
   };
-  deliverySelect.onchange = updateStockVisibility;
-  stockToggle.onchange = updateStockVisibility;
-  if (apiToggle) apiToggle.onchange = updateStockVisibility;
-  updateStockVisibility();
+  deliverySelect.onchange = updateDeliveryVisibility;
+  updateDeliveryVisibility();
   bindImageUploads(modal);
 
   const createMarkupToggle = qs('#pkg-auto-markup', modal);
@@ -962,10 +933,10 @@ async function showPackagesModal(productId, productName, prefetchedProduct = nul
   qs('#pkg-form', modal).onsubmit = async (e) => {
     e.preventDefault();
     if (window.syncRichTextEditors) window.syncRichTextEditors();
-    const isStockManaged = qs('#pkg-stock-toggle', modal).checked;
-    const isApi = qs('#pkg-api-toggle', modal)?.checked;
+    const deliveryType = qs('#pkg-delivery', modal).value;
+    const isApi = deliveryType === 'api';
+    const isAuto = deliveryType === 'auto';
     const isManualId = qs('#pkg-manual-id', modal)?.checked;
-    const deliveryType = isApi ? 'api' : qs('#pkg-delivery', modal).value;
     const extProduct = isApi ? (isManualId ? qs('#pkg-ext-product', modal)?.value : qs('#pkg-remote-product', modal)?.value) : null;
     const extPlan = isApi ? (isManualId ? qs('#pkg-ext-plan', modal)?.value : qs('#pkg-remote-plan', modal)?.value) : null;
     const body = {
@@ -978,8 +949,8 @@ async function showPackagesModal(productId, productName, prefetchedProduct = nul
       external_plan_id: extPlan || null,
       description: qs('#pkg-desc', modal).value || null,
       notes: qs('#pkg-notes', modal).value || null,
-      is_stock_managed: isStockManaged,
-      stock_quantity: isStockManaged ? parseInt(qs('#pkg-stock-qty', modal).value) || 0 : 0,
+      is_stock_managed: isAuto,
+      stock_quantity: 0,
       auto_markup: qs('#pkg-auto-markup', modal)?.checked || false,
       markup_percent: qs('#pkg-auto-markup', modal)?.checked ? (parseFloat(qs('#pkg-markup-pct', modal)?.value) || null) : null,
     };
@@ -1015,7 +986,7 @@ async function showPackagesModal(productId, productName, prefetchedProduct = nul
       e.target.reset();
       qs('#pkg-fields-list', modal).innerHTML = '';
       fieldCounter = 0;
-      updateStockVisibility();
+      updateDeliveryVisibility();
       toast('Đã thêm gói', 'success');
     }
     catch (err) { toast(err.message, 'error'); }
@@ -1034,7 +1005,7 @@ function showPackageFormModal(pkg, refresh, parentProduct) {
         <div class="form-group"><label class="form-label">Giá (đ)</label><input type="number" class="form-input" id="epkg-price" required value="${pkg.price}" /></div>
       </div>
       <div class="form-row form-row-2">
-        <div class="form-group"><label class="form-label">Giao hàng</label><select class="form-select" id="epkg-delivery"><option value="manual" ${pkg.delivery_type==='manual'?'selected':''}>Thủ công</option><option value="auto" ${pkg.delivery_type==='auto'?'selected':''}>Tự động (kho)</option></select></div>
+        <div class="form-group"><label class="form-label">Giao hàng</label><select class="form-select" id="epkg-delivery"><option value="manual" ${pkg.delivery_type==='manual'?'selected':''}>Thủ công</option><option value="auto" ${pkg.delivery_type==='auto'?'selected':''}>Tự động (kho)</option><option value="api" ${pkg.delivery_type==='api'?'selected':''}>API</option></select></div>
         <div class="form-group" ${isGiftcardPkg ? 'style="display:none"' : ''}><label class="form-label">Mô tả</label><input class="form-input" id="epkg-desc" value="${pkg.description || ''}" placeholder="Mô tả..." /></div>
       </div>
       <div class="form-group" ${!showPkgImage ? 'style="display:none"' : ''}><label class="form-label">Ảnh gói</label>
@@ -1043,10 +1014,6 @@ function showPackageFormModal(pkg, refresh, parentProduct) {
           ${imageUploadControl('epkg-image', 'epkg-image-upload', 'Upload', 'epkg-image-preview')}
         </div>
         <div class="admin-upload-preview mt-4" id="epkg-image-preview">${pkg.image_url ? `<img src="${pkg.image_url}" style="max-height:80px;border-radius:6px" />` : '<span>Chưa có ảnh</span>'}</div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Giao hàng qua API</label>
-        <label class="toggle-switch"><input type="checkbox" id="epkg-api-toggle" ${pkg.delivery_type==='api'?'checked':''} /><span class="toggle-slider"></span></label>
       </div>
       <div id="epkg-api-panel" style="display:${pkg.delivery_type==='api'?'':'none'}">
         <div class="divider mt-8 mb-8"></div>
@@ -1086,16 +1053,6 @@ function showPackageFormModal(pkg, refresh, parentProduct) {
         </div>
         <textarea class="form-textarea" id="epkg-notes" rows="4" placeholder="Lưu ý riêng cho gói này...">${pkg.notes || ''}</textarea>
       </div>
-      <div class="form-row form-row-2" id="epkg-stock-row">
-        <div class="form-group">
-          <label class="form-label">Quản lý kho</label>
-          <label class="toggle-switch"><input type="checkbox" id="epkg-stock-toggle" ${pkg.is_stock_managed?'checked':''} /><span class="toggle-slider"></span></label>
-        </div>
-        <div class="form-group" id="epkg-stock-qty-group" style="display:${pkg.is_stock_managed?'':'none'}">
-          <label class="form-label">Số lượng tồn kho</label>
-          <input type="number" class="form-input" id="epkg-stock-qty" min="0" value="${pkg.stock_quantity || 0}" placeholder="0" />
-        </div>
-      </div>
       <div class="divider mt-12 mb-12"></div>
       <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">Lưu</button><button type="button" class="btn btn-ghost" id="epkg-cancel">Hủy</button></div>
     </form>
@@ -1103,28 +1060,14 @@ function showPackageFormModal(pkg, refresh, parentProduct) {
 
   const emodal = qs('#modal-content');
   const deliverySelect = qs('#epkg-delivery', emodal);
-  const stockToggle = qs('#epkg-stock-toggle', emodal);
-  const stockQtyGroup = qs('#epkg-stock-qty-group', emodal);
-  const stockRow = qs('#epkg-stock-row', emodal);
-  const apiToggleE = qs('#epkg-api-toggle', emodal);
   const apiPanelE = qs('#epkg-api-panel', emodal);
 
-  const updateStockVisibility = () => {
-    const isApi = apiToggleE?.checked;
-    if (isApi) {
-      stockRow.style.display = 'none';
-      deliverySelect.closest('.form-row').style.display = 'none';
-    } else {
-      stockRow.style.display = '';
-      deliverySelect.closest('.form-row').style.display = '';
-      stockQtyGroup.style.display = stockToggle.checked ? '' : 'none';
-    }
-    if (apiPanelE) apiPanelE.style.display = isApi ? '' : 'none';
+  const updateDeliveryVisibility = () => {
+    const val = deliverySelect.value;
+    if (apiPanelE) apiPanelE.style.display = val === 'api' ? '' : 'none';
   };
-  deliverySelect.onchange = updateStockVisibility;
-  stockToggle.onchange = updateStockVisibility;
-  if (apiToggleE) apiToggleE.onchange = updateStockVisibility;
-  updateStockVisibility();
+  deliverySelect.onchange = updateDeliveryVisibility;
+  updateDeliveryVisibility();
   bindImageUploads(emodal);
 
   const autoMarkupToggle = qs('#epkg-auto-markup', emodal);
@@ -1215,10 +1158,10 @@ function showPackageFormModal(pkg, refresh, parentProduct) {
   qs('#edit-pkg-form', emodal).onsubmit = async (e) => {
     e.preventDefault();
     if (window.syncRichTextEditors) window.syncRichTextEditors();
-    const isStockManaged = qs('#epkg-stock-toggle', emodal).checked;
-    const isApiE = qs('#epkg-api-toggle', emodal)?.checked;
+    const deliveryVal = qs('#epkg-delivery', emodal).value;
+    const isApiE = deliveryVal === 'api';
+    const isAutoE = deliveryVal === 'auto';
     const isManualIdE = qs('#epkg-manual-id', emodal)?.checked;
-    const deliveryVal = isApiE ? 'api' : qs('#epkg-delivery', emodal).value;
     const extProductE = isApiE ? (isManualIdE ? qs('#epkg-ext-product', emodal)?.value : qs('#epkg-remote-product', emodal)?.value) : null;
     const extPlanE = isApiE ? (isManualIdE ? qs('#epkg-ext-plan', emodal)?.value : qs('#epkg-remote-plan', emodal)?.value) : null;
     const body = {
@@ -1228,8 +1171,8 @@ function showPackageFormModal(pkg, refresh, parentProduct) {
       description: qs('#epkg-desc', emodal).value || null,
       notes: qs('#epkg-notes', emodal).value || null,
       image_url: qs('#epkg-image', emodal)?.value || null,
-      is_stock_managed: isStockManaged,
-      stock_quantity: isStockManaged ? parseInt(qs('#epkg-stock-qty', emodal).value) || 0 : 0,
+      is_stock_managed: isAutoE,
+      stock_quantity: 0,
       api_provider_id: isApiE ? (parseInt(qs('#epkg-provider', emodal)?.value) || null) : null,
       external_product_id: extProductE || null,
       external_plan_id: extPlanE || null,
