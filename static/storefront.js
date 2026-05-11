@@ -947,7 +947,7 @@ async function renderProduct(view, { slug }) {
         }
       }
       // ── Top section: stacked layout ──
-      const topSection = el('div', 'pd-top-section' + ((p.product_type === 'game' || p.product_type === 'giftcard') ? ' pd-top-game' : ''));
+      const topSection = el('div', 'pd-top-section' + (p.product_type === 'game' ? ' pd-top-game' : '') + (p.product_type === 'giftcard' ? ' pd-top-gc' : ''));
 
       // Breadcrumb inside top section
       topSection.appendChild(el('div', 'breadcrumb', `<a href="/">Trang chủ</a> <span>›</span> ${bcParentHtml}${p.category_name ? `<a href="${bcCatHref}">${esc(p.category_name)}</a> <span>›</span> ` : ''}${esc(p.name)}`));
@@ -955,10 +955,15 @@ async function renderProduct(view, { slug }) {
       const isGame = p.product_type === 'game' || p.product_type === 'giftcard';
       const isGiftcard = p.product_type === 'giftcard';
 
-      if (isGame) {
+      if (isGiftcard) {
+        // ── Gift Card: big product name ──
+        const gcHeader = el('div', 'pd-gc-header');
+        gcHeader.innerHTML = `<h1 class="pd-gc-name">${esc(p.name)}</h1>`;
+        topSection.appendChild(gcHeader);
+      } else if (isGame) {
         // ── Game: compact horizontal header ──
         const gameHeader = el('div', 'pd-game-header');
-        const gameImg = el('div', 'pd-game-thumb');
+        const gameImg = el('div', isGiftcard ? 'pd-game-thumb pd-game-thumb--gc' : 'pd-game-thumb');
         if (p.image_url) {
           gameImg.innerHTML = `<img src="${p.image_url}" alt="${p.name}" />`;
         } else {

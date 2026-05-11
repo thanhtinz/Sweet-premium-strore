@@ -2433,8 +2433,13 @@ tr:hover td { background: #FAFBFC; }
   margin-bottom: 16px;
   border-bottom: 2px solid var(--border);
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  position: sticky;
+  top: var(--header-h);
+  z-index: 10;
+  background: var(--bg-page);
 }
 .gc-tabs::-webkit-scrollbar { display: none; }
 .gc-tab {
@@ -2478,19 +2483,16 @@ tr:hover td { background: #FAFBFC; }
 }
 .gc-card {
   background: var(--card-bg);
-  border: 1.5px solid var(--border);
+  border: none;
   border-radius: 8px;
   padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  transition: box-shadow 0.2s, transform 0.15s;
   overflow: hidden;
 }
 .gc-card:hover {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
   transform: translateY(-2px);
 }
 .gc-card img {
@@ -4824,6 +4826,16 @@ a.support-contact-value:hover {
 .pd-top-game {
   /* same pattern, already inherited */
 }
+.pd-top-gc {
+  background: none !important;
+  background-color: transparent !important;
+  border-bottom: none;
+}
+.pd-top-gc {
+  background: none;
+  background-color: transparent;
+  border-bottom: none;
+}
 @media (max-width: 768px) {
   .pd-top-section { margin: -16px -16px 20px; padding: 16px 16px 20px; }
 }
@@ -4936,6 +4948,20 @@ a.support-contact-value:hover {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+.pd-game-thumb--gc {
+  width: auto;
+  height: 110px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+.pd-game-thumb--gc img {
+  width: auto;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
 }
 .pd-game-thumb-ph {
   width: 100%;
@@ -5110,6 +5136,64 @@ a.support-contact-value:hover {
   .pd-gpkg-name { font-size: 13px; }
 }
 
+/* ── Gift Card detail header ── */
+.pd-gc-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 0;
+}
+.pd-gc-name {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text-heading);
+  text-align: center;
+  margin: 0;
+  line-height: 1.2;
+}
+.pd-gc-img-wrap {
+  max-width: 140px;
+}
+.pd-gc-img-wrap img {
+  width: 100%;
+  display: block;
+  border-radius: 12px;
+}
+.pd-gc-img-ph {
+  width: 200px;
+  height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  color: var(--primary);
+  background: rgba(99, 102, 241, 0.06);
+  border-radius: 12px;
+}
+
+/* ── Gift Card package wrap (no card background) ── */
+.pd-gc-pkg-wrap {
+  background: none;
+  border: none;
+  padding: 0;
+}
+.pd-gc-pkg-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-heading);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pd-gc-pkg-sold {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
 /* ── Gift Card package grid (detail page) ── */
 .pd-pkg-grid-gc {
   display: grid;
@@ -5118,21 +5202,21 @@ a.support-contact-value:hover {
 }
 .pd-gcpkg-card {
   position: relative;
-  border-radius: 14px;
-  border: 2px solid var(--border);
-  background: var(--bg-card);
+  display: block;
+  border: 2px solid var(--text-heading);
+  border-radius: 10px;
+  background: transparent;
   cursor: pointer;
   transition: all 0.2s ease;
   overflow: hidden;
 }
 .pd-gcpkg-card:hover {
-  border-color: var(--primary);
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.12);
   transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 .pd-gcpkg-card.selected {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+  box-shadow: 0 0 0 2px var(--primary);
 }
 .pd-gcpkg-card.oos {
   opacity: 0.45;
@@ -5141,12 +5225,10 @@ a.support-contact-value:hover {
 .pd-gcpkg-img {
   width: 100%;
   display: block;
-  aspect-ratio: 5 / 3;
-  object-fit: cover;
 }
 .pd-gcpkg-ph {
   width: 100%;
-  aspect-ratio: 5 / 3;
+  aspect-ratio: 3 / 4;
   display: flex;
   align-items: center;
   justify-content: center;
