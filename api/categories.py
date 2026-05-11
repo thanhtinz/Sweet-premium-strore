@@ -105,6 +105,7 @@ def create_category(data: CategoryCreate, db: Session = Depends(get_db)):
         icon_url=data.icon_url,
         image_url=data.image_url,
         parent_id=data.parent_id,
+        product_type=data.product_type,
         sort_order=data.sort_order,
         is_active=data.is_active,
     )
