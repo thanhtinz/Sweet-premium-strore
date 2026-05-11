@@ -1885,7 +1885,14 @@ async function renderAdminSettings(view) {
         <div class="settings-card mt-16">
           <div class="settings-section-title"><i class="fa-solid fa-coins"></i> Tiền tệ & Thuế</div>
           ${field('g-currency-name', 'Tên tiền tệ', g.currency_name, { placeholder: 'Ví dụ: VNĐ, Candy, Coin...' })}
-          ${field('g-currency-icon', 'URL Icon tiền tệ (nếu dùng hình ảnh)', g.currency_icon, { placeholder: '/static/candy-icon.png' })}
+          <div class="form-group">
+            <label class="form-label">Icon tiền tệ</label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input class="form-input flex-1" id="g-currency-icon" value="${esc(g.currency_icon || '')}" placeholder="URL hoặc upload ảnh" />
+              ${imageUploadControl('g-currency-icon', 'g-currency-icon-upload', 'Upload', 'g-currency-icon-preview')}
+            </div>
+            <div class="admin-upload-preview" id="g-currency-icon-preview" style="margin-top:8px">${g.currency_icon ? `<img src="${esc(g.currency_icon)}" alt="Icon preview" style="max-height:48px" />` : '<span>Chưa có icon</span>'}</div>
+          </div>
           ${field('g-tax-rate', 'Thuế VAT (%)', g.tax_rate, { type: 'number', placeholder: 'Ví dụ: 8 hoặc 10 (để 0 nếu không thu thuế)' })}
         </div>
       </div>
@@ -3352,7 +3359,7 @@ async function renderAdminBotConfig(view) {
     ];
     const commands = Array.isArray(config.bot_commands) && config.bot_commands.length ? config.bot_commands : defaultCommands;
     content.innerHTML = `
-      ${cuiPageHeader('Quản lý bot', 'Cấu hình bot Telegram, bot Discord và email hệ thống')}
+      ${cuiPageHeader('Kết nối & Thông báo', 'Cấu hình Telegram, Discord và email hệ thống')}
 
       <div class="bot-admin-layout">
         <form id="bot-config-form" class="bot-admin-form-shell">
@@ -3472,25 +3479,10 @@ async function renderAdminBotConfig(view) {
                 <button type="button" class="btn btn-primary btn-sm" id="btn-save-smtp">
                   <i class="fa-solid fa-floppy-disk"></i> Lưu Email hệ thống
                 </button>
+                <button type="button" class="btn btn-outline btn-sm" id="btn-test-smtp">
+                  <i class="fa-solid fa-paper-plane"></i> Gửi mail test
+                </button>
               </div>
-            </div>
-          </section>
-
-          <section class="bot-admin-section-card">
-            <div class="bot-admin-section-head neutral">
-              <div class="bot-admin-section-icon"><i class="fa-solid fa-terminal"></i></div>
-              <div>
-                <h3>Lệnh bot đang hỗ trợ</h3>
-                <p>Các lệnh này đang dùng chung cho bot Telegram người dùng và bot Discord.</p>
-              </div>
-            </div>
-            <div class="bot-admin-command-list">
-              ${commands.map(item => `
-                <div class="bot-admin-command-item">
-                  <code>${esc(item.command)}</code>
-                  <span>${esc(item.description)}</span>
-                </div>
-              `).join('')}
             </div>
           </section>
 
@@ -3531,6 +3523,24 @@ async function renderAdminBotConfig(view) {
     qs('#btn-save-telegram').onclick = () => saveBotConfig('Telegram');
     qs('#btn-save-discord').onclick = () => saveBotConfig('Discord');
     qs('#btn-save-smtp').onclick = () => saveBotConfig('Email hệ thống');
+    qs('#btn-test-smtp').onclick = async () => {
+      const btn = qs('#btn-test-smtp');
+      const toEmail = qs('#smtp_from')?.value || qs('#smtp_user')?.value;
+      if (!toEmail) { toast('Chưa có email gửi đi', 'error'); return; }
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang gửi...';
+      try {
+        // Save config first to ensure latest values are used
+        await apiFetch('/admin/bot-config/settings', { method: 'PUT', body: JSON.stringify(getBotConfigPayload()) });
+        const res = await apiFetch('/admin/bot-config/test-mail', { method: 'POST', body: JSON.stringify({ to_email: toEmail }) });
+        toast(res.message || 'Đã gửi mail test!', 'success');
+      } catch (err) {
+        toast(err.message || 'Gửi mail test thất bại', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Gửi mail test';
+      }
+    };
 
     qs('#btn-test-telegram').onclick = async () => {
       const t = qs('#telegram_token').value;

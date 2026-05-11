@@ -110,7 +110,7 @@ const adminHeaderMeta = {
   '/admin/announcements': { title: 'Thông báo', subtitle: 'Đăng và quản lý thông báo hệ thống' },
   '/admin/oauth-settings': { title: 'Đăng nhập MXH', subtitle: 'Cấu hình OAuth và nhà cung cấp đăng nhập' },
   '/admin/settings': { title: 'Cài đặt chung', subtitle: 'Thiết lập hệ thống, giao diện và tính năng' },
-      '/admin/bot-config': { title: 'Quản lý bot', subtitle: 'Cấu hình Telegram, Discord và mail hệ thống' },
+      '/admin/bot-config': { title: 'Kết nối & Thông báo', subtitle: 'Cấu hình Telegram, Discord và mail hệ thống' },
 };
 
 function updateHeaderMode(pathWithQuery = getCurrentPath(), isAdmin) {
@@ -304,7 +304,7 @@ async function loadSidebar() {
         { href: '/admin/blog', icon: '<i class="fa-solid fa-newspaper"></i>', text: 'Blog' },
         { divider: 'Hỗ trợ & Cài đặt' },
         { href: '/admin/tickets', icon: '<i class="fa-solid fa-headset"></i>', text: 'Hỗ trợ' },
-        { href: '/admin/bot-config', icon: '<i class="fa-solid fa-robot"></i>', text: 'Quản lý bot' },
+        { href: '/admin/bot-config', icon: '<i class="fa-solid fa-tower-broadcast"></i>', text: 'Kết nối & Thông báo' },
         { href: '/admin/support-pages', icon: '<i class="fa-solid fa-file-lines"></i>', text: 'Trang thông tin' },
         { href: '/admin/announcements', icon: '<i class="fa-solid fa-bullhorn"></i>', text: 'Thông báo' },
         { href: '/admin/oauth-settings', icon: '<i class="fa-brands fa-github"></i>', text: 'Đăng nhập MXH' },

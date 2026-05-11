@@ -88,6 +88,38 @@ from pydantic import BaseModel
 class BotTestRequest(BaseModel):
     token: str
 
+class MailTestRequest(BaseModel):
+    to_email: str
+
+@router.post("/test-mail", dependencies=[Depends(get_current_admin)])
+def test_mail(data: MailTestRequest, db: Session = Depends(get_db)):
+    import smtplib
+    from email.mime.text import MIMEText
+    config = SiteConfigRepository(db).get_json("bot_smtp_config", default={}) or {}
+    server = config.get("smtp_server", "")
+    port = int(config.get("smtp_port", 587) or 587)
+    user = config.get("smtp_user", "")
+    password = config.get("smtp_pass", "")
+    from_email = config.get("smtp_from", "") or user
+    if not server or not user or not password:
+        raise HTTPException(400, "Chưa cấu hình SMTP đầy đủ")
+    try:
+        msg = MIMEText("Đây là email test từ hệ thống. Nếu bạn nhận được email này, cấu hình SMTP đã hoạt động.", "plain", "utf-8")
+        msg["Subject"] = "Test email hệ thống"
+        msg["From"] = from_email
+        msg["To"] = data.to_email
+        with smtplib.SMTP(server, port) as s:
+            s.starttls()
+            s.login(user, password)
+            s.send_message(msg)
+        return {"message": f"Gửi thành công đến {data.to_email}"}
+    except smtplib.SMTPAuthenticationError:
+        raise HTTPException(400, "Sai tài khoản hoặc mật khẩu SMTP")
+    except smtplib.SMTPConnectError:
+        raise HTTPException(400, f"Không kết nối được {server}:{port}")
+    except Exception as e:
+        raise HTTPException(400, f"Lỗi: {str(e)}")
+
 @router.post("/test-telegram", dependencies=[Depends(get_current_admin)])
 async def test_telegram_connection(data: BotTestRequest):
     import httpx
