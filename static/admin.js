@@ -50,7 +50,7 @@ function renderAdminImagePreview(preview, url, emptyText = 'Chưa có ảnh') {
 }
 
 function imageUploadControl(inputId, uploadId, label = 'Upload', previewId = '') {
-  return `<label class="btn btn-ghost btn-sm admin-image-upload-btn" style="white-space:nowrap;cursor:pointer;"><i class="fa-solid fa-upload"></i> ${label}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" id="${uploadId}" data-image-target="${inputId}" ${previewId ? `data-image-preview="${previewId}"` : ''} style="display:none" /></label>`;
+  return `<input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" id="${uploadId}" data-image-target="${inputId}" ${previewId ? `data-image-preview="${previewId}"` : ''} style="display:none" /><button type="button" class="btn btn-ghost btn-sm admin-image-upload-btn" style="white-space:nowrap" onclick="document.getElementById('${uploadId}').click()"><i class="fa-solid fa-upload"></i> ${label}</button>`;
 }
 
 function bindImageUpload(uploadId, inputId, { previewId = null } = {}) {
@@ -74,15 +74,16 @@ function bindImageUpload(uploadId, inputId, { previewId = null } = {}) {
 
 function bindImageUploads(root = document) {
   qsa('input[type="file"][data-image-target]', root).forEach(upload => {
-    const targetId = upload.dataset.imageTarget;
-    const previewId = upload.dataset.imagePreview;
-    const input = document.getElementById(targetId);
-    const preview = previewId ? document.getElementById(previewId) : null;
-    if (!input || upload.dataset.boundUpload === '1') return;
+    if (upload.dataset.boundUpload === '1') return;
     upload.dataset.boundUpload = '1';
+    const targetId = upload.dataset.imageTarget;
+    const previewId = upload.dataset.imagePreview || '';
     upload.onchange = async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
+      const input = document.getElementById(targetId);
+      const preview = previewId ? document.getElementById(previewId) : null;
+      if (!input) return;
       try {
         await uploadAdminImage(file, { input, preview });
         toast('Upload thành công', 'success');
