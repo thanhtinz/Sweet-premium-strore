@@ -351,13 +351,51 @@ async function loadSidebar() {
 
     // ── Danh mục ──
     nav.innerHTML += '<div class="sidebar-section-title">Danh mục</div>';
+    const defaultIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
     categories.forEach(cat => {
-      const item = el('a', 'nav-item');
-      item.href = `/all?cat=${encodeURIComponent(cat.slug)}`;
+      const subs = (cat.children || []).filter(s => s.is_active !== false);
+      const hasSubs = subs.length > 0;
       const iconUrl = cat.image_url || cat.icon_url;
-      const icon = iconUrl ? `<img src="${iconUrl}" alt="" style="width:18px;height:18px;object-fit:contain;border-radius:2px;" />` : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
-      item.innerHTML = `<div class="nav-icon">${icon}</div><span>${cat.name}</span>`;
-      nav.appendChild(item);
+      const icon = iconUrl ? `<img src="${iconUrl}" alt="" style="width:18px;height:18px;object-fit:contain;border-radius:2px;" />` : defaultIcon;
+
+      if (hasSubs) {
+        // Parent with expandable children
+        const group = el('div', 'nav-cat-group');
+        const item = el('div', 'nav-item nav-item-parent');
+        item.innerHTML = `<a href="/all?cat=${encodeURIComponent(cat.slug)}" class="nav-item-link"><div class="nav-icon">${icon}</div><span>${cat.name}</span></a><button class="nav-expand-btn" aria-label="Mở rộng"><i class="fa-solid fa-chevron-down"></i></button>`;
+        group.appendChild(item);
+
+        const subList = el('div', 'nav-sub-list');
+        subs.forEach(sub => {
+          const subItem = el('a', 'nav-item nav-item-sub');
+          subItem.href = `/all?cat=${encodeURIComponent(cat.slug)}&sub=${encodeURIComponent(sub.slug)}`;
+          const subIconUrl = sub.icon_url;
+          const subIcon = subIconUrl ? `<img src="${subIconUrl}" alt="" style="width:16px;height:16px;object-fit:contain;border-radius:2px;" />` : '<i class="fa-solid fa-chevron-right" style="font-size:10px;color:var(--text-muted);"></i>';
+          subItem.innerHTML = `<div class="nav-icon">${subIcon}</div><span>${sub.name}</span>`;
+          subList.appendChild(subItem);
+        });
+        group.appendChild(subList);
+
+        // Expand/collapse toggle
+        const toggleBtn = group.querySelector('.nav-expand-btn');
+        // Auto-expand if current page matches this category
+        const params = new URLSearchParams(location.search);
+        if (params.get('cat') === cat.slug) {
+          group.classList.add('expanded');
+        }
+        toggleBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          group.classList.toggle('expanded');
+        });
+        nav.appendChild(group);
+      } else {
+        // Simple parent without children
+        const item = el('a', 'nav-item');
+        item.href = `/all?cat=${encodeURIComponent(cat.slug)}`;
+        item.innerHTML = `<div class="nav-icon">${icon}</div><span>${cat.name}</span>`;
+        nav.appendChild(item);
+      }
     });
 
     // ── Offers & Blog link ──

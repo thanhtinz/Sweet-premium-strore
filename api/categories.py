@@ -30,6 +30,11 @@ class CategoryCreate(BaseModel):
 class CategoryUpdate(BaseModel):
     name: Optional[str] = None
     slug: Optional[str] = None
+    icon_url: Optional[str] = None
+    image_url: Optional[str] = None
+    parent_id: Optional[int] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
 
 
 class BulkIdsRequest(BaseModel):
