@@ -74,8 +74,9 @@ function bindImageUpload(uploadId, inputId, { previewId = null } = {}) {
 
 function bindImageUploads(root = document) {
   qsa('input[type="file"][data-image-target]', root).forEach(upload => {
-    const input = qs(`#${upload.dataset.imageTarget}`, root) || qs(`#${upload.dataset.imageTarget}`);
-    const preview = upload.dataset.imagePreview ? (qs(`#${upload.dataset.imagePreview}`, root) || qs(`#${upload.dataset.imagePreview}`)) : null;
+    const scope = upload.closest('.form-group') || root;
+    const input = qs(`#${upload.dataset.imageTarget}`, scope) || qs(`#${upload.dataset.imageTarget}`, root);
+    const preview = upload.dataset.imagePreview ? (qs(`#${upload.dataset.imagePreview}`, scope) || qs(`#${upload.dataset.imagePreview}`, root)) : null;
     if (!input || upload.dataset.boundUpload === '1') return;
     upload.dataset.boundUpload = '1';
     upload.onchange = async (e) => {
@@ -91,6 +92,117 @@ function bindImageUploads(root = document) {
       }
     };
   });
+}
+
+const IMAGE_GROUP_LABELS = {
+  all: 'Tất cả',
+  banner: 'Banner',
+  category: 'Danh mục',
+  product: 'Sản phẩm',
+  package: 'Gói bán',
+  settings: 'Cài đặt',
+  blog: 'Blog',
+  user: 'Avatar user',
+  unused: 'Chưa dùng',
+};
+
+function formatBytes(bytes = 0) {
+  const n = Number(bytes) || 0;
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function renderImageLibraryGrid(items, activeGroup = 'all') {
+  const filtered = activeGroup === 'all' ? items : items.filter(img => (img.groups || []).some(g => {
+    const base = g.startsWith('settings:') ? 'settings' : g;
+    return base === activeGroup;
+  }));
+  if (!filtered.length) {
+    return `<div class="empty-state"><i class="fa-regular fa-images"></i><p>Chưa có ảnh trong mục này</p></div>`;
+  }
+  return `<table class="admin-image-table">
+    <thead><tr>
+      <th>Ảnh</th>
+      <th>Tên file</th>
+      <th class="info-cell">Thông tin</th>
+      <th>Dùng ở</th>
+      <th class="action-cell"></th>
+    </tr></thead>
+    <tbody>
+    ${filtered.map(img => {
+      const groups = img.groups || ['unused'];
+      const canDelete = groups.length === 1 && groups[0] === 'unused';
+      return `<tr data-image-id="${img.id}">
+        <td class="img-cell"><img src="${esc(img.url)}" alt="" loading="lazy" /></td>
+        <td class="name-cell">
+          <div class="img-filename" title="${esc(img.filename || '')}">${esc(img.filename || `image-${img.id}`)}</div>
+          <div class="img-id">#${img.id}</div>
+        </td>
+        <td class="info-cell">${formatBytes(img.size)} · ${(img.mime_type || '').replace('image/', '').toUpperCase()}</td>
+        <td class="tag-cell">${groups.map(g => {
+          const isSettings = g.startsWith('settings:');
+          const label = isSettings ? g.split(':')[1] : (IMAGE_GROUP_LABELS[g] || g);
+          const cls = g === 'unused' ? 'warning' : 'info';
+          return `<span class="status-badge ${cls}">${esc(label)}</span>`;
+        }).join('')}</td>
+        <td class="action-cell">
+          <button class="btn btn-ghost btn-sm icon-only" data-copy-image="${esc(img.url)}" title="Copy URL"><i class="fa-regular fa-copy"></i></button>
+          <button class="btn btn-danger btn-sm icon-only" data-delete-image="${img.id}" ${canDelete ? '' : 'disabled title="Ảnh đang được sử dụng"'} title="Xoá"><i class="fa-regular fa-trash-can"></i></button>
+        </td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table>`;
+}
+
+async function renderAdminImages(view) {
+  if (!view) return;
+  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  try {
+    const data = await apiFetch('/banners/admin/images');
+    const images = data.items || [];
+    let activeGroup = 'all';
+    const groups = ['all', 'banner', 'category', 'product', 'package', 'settings', 'blog', 'user', 'unused'];
+    const counts = Object.fromEntries(groups.map(g => [g, 0]));
+    counts.all = images.length;
+    images.forEach(img => (img.groups || ['unused']).forEach(g => {
+      const base = g.startsWith('settings:') ? 'settings' : g;
+      if (counts[base] !== undefined) counts[base] += 1;
+    }));
+    const render = () => {
+      view.innerHTML = `
+        ${cuiPageHeader('Thư viện ảnh', 'Quản lý ảnh đã upload, phân theo nơi đang sử dụng')}
+        <div class="admin-tabs image-library-tabs">
+          ${groups.filter(g => counts[g] > 0 || g === 'all').map(g => `<button class="admin-tab ${activeGroup === g ? 'active' : ''}" data-image-group="${g}">${IMAGE_GROUP_LABELS[g]}<span class="tab-count">${counts[g] || 0}</span></button>`).join('')}
+        </div>
+        <div class="settings-card">
+          <div class="image-library-toolbar">
+            <div><strong>${images.length}</strong> ảnh đã upload</div>
+            <div class="muted">Chỉ xoá được ảnh chưa dùng để tránh vỡ giao diện.</div>
+          </div>
+          <div id="image-library-grid">${renderImageLibraryGrid(images, activeGroup)}</div>
+        </div>`;
+      qsa('[data-image-group]', view).forEach(btn => btn.onclick = () => { activeGroup = btn.dataset.imageGroup; render(); });
+      qsa('[data-copy-image]', view).forEach(btn => btn.onclick = async () => {
+        await navigator.clipboard.writeText(btn.dataset.copyImage);
+        toast('Đã copy URL ảnh', 'success');
+      });
+      qsa('[data-delete-image]', view).forEach(btn => btn.onclick = async () => {
+        if (!confirm('Xoá ảnh này? Chỉ ảnh chưa dùng mới xoá được.')) return;
+        try {
+          await apiFetch(`/banners/admin/images/${btn.dataset.deleteImage}`, { method: 'DELETE' });
+          toast('Đã xoá ảnh', 'success');
+          renderAdminImages(view);
+        } catch (err) {
+          toast(err.message || 'Không xoá được ảnh', 'error');
+        }
+      });
+    };
+    render();
+  } catch (err) {
+    view.innerHTML = `<div class="alert alert-error">${esc(err.message || 'Không tải được thư viện ảnh')}</div>`;
+  }
 }
 
 // ADMIN DASHBOARD

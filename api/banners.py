@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional
 from db import get_db
-from db.models import Banner, UploadedImage
+from db.models import Banner, UploadedImage, Category, Product, ProductPackage, SiteConfig, BlogPost, User
 from api.auth import get_current_admin
 
 router = APIRouter(prefix="/banners", tags=["banners"])
@@ -37,6 +37,89 @@ def list_banners(db: Session = Depends(get_db)):
 @router.get("/admin/list", dependencies=[Depends(get_current_admin)])
 def admin_list(db: Session = Depends(get_db)):
     rows = db.query(Banner).order_by(Banner.sort_order, Banner.id).all()
+
+
+def _image_url(image_id: int) -> str:
+    return f"/api/banners/images/{image_id}"
+
+
+def _image_usage_groups(db: Session, url: str) -> list[str]:
+    groups = []
+    if db.query(Banner.id).filter(Banner.image_url == url).first():
+        groups.append("banner")
+    if db.query(Category.id).filter((Category.icon_url == url) | (Category.image_url == url)).first():
+        groups.append("category")
+    if db.query(Product.id).filter(Product.image_url == url).first():
+        groups.append("product")
+    if db.query(ProductPackage.id).filter(ProductPackage.image_url == url).first():
+        groups.append("package")
+    if db.query(BlogPost.id).filter(BlogPost.thumbnail_url == url).first():
+        groups.append("blog")
+    if db.query(User.id).filter(User.avatar_url == url).first():
+        groups.append("user")
+
+    import json as _json
+    setting_labels = {
+        "logo_url": "Logo",
+        "favicon_url": "Favicon",
+        "currency_icon": "Icon tiền tệ",
+        "default_image_url": "Ảnh mặc định",
+        "seo_image_url": "Ảnh SEO",
+        "default_avatar_url": "Avatar mặc định",
+    }
+    for key in ("settings_general", "settings_images"):
+        cfg = db.query(SiteConfig).filter(SiteConfig.key == key).first()
+        if not cfg or not cfg.value:
+            continue
+        settings = cfg.value
+        if isinstance(settings, str):
+            try:
+                settings = _json.loads(settings)
+            except Exception:
+                continue
+        if not isinstance(settings, dict):
+            continue
+        for field, label in setting_labels.items():
+            if settings.get(field) == url:
+                groups.append(f"settings:{label}")
+
+    if not groups:
+        groups.append("unused")
+    return groups
+
+
+@router.get("/admin/images", dependencies=[Depends(get_current_admin)])
+def admin_images(db: Session = Depends(get_db)):
+    rows = db.query(UploadedImage).order_by(UploadedImage.created_at.desc(), UploadedImage.id.desc()).all()
+    items = []
+    for img in rows:
+        url = _image_url(img.id)
+        items.append({
+            "id": img.id,
+            "url": url,
+            "filename": img.filename,
+            "mime_type": img.mime_type,
+            "size": len(img.data or b""),
+            "created_at": img.created_at.isoformat() if img.created_at else None,
+            "groups": _image_usage_groups(db, url),
+        })
+    return {"items": items}
+
+
+@router.delete("/admin/images/{image_id}", dependencies=[Depends(get_current_admin)])
+@router.post("/admin/images/{image_id}/delete", dependencies=[Depends(get_current_admin)])
+def delete_uploaded_image(image_id: int, db: Session = Depends(get_db)):
+    img = db.query(UploadedImage).filter(UploadedImage.id == image_id).first()
+    if not img:
+        raise HTTPException(404, "Không tìm thấy ảnh")
+    url = _image_url(img.id)
+    groups = [g for g in _image_usage_groups(db, url) if g != "unused"]
+    if groups:
+        raise HTTPException(400, "Ảnh đang được dùng, hãy gỡ khỏi nơi sử dụng trước khi xoá")
+    db.delete(img)
+    db.commit()
+    return {"ok": True}
+
     return [_to_dict(b) for b in rows]
 
 

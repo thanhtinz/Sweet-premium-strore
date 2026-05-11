@@ -49,6 +49,7 @@ const routes = {
   '/admin/orders': renderAdminOrders,
   '/admin/stock': renderAdminStock,
   '/admin/settings': renderAdminSettings,
+  '/admin/images': renderAdminImages,
   '/admin/oauth-settings': renderAdminOAuthSettings,
   '/admin/banners': renderAdminBanners,
   '/admin/flash-sales': renderAdminFlashSales,
@@ -110,6 +111,7 @@ const adminHeaderMeta = {
   '/admin/announcements': { title: 'Thông báo', subtitle: 'Đăng và quản lý thông báo hệ thống' },
   '/admin/oauth-settings': { title: 'Đăng nhập MXH', subtitle: 'Cấu hình OAuth và nhà cung cấp đăng nhập' },
   '/admin/settings': { title: 'Cài đặt chung', subtitle: 'Thiết lập hệ thống, giao diện và tính năng' },
+  '/admin/images': { title: 'Thư viện ảnh', subtitle: 'Quản lý ảnh đã upload và nơi đang sử dụng' },
       '/admin/bot-config': { title: 'Kết nối & Thông báo', subtitle: 'Cấu hình Telegram, Discord và mail hệ thống' },
 };
 
@@ -298,6 +300,7 @@ async function loadSidebar() {
         { href: '/admin/api-providers', icon: '<i class="fa-solid fa-plug"></i>', text: 'Đấu nối API' },
         { divider: 'Tính năng' },
         { href: '/admin/banners', icon: '<i class="fa-solid fa-image"></i>', text: 'Banners' },
+        { href: '/admin/images', icon: '<i class="fa-solid fa-images"></i>', text: 'Thư viện ảnh' },
         { href: '/admin/flash-sales', icon: '<i class="fa-solid fa-bolt"></i>', text: 'Flash Sales' },
         { href: '/admin/gift-codes', icon: '<i class="fa-solid fa-gift"></i>', text: 'Mã quà tặng' },
         { href: '/admin/affiliates', icon: '<i class="fa-solid fa-user-group"></i>', text: 'Affiliates' },
