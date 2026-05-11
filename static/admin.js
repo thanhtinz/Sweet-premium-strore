@@ -74,9 +74,10 @@ function bindImageUpload(uploadId, inputId, { previewId = null } = {}) {
 
 function bindImageUploads(root = document) {
   qsa('input[type="file"][data-image-target]', root).forEach(upload => {
-    const scope = upload.closest('.form-group') || root;
-    const input = qs(`#${upload.dataset.imageTarget}`, scope) || qs(`#${upload.dataset.imageTarget}`, root);
-    const preview = upload.dataset.imagePreview ? (qs(`#${upload.dataset.imagePreview}`, scope) || qs(`#${upload.dataset.imagePreview}`, root)) : null;
+    const targetId = upload.dataset.imageTarget;
+    const previewId = upload.dataset.imagePreview;
+    const input = document.getElementById(targetId);
+    const preview = previewId ? document.getElementById(previewId) : null;
     if (!input || upload.dataset.boundUpload === '1') return;
     upload.dataset.boundUpload = '1';
     upload.onchange = async (e) => {
