@@ -1534,7 +1534,16 @@ async function renderAdminSettings(view) {
               const checked = (ap.home_categories || '').split(',').map(s => s.trim()).includes(c.slug);
               const iconUrl = c.image_url || c.icon_url;
               const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width:20px;height:20px;object-fit:contain;border-radius:4px;" />` : '<i class="fa-solid fa-folder" style="font-size:16px;color:var(--text-muted)"></i>';
-              return `<label class="home-cat-item${checked ? ' selected' : ''}"><input type="checkbox" value="${c.slug}" ${checked ? 'checked' : ''} />${iconHtml}<span>${esc(c.name)}</span></label>`;
+              let html = `<label class="home-cat-item${checked ? ' selected' : ''}"><input type="checkbox" value="${c.slug}" ${checked ? 'checked' : ''} />${iconHtml}<span>${esc(c.name)}</span></label>`;
+              if (c.children?.length) {
+                c.children.forEach(sub => {
+                  const subChecked = (ap.home_categories || '').split(',').map(s => s.trim()).includes(sub.slug);
+                  const subIconUrl = sub.image_url || sub.icon_url;
+                  const subIconHtml = subIconUrl ? `<img src="${subIconUrl}" style="width:18px;height:18px;object-fit:contain;border-radius:4px;" />` : '<i class="fa-solid fa-folder-open" style="font-size:14px;color:var(--text-muted)"></i>';
+                  html += `<label class="home-cat-item home-cat-item-sub${subChecked ? ' selected' : ''}" style="padding-left:32px;font-size:13px;"><input type="checkbox" value="${sub.slug}" ${subChecked ? 'checked' : ''} /><span style="color:var(--text-muted);margin-right:4px;">↳</span>${subIconHtml}<span>${esc(sub.name)}</span></label>`;
+                });
+              }
+              return html;
             }).join('')}
           </div>
         </div>

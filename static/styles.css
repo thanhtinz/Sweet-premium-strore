@@ -1413,6 +1413,39 @@ img { max-width: 100%; display: block; }
   line-height: 1.25;
 }
 
+/* ─── Home Subcategory Chips ─── */
+.home-subcat-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 4px;
+}
+.home-subcat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-body);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.home-subcat-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-light);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(99,102,241,0.12);
+}
+.home-subcat-chip img {
+  flex-shrink: 0;
+}
+
 /* ─── Tables ─── */
 .table-wrap {
   background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
