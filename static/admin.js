@@ -950,7 +950,7 @@ async function renderAdminOrders(view) {
     const data = await apiFetch(`/orders/admin/all?limit=50${status ? '&status=' + status : ''}`);
     const statusOptions = ['', 'pending', 'paid', 'completed', 'cancelled', 'failed'];
     const statusLabels = { pending: 'Đặt hàng', paid: 'Đã thanh toán', completed: 'Đã giao hàng', cancelled: 'Đã hủy', failed: 'Lỗi' };
-    const paymentLabels = { payos: 'PayOS', balance: 'Số dư' };
+    const paymentLabels = { payos: 'QR Ngân hàng', balance: 'Số dư' };
     const validIds = new Set(data.items.map(o => o.id));
     [...selectedIds].forEach(id => { if (!validIds.has(id)) selectedIds.delete(id); });
     const actionButtons = (o) => {
@@ -1533,13 +1533,13 @@ async function renderAdminSettings(view) {
             ${categories.map(c => {
               const checked = (ap.home_categories || '').split(',').map(s => s.trim()).includes(c.slug);
               const iconUrl = c.image_url || c.icon_url;
-              const iconHtml = iconUrl ? `<img src="${iconUrl}" style="width:20px;height:20px;object-fit:contain;border-radius:4px;" />` : '<i class="fa-solid fa-folder" style="font-size:16px;color:var(--text-muted)"></i>';
+              const iconHtml = iconUrl ? `<img src="${esc(iconUrl)}" style="width:20px;height:20px;object-fit:contain;border-radius:4px;" />` : '<i class="fa-solid fa-folder" style="font-size:16px;color:var(--text-muted)"></i>';
               let html = `<label class="home-cat-item${checked ? ' selected' : ''}"><input type="checkbox" value="${c.slug}" ${checked ? 'checked' : ''} />${iconHtml}<span>${esc(c.name)}</span></label>`;
               if (c.children?.length) {
                 c.children.forEach(sub => {
                   const subChecked = (ap.home_categories || '').split(',').map(s => s.trim()).includes(sub.slug);
                   const subIconUrl = sub.image_url || sub.icon_url;
-                  const subIconHtml = subIconUrl ? `<img src="${subIconUrl}" style="width:18px;height:18px;object-fit:contain;border-radius:4px;" />` : '<i class="fa-solid fa-folder-open" style="font-size:14px;color:var(--text-muted)"></i>';
+                  const subIconHtml = subIconUrl ? `<img src="${esc(subIconUrl)}" style="width:18px;height:18px;object-fit:contain;border-radius:4px;" />` : '<i class="fa-solid fa-folder-open" style="font-size:14px;color:var(--text-muted)"></i>';
                   html += `<label class="home-cat-item home-cat-item-sub${subChecked ? ' selected' : ''}" style="padding-left:32px;font-size:13px;"><input type="checkbox" value="${sub.slug}" ${subChecked ? 'checked' : ''} /><span style="color:var(--text-muted);margin-right:4px;">↳</span>${subIconHtml}<span>${esc(sub.name)}</span></label>`;
                 });
               }
@@ -2020,11 +2020,13 @@ async function renderAdminSettings(view) {
     };
 
     try {
-      await apiFetch('/admin/settings/unified', { method: 'PUT', body: JSON.stringify(payload) });
-      await apiFetch('/admin/settings/database', { method: 'PUT', body: JSON.stringify(collectDatabasePayload()) });
-      
+      const saveTasks = [
+        apiFetch('/admin/settings/unified', { method: 'PUT', body: JSON.stringify(payload) }),
+        apiFetch('/admin/settings/database', { method: 'PUT', body: JSON.stringify(collectDatabasePayload()) }),
+      ];
       // Cũng lưu luôn config AI chung
       const aiProvider = qs('#ai-provider', content)?.value;
+      let aiPromise = null;
       if (aiProvider) {
          const aiBody = {
           provider: aiProvider,
@@ -2032,8 +2034,13 @@ async function renderAdminSettings(view) {
           api_key: qs('#ai-apikey', content)?.value || null,
           custom_base_url: qs('#ai-baseurl', content)?.value || null,
         };
-        const res = await apiFetch('/admin/ai/config', { method: 'PUT', body: JSON.stringify(aiBody) });
-        if (res.api_key_masked) {
+        aiPromise = apiFetch('/admin/ai/config', { method: 'PUT', body: JSON.stringify(aiBody) });
+        saveTasks.push(aiPromise);
+      }
+      const results = await Promise.all(saveTasks);
+      if (aiPromise) {
+        const res = results[2];
+        if (res?.api_key_masked) {
           const hint = qs('#ai-apikey', content)?.parentElement?.querySelector('.form-hint');
           if (hint) hint.textContent = 'Key hiện tại: ' + res.api_key_masked;
         }
@@ -3367,7 +3374,7 @@ function _renderPaymentTable(items) {
       <td class="text-sm">${o.user_email || '—'}</td>
       <td class="text-sm">${o.product_name || '—'}</td>
       <td class="text-primary">${fmt(o.total_amount)}</td>
-      <td class="text-sm">${({ payos: 'PayOS', balance: 'Số dư' })[o.payment_method] || o.payment_method || 'PayOS'}</td>
+      <td class="text-sm">${({ payos: 'QR Ngân hàng', balance: 'Số dư' })[o.payment_method] || o.payment_method || 'PayOS'}</td>
       <td>${statusBadge(o.status)}</td>
       <td class="text-sm text-muted">${fmtDate(o.created_at)}</td>
       <td class="text-sm text-muted">${fmtDate(o.updated_at)}</td>

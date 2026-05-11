@@ -116,7 +116,25 @@ def update_category(cat_id: int, data: CategoryUpdate, db: Session = Depends(get
     cat = db.query(Category).filter(Category.id == cat_id).first()
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
-    for field, val in data.model_dump(exclude_none=True).items():
+    updates = data.model_dump(exclude_none=True)
+    # Validate slug uniqueness
+    if "slug" in updates and updates["slug"] != cat.slug:
+        slug = updates["slug"]
+        existing = db.query(Category).filter(Category.slug == slug, Category.id != cat_id).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Slug đã tồn tại")
+    # Validate parent_id
+    if "parent_id" in updates:
+        pid = updates["parent_id"]
+        if pid is not None:
+            if pid == cat_id:
+                raise HTTPException(status_code=400, detail="Không thể đặt chính mình làm danh mục cha")
+            parent = db.query(Category).filter(Category.id == pid).first()
+            if not parent:
+                raise HTTPException(status_code=400, detail="Danh mục cha không tồn tại")
+            if parent.parent_id == cat_id:
+                raise HTTPException(status_code=400, detail="Tham chiếu vòng: danh mục cha đang là con của danh mục này")
+    for field, val in updates.items():
         setattr(cat, field, val)
     db.commit()
     db.refresh(cat)

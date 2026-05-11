@@ -63,8 +63,8 @@ function paymentStatusLabel(status) {
 }
 
 function paymentMethodLabel(method) {
-  const labels = { payos: 'PayOS', balance: 'Số dư' };
-  return labels[method] || method || 'PayOS';
+  const labels = { payos: 'QR Ngân hàng', balance: 'Số dư' };
+  return labels[method] || method || 'QR Ngân hàng';
 }
 
     slider.appendChild(track);
@@ -215,9 +215,9 @@ function paymentMethodLabel(method) {
         children.forEach(sub => {
           const card = el('div', 'subcat-card');
           const iconHtml = sub.icon_url
-            ? `<img src="${withImageFallback(sub.icon_url)}" alt="${sub.name}" loading="lazy" decoding="async" onerror="${onImgFallback()}" />`
+            ? `<img src="${withImageFallback(sub.icon_url)}" alt="${esc(sub.name)}" loading="lazy" decoding="async" onerror="${onImgFallback()}" />`
             : `<div class="subcat-icon">${ico.box}</div>`;
-          card.innerHTML = `${iconHtml}<span class="subcat-name">${sub.name}</span>`;
+          card.innerHTML = `${iconHtml}<span class="subcat-name">${esc(sub.name)}</span>`;
           card.onclick = () => {
             const p = categories.find(c => c.children?.some(s => s.slug === sub.slug));
             navigateTo(`/all?cat=${p ? p.slug : ''}&sub=${sub.slug}`);
@@ -319,39 +319,26 @@ function paymentMethodLabel(method) {
   // ── Selected Categories on Home ──────────────────────────
   if (appSettings.home_categories) {
     const slugs = appSettings.home_categories.split(',').map(s => s.trim()).filter(Boolean);
-    // Helper: find a category (parent or child) by slug
+    // Helper: find category by slug (parent or child)
     const findCatBySlug = (slug) => {
       const parent = categories.find(c => c.slug === slug);
-      if (parent) return { cat: parent, isChild: false, parentCat: null };
+      if (parent) return { cat: parent, parentCat: null };
       for (const p of categories) {
         const child = p.children?.find(s => s.slug === slug);
-        if (child) return { cat: child, isChild: true, parentCat: p };
+        if (child) return { cat: child, parentCat: p };
       }
       return null;
     };
     for (const slug of slugs) {
       const found = findCatBySlug(slug);
       if (!found) continue;
-      const { cat, isChild, parentCat } = found;
+      const { cat, parentCat } = found;
 
       const catHead = el('div', 'section-head mt-32');
       const catIcon = cat.icon_url ? `<img src="${withImageFallback(cat.icon_url)}" loading="lazy" decoding="async" onerror="${onImgFallback()}" style="width:24px;height:24px;object-fit:contain;vertical-align:middle"/>` : ico.box;
-      const linkSlug = isChild ? `cat=${parentCat.slug}&sub=${cat.slug}` : `cat=${cat.slug}`;
+      const linkSlug = parentCat ? `cat=${parentCat.slug}&sub=${cat.slug}` : `cat=${cat.slug}`;
       catHead.innerHTML = `<div class="section-title mb-0">${catIcon} ${cat.name}</div><a href="/all?${linkSlug}" class="btn btn-primary btn-sm" style="font-weight: 600;">Xem tất cả <i class="fa-solid fa-arrow-right"></i></a>`;
       frag.appendChild(catHead);
-
-      // Show subcategory chips for parent categories
-      if (!isChild && cat.children?.length) {
-        const subChips = el('div', 'home-subcat-chips');
-        cat.children.filter(s => s.is_active !== false).forEach(sub => {
-          const chip = el('a', 'home-subcat-chip');
-          chip.href = `/all?cat=${cat.slug}&sub=${sub.slug}`;
-          const subIcon = sub.icon_url ? `<img src="${withImageFallback(sub.icon_url)}" loading="lazy" decoding="async" onerror="${onImgFallback()}" style="width:16px;height:16px;object-fit:contain;border-radius:2px;" />` : '';
-          chip.innerHTML = `${subIcon}<span>${sub.name}</span>`;
-          subChips.appendChild(chip);
-        });
-        frag.appendChild(subChips);
-      }
 
       const catData = homeCatProducts[slug];
       if (catData && catData.items && catData.items.length) {
@@ -1949,7 +1936,7 @@ async function renderCheckout(view) {
           <div class="payment-option ${!balanceOn || userBalance < grandTotal ? 'selected' : ''}" data-method="payos">
             <div class="payment-option-icon pay-icon-payos"><i class="fa-solid fa-qrcode"></i></div>
             <div class="payment-option-info">
-              <div class="payment-option-name">PayOS — QR Ngân hàng</div>
+              <div class="payment-option-name">QR Ngân hàng</div>
               <div class="payment-option-desc">Chuyển khoản QR, áp dụng mọi ngân hàng VN</div>
             </div>
             <div class="payment-option-check ${!balanceOn || userBalance < grandTotal ? 'active' : ''}"><i class="${!balanceOn || userBalance < grandTotal ? 'fa-solid fa-circle-check' : 'fa-regular fa-circle'}"></i></div>
@@ -2083,7 +2070,7 @@ async function renderCheckout(view) {
       content.style.textAlign = 'left';
       const qrBlock = payosData.qr_code
         ? `<div class="checkout-shell-qr-wrap"><img src="${payosData.qr_code}" alt="QR thanh toán" class="checkout-shell-qr" /></div>`
-        : `<div class="checkout-shell-qr-wrap checkout-shell-qr-placeholder"><i class="fa-solid fa-qrcode"></i><span>QR sẽ hiển thị khi PayOS trả dữ liệu</span></div>`;
+        : `<div class="checkout-shell-qr-wrap checkout-shell-qr-placeholder"><i class="fa-solid fa-qrcode"></i><span>QR sẽ hiển thị sau khi xử lý</span></div>`;
       const bankMeta = [
         payosData.account_name ? `<div class="checkout-shell-meta-row"><span>Chủ tài khoản</span><strong>${esc(payosData.account_name)}</strong></div>` : '',
         payosData.account_number ? `<div class="checkout-shell-meta-row"><span>Số tài khoản</span><strong>${esc(payosData.account_number)}</strong></div>` : '',
@@ -2620,7 +2607,7 @@ async function renderOrderDetail(view, { code }) {
         // Pending — show QR/bank info shell
         const qrBlock = payosData.qr_code
           ? `<div class="checkout-shell-qr-wrap"><img src="${payosData.qr_code}" alt="QR thanh toán" class="checkout-shell-qr" /></div>`
-          : `<div class="checkout-shell-qr-wrap checkout-shell-qr-placeholder"><i class="fa-solid fa-qrcode"></i><span>QR sẽ hiển thị khi PayOS trả dữ liệu</span></div>`;
+          : `<div class="checkout-shell-qr-wrap checkout-shell-qr-placeholder"><i class="fa-solid fa-qrcode"></i><span>QR sẽ hiển thị sau khi xử lý</span></div>`;
         const bankMeta = [
           payosData.account_name ? `<div class="checkout-shell-meta-row"><span>Chủ tài khoản</span><strong>${esc(payosData.account_name)}</strong></div>` : '',
           payosData.account_number ? `<div class="checkout-shell-meta-row"><span>Số tài khoản</span><strong>${esc(payosData.account_number)}</strong></div>` : '',
