@@ -97,8 +97,8 @@ async function renderAdminOAuthSettings(view) {
           <div class="oauth-callback">
             <label>Callback URL</label>
             <div class="callback-url">
-              <code>${window.location.origin}/api/auth/oauth/${key}/callback</code>
-              <button class="copy-btn" data-copy="\${window.location.origin}/api/auth/oauth/${key}/callback">
+              <code>${window.location.origin}/api/auth/${key}/callback</code>
+              <button class="copy-btn" data-copy="\${window.location.origin}/api/auth/${key}/callback">
                 <i class="fa-solid fa-copy"></i>
               </button>
             </div>
@@ -120,7 +120,7 @@ async function renderAdminOAuthSettings(view) {
           <h4>Bước 3: Cấu hình Consent Screen</h4>
           <p>Điền thông tin ứng dụng của bạn</p>
           <h4>Bước 4: Thêm Redirect URI</h4>
-          <p>Authorized redirect URIs: <code>${window.location.origin}/api/auth/oauth/google/callback</code></p>
+          <p>Authorized redirect URIs: <code>${window.location.origin}/api/auth/google/callback</code></p>
           <h4>Bước 5: Copy Client ID & Secret</h4>
           <p>Dán vào các trường bên trên</p>
         </div>
@@ -131,7 +131,7 @@ async function renderAdminOAuthSettings(view) {
           <p>Vào <a href="https://developers.facebook.com" target="_blank">Facebook Developers</a></p>
           <h4>Bước 2: Cấu hình OAuth Redirect URI</h4>
           <p>Settings → Basic → App Domains & Redirect URIs</p>
-          <p>Valid OAuth Redirect URIs: <code>${window.location.origin}/api/auth/oauth/facebook/callback</code></p>
+          <p>Valid OAuth Redirect URIs: <code>${window.location.origin}/api/auth/facebook/callback</code></p>
           <h4>Bước 3: Lấy App ID & Secret</h4>
           <p>Settings → Basic → App ID & App Secret</p>
         </div>
@@ -141,7 +141,7 @@ async function renderAdminOAuthSettings(view) {
           <h4>Bước 1: Tạo OAuth App trên GitHub</h4>
           <p>Settings → Developer settings → OAuth Apps → New OAuth App</p>
           <h4>Bước 2: Cấu hình URLs</h4>
-          <p>Authorization callback URL: <code>${window.location.origin}/api/auth/oauth/github/callback</code></p>
+          <p>Authorization callback URL: <code>${window.location.origin}/api/auth/github/callback</code></p>
           <h4>Bước 3: Lấy Client ID & Secret</h4>
           <p>Copy từ trang OAuth App settings</p>
         </div>
@@ -163,7 +163,7 @@ async function renderAdminOAuthSettings(view) {
           <h4>Bước 2: Tạo Application</h4>
           <p>Chọn Web/API Product</p>
           <h4>Bước 3: Cấu hình Redirect URI</h4>
-          <p>Callback URL: <code>${window.location.origin}/api/auth/oauth/tiktok/callback</code></p>
+          <p>Callback URL: <code>${window.location.origin}/api/auth/tiktok/callback</code></p>
           <h4>Bước 4: Lấy Client ID & Secret</h4>
           <p>Từ Application details</p>
         </div>
