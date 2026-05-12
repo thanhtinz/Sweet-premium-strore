@@ -54,18 +54,23 @@ def _get_oauth_config(db: Session = None):
     }
     if db:
         repo = SiteConfigRepository(db)
-        keys = [
-            "google_client_id",
-            "google_client_secret",
-            "google_redirect_uri",
-            "discord_client_id",
-            "discord_client_secret",
-            "discord_redirect_uri",
-        ]
-        for key in keys:
-            value = repo.get_value(key)
-            if value and not cfg.get(key):
-                cfg[key] = value
+        # Map internal config key -> possible DB keys (oauth_ prefix used by admin panel)
+        key_mapping = {
+            "google_client_id": ["oauth_google_client_id", "google_client_id"],
+            "google_client_secret": ["oauth_google_client_secret", "google_client_secret"],
+            "google_redirect_uri": ["oauth_google_redirect_uri", "google_redirect_uri"],
+            "discord_client_id": ["oauth_discord_client_id", "discord_client_id"],
+            "discord_client_secret": ["oauth_discord_client_secret", "discord_client_secret"],
+            "discord_redirect_uri": ["oauth_discord_redirect_uri", "discord_redirect_uri"],
+        }
+        for cfg_key, db_keys in key_mapping.items():
+            if cfg.get(cfg_key):
+                continue
+            for db_key in db_keys:
+                value = repo.get_value(db_key)
+                if value:
+                    cfg[cfg_key] = value
+                    break
     return cfg
 
 
