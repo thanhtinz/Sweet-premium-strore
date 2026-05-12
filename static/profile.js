@@ -367,9 +367,6 @@ async function renderProfile(view) {
                 ${botLinks?.discord_invite ? `<a class="btn btn-ghost btn-sm" href="${esc(botLinks.discord_invite)}" target="_blank" rel="noopener">Mở Discord bot</a>` : ''}
               </div>
               ` : `
-              <div style="padding:12px;background:var(--bg-card);border:1px dashed var(--border-dark);border-radius:var(--radius-xs);margin-bottom:12px;">
-                <div class="text-sm text-muted">Tạo mã rồi DM bot lệnh <code>/link CODE</code></div>
-              </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button class="btn btn-outline btn-sm" id="discord-code-btn">Tạo mã /link</button>
                 <button class="btn btn-ghost btn-sm" id="discord-copy-code-btn">Copy mã</button>
@@ -402,9 +399,6 @@ async function renderProfile(view) {
                 ${botLinks?.telegram_bot_username ? `<a class="btn btn-ghost btn-sm" href="https://t.me/${esc(botLinks.telegram_bot_username)}" target="_blank" rel="noopener">Mở bot Telegram</a>` : ''}
               </div>
               ` : `
-              <div style="padding:12px;background:var(--bg-card);border:1px dashed var(--border-dark);border-radius:var(--radius-xs);margin-bottom:12px;">
-                <div class="text-sm text-muted">Tạo mã rồi gửi <code>/link CODE</code> trong chat bot Telegram</div>
-              </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button class="btn btn-outline btn-sm" id="telegram-code-btn">Tạo mã /link</button>
                 <button class="btn btn-ghost btn-sm" id="telegram-copy-code-btn">Copy mã</button>
