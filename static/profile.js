@@ -372,8 +372,8 @@ async function renderProfile(view) {
                 <button class="btn btn-ghost btn-sm" id="discord-copy-code-btn">Copy mã</button>
                 ${botLinks?.discord_invite ? `<a class="btn btn-ghost btn-sm" href="${esc(botLinks.discord_invite)}" target="_blank" rel="noopener">Mở Discord bot</a>` : ''}
               </div>
-              <div id="discord-link-code" style="margin-top:10px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border-dark);border-radius:var(--radius-xs);font-family:monospace;font-size:13px;color:var(--accent);letter-spacing:.5px;">${discord.link_code ? `/link ${esc(discord.link_code)}` : '<span style="color:var(--text-muted);font-family:inherit;">Tạo mã rồi gửi trong DM với bot Discord.</span>'}</div>
-              <div class="text-xs text-muted mt-4" id="discord-link-expiry">${formatExpiryText(discord.link_code_expires_at)}</div>
+              <div id="discord-link-code" style="margin-top:10px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border-dark);border-radius:var(--radius-xs);font-family:monospace;font-size:13px;color:var(--accent);letter-spacing:.5px;${discord.link_code ? '' : 'display:none;'}">${discord.link_code ? `/link ${esc(discord.link_code)}` : ''}</div>
+              <div class="text-xs text-muted mt-4" id="discord-link-expiry" style="${discord.link_code ? '' : 'display:none;'}">${formatExpiryText(discord.link_code_expires_at)}</div>
               `}
             </div>
             <div style="padding:16px;border:1px solid ${telegram.linked ? 'var(--accent)' : 'var(--border)'};border-radius:var(--radius-sm);background:var(--bg-page);">
@@ -404,7 +404,7 @@ async function renderProfile(view) {
                 <button class="btn btn-ghost btn-sm" id="telegram-copy-code-btn">Copy mã</button>
                 ${botLinks?.telegram_bot_username ? `<a class="btn btn-ghost btn-sm" href="https://t.me/${esc(botLinks.telegram_bot_username)}" target="_blank" rel="noopener">Mở bot Telegram</a>` : ''}
               </div>
-              <div id="telegram-link-code" style="margin-top:10px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border-dark);border-radius:var(--radius-xs);font-family:monospace;font-size:13px;color:var(--accent);letter-spacing:.5px;">${telegram.link_code ? `/link ${esc(telegram.link_code)}` : '<span style="color:var(--text-muted);font-family:inherit;">Tạo mã rồi gửi trong chat bot Telegram.</span>'}</div>
+              <div id="telegram-link-code" style="margin-top:10px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border-dark);border-radius:var(--radius-xs);font-family:monospace;font-size:13px;color:var(--accent);letter-spacing:.5px;${telegram.link_code ? '' : 'display:none;'}">${telegram.link_code ? `/link ${esc(telegram.link_code)}` : ''}</div>
               `}
             </div>
           </div>
@@ -430,13 +430,13 @@ async function renderProfile(view) {
           toast(`Mã liên kết ${platform} đã tạo`, 'success');
           if (platform === 'discord') {
             const dcEl = qs('#discord-link-code', botCard);
-            if (dcEl) dcEl.innerHTML = `/link ${res.link_code}`;
+            if (dcEl) { dcEl.innerHTML = `/link ${res.link_code}`; dcEl.style.display = ''; }
             const expiryEl = qs('#discord-link-expiry', botCard);
-            if (expiryEl) expiryEl.textContent = formatExpiryText(res.expires_at);
+            if (expiryEl) { expiryEl.textContent = formatExpiryText(res.expires_at); expiryEl.style.display = ''; }
           }
           if (platform === 'telegram') {
             const tgEl = qs('#telegram-link-code', botCard);
-            if (tgEl) tgEl.innerHTML = `/link ${res.link_code}`;
+            if (tgEl) { tgEl.innerHTML = `/link ${res.link_code}`; tgEl.style.display = ''; }
           }
         } catch (err) { toast(err.message, 'error'); }
       };
