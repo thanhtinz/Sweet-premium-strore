@@ -353,36 +353,27 @@ async function renderProfile(view) {
                   <div class="fw-600">Discord DM Bot</div>
                   ${discord.linked
                     ? `<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:rgba(52,199,89,.16);color:#34c759;border:1px solid rgba(52,199,89,.45);font-weight:700;">✓ Đã liên kết</span>`
-                    : `<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border);">Chưa liên kết</span>`}
+                    : ''}
                 </div>
               </div>
               ${discord.linked ? `
               <div class="text-sm text-muted mb-12" style="line-height:1.8;">
                 ${discord.platform_username ? `<div>Username: <strong>${esc(discord.platform_username)}</strong></div>` : ''}
-                <div>UID: <code style="font-size:12px;">${esc(discord.platform_user_id || '—')}</code></div>
                 ${discord.linked_at ? `<div>Liên kết lúc: ${esc(formatBotDate(discord.linked_at))}</div>` : ''}
                 ${discord.last_seen_at ? `<div>Hoạt động gần nhất: ${esc(formatBotDate(discord.last_seen_at))}</div>` : ''}
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button class="btn btn-ghost btn-sm" id="discord-status-btn">Xem trạng thái</button>
                 <button class="btn btn-danger btn-sm" id="discord-unlink-btn">Gỡ liên kết</button>
                 ${botLinks?.discord_invite ? `<a class="btn btn-ghost btn-sm" href="${esc(botLinks.discord_invite)}" target="_blank" rel="noopener">Mở Discord bot</a>` : ''}
               </div>
               ` : `
               <div style="padding:12px;background:var(--bg-card);border:1px dashed var(--border-dark);border-radius:var(--radius-xs);margin-bottom:12px;">
-                <div class="fw-600 mb-6">3 cách liên kết Discord</div>
-                <div class="text-sm text-muted">1. Tạo mã rồi DM bot: <code>/link CODE</code></div>
-                <div class="text-sm text-muted">2. Đăng nhập bằng Discord để auto-link</div>
-                <div class="text-sm text-muted">3. Nhập Discord UID thủ công nếu cần fallback</div>
+                <div class="text-sm text-muted">Tạo mã rồi DM bot lệnh <code>/link CODE</code></div>
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button class="btn btn-outline btn-sm" id="discord-code-btn">Tạo mã /link</button>
                 <button class="btn btn-ghost btn-sm" id="discord-copy-code-btn">Copy mã</button>
-                <button class="btn btn-ghost btn-sm" id="discord-manual-btn">Nhập Discord UID</button>
-                <button class="btn btn-ghost btn-sm" id="discord-status-btn">Xem trạng thái</button>
-                <button class="btn btn-ghost btn-sm" id="discord-unlink-btn">Gỡ liên kết</button>
                 ${botLinks?.discord_invite ? `<a class="btn btn-ghost btn-sm" href="${esc(botLinks.discord_invite)}" target="_blank" rel="noopener">Mở Discord bot</a>` : ''}
-                ${discordOauthEnabled ? `<a class="btn btn-ghost btn-sm" href="/api/auth/discord">Đăng nhập bằng Discord</a>` : ''}
               </div>
               <div id="discord-link-code" style="margin-top:10px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border-dark);border-radius:var(--radius-xs);font-family:monospace;font-size:13px;color:var(--accent);letter-spacing:.5px;">${discord.link_code ? `/link ${esc(discord.link_code)}` : '<span style="color:var(--text-muted);font-family:inherit;">Tạo mã rồi gửi trong DM với bot Discord.</span>'}</div>
               <div class="text-xs text-muted mt-4" id="discord-link-expiry">${formatExpiryText(discord.link_code_expires_at)}</div>
@@ -397,33 +388,26 @@ async function renderProfile(view) {
                   <div class="fw-600">Telegram Bot</div>
                   ${telegram.linked
                     ? `<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:rgba(52,199,89,.16);color:#34c759;border:1px solid rgba(52,199,89,.45);font-weight:700;">✓ Đã liên kết</span>`
-                    : `<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border);">Chưa liên kết</span>`}
+                    : ''}
                 </div>
               </div>
               ${telegram.linked ? `
               <div class="text-sm text-muted mb-12" style="line-height:1.8;">
                 ${telegram.platform_username ? `<div>Username: <strong>${esc(telegram.platform_username)}</strong></div>` : ''}
-                <div>ID: <code style="font-size:12px;">${esc(telegram.platform_user_id || '—')}</code></div>
                 ${telegram.linked_at ? `<div>Liên kết lúc: ${esc(formatBotDate(telegram.linked_at))}</div>` : ''}
                 ${telegram.last_seen_at ? `<div>Hoạt động gần nhất: ${esc(formatBotDate(telegram.last_seen_at))}</div>` : ''}
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button class="btn btn-ghost btn-sm" id="telegram-status-btn">Xem trạng thái</button>
                 <button class="btn btn-danger btn-sm" id="telegram-unlink-btn">Gỡ liên kết</button>
                 ${botLinks?.telegram_bot_username ? `<a class="btn btn-ghost btn-sm" href="https://t.me/${esc(botLinks.telegram_bot_username)}" target="_blank" rel="noopener">Mở bot Telegram</a>` : ''}
               </div>
               ` : `
               <div style="padding:12px;background:var(--bg-card);border:1px dashed var(--border-dark);border-radius:var(--radius-xs);margin-bottom:12px;">
-                <div class="fw-600 mb-6">Cách liên kết Telegram</div>
-                <div class="text-sm text-muted">1. Tạo mã rồi mở bot Telegram</div>
-                <div class="text-sm text-muted">2. Gửi lệnh <code>/link CODE</code> trong chat bot</div>
-                <div class="text-sm text-muted">3. Dùng /status để kiểm tra sau khi liên kết</div>
+                <div class="text-sm text-muted">Tạo mã rồi gửi <code>/link CODE</code> trong chat bot Telegram</div>
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button class="btn btn-outline btn-sm" id="telegram-code-btn">Tạo mã /link</button>
                 <button class="btn btn-ghost btn-sm" id="telegram-copy-code-btn">Copy mã</button>
-                <button class="btn btn-ghost btn-sm" id="telegram-status-btn">Xem trạng thái</button>
-                <button class="btn btn-ghost btn-sm" id="telegram-unlink-btn">Gỡ liên kết</button>
                 ${botLinks?.telegram_bot_username ? `<a class="btn btn-ghost btn-sm" href="https://t.me/${esc(botLinks.telegram_bot_username)}" target="_blank" rel="noopener">Mở bot Telegram</a>` : ''}
               </div>
               <div id="telegram-link-code" style="margin-top:10px;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border-dark);border-radius:var(--radius-xs);font-family:monospace;font-size:13px;color:var(--accent);letter-spacing:.5px;">${telegram.link_code ? `/link ${esc(telegram.link_code)}` : '<span style="color:var(--text-muted);font-family:inherit;">Tạo mã rồi gửi trong chat bot Telegram.</span>'}</div>
