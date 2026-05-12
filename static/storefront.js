@@ -474,6 +474,7 @@ function paymentMethodLabel(method) {
           }
           gcGrid.appendChild(card);
         });
+        sfAnimateGcGrid(gcGrid);
       } catch(e) {
         gcGrid.innerHTML = '<div class="text-muted text-center" style="padding:32px 0;grid-column:1/-1">Lỗi tải dữ liệu</div>';
       }
@@ -515,6 +516,9 @@ function paymentMethodLabel(method) {
 
   // ── Single DOM write ─────────────────────────────────────
   view.appendChild(frag);
+
+  // ── Anime.js entrance effects ──
+  sfAnimate(view);
 }
 
 async function renderCategory(view, { slug }) {
@@ -535,6 +539,7 @@ async function renderCategory(view, { slug }) {
       const grid = el('div', 'product-grid');
       data.items.forEach(p => grid.appendChild(productCard(p)));
       view.appendChild(grid);
+      sfAnimate(view);
     }
   } catch (e) { view.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><h3>${e.message}</h3></div>`; }
 }
@@ -1779,6 +1784,8 @@ async function renderProduct(view, { slug }) {
       }
 
       view.appendChild(cards);
+      // ── Anime.js detail page effects ──
+      sfAnimateDetail(view);
     };
 
     render();
@@ -3103,4 +3110,204 @@ function openReportErrorModal(orderCode, productName, accountData) {
       btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Gửi báo lỗi';
     }
   };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ANIME.JS STOREFRONT ANIMATIONS
+// ═══════════════════════════════════════════════════════════════
+
+function sfAnimate(container) {
+  if (typeof anime === 'undefined' || !anime.animate) return;
+
+  // Banner slider fade + scale
+  const bannerSlider = container.querySelector('.banner-slider');
+  if (bannerSlider) {
+    anime.animate(bannerSlider, {
+      opacity: [0, 1], scale: [0.97, 1],
+      duration: 600, ease: 'outExpo'
+    });
+  }
+
+  // Banner grid cards staggered
+  const bannerCards = container.querySelectorAll('.banner-card');
+  if (bannerCards.length) {
+    anime.animate(bannerCards, {
+      opacity: [0, 1], translateY: [30, 0], scale: [0.95, 1],
+      duration: 500, ease: 'outExpo',
+      delay: anime.stagger(80, { start: 200 })
+    });
+  }
+
+  // Section headers slide in
+  const sectionHeads = container.querySelectorAll('.section-head');
+  if (sectionHeads.length) {
+    anime.animate(sectionHeads, {
+      opacity: [0, 1], translateX: [-20, 0],
+      duration: 500, ease: 'outExpo',
+      delay: anime.stagger(60, { start: 100 })
+    });
+  }
+
+  // Flash sale cards pop in
+  const flashCards = container.querySelectorAll('.flash-card');
+  if (flashCards.length) {
+    anime.animate(flashCards, {
+      opacity: [0, 1], translateY: [25, 0], scale: [0.92, 1],
+      duration: 500, ease: 'outBack(1.4)',
+      delay: anime.stagger(60, { start: 150 })
+    });
+  }
+
+  // Game cards staggered entrance
+  const gameCards = container.querySelectorAll('.home-game-card');
+  if (gameCards.length) {
+    anime.animate(gameCards, {
+      opacity: [0, 1], translateY: [20, 0],
+      duration: 450, ease: 'outExpo',
+      delay: anime.stagger(40, { start: 200 })
+    });
+  }
+
+  // Gift card tabs slide in
+  const gcTabs = container.querySelectorAll('.gc-tab');
+  if (gcTabs.length) {
+    anime.animate(gcTabs, {
+      opacity: [0, 1], translateX: [-15, 0],
+      duration: 400, ease: 'outExpo',
+      delay: anime.stagger(50, { start: 100 })
+    });
+  }
+
+  // Gift cards staggered pop
+  const gcCards = container.querySelectorAll('.gc-card');
+  if (gcCards.length) {
+    anime.animate(gcCards, {
+      opacity: [0, 1], scale: [0.9, 1],
+      duration: 450, ease: 'outBack(1.3)',
+      delay: anime.stagger(50, { start: 200 })
+    });
+  }
+
+  // Product grid cards (category/search pages)
+  const prodCards = container.querySelectorAll('.product-grid > *');
+  if (prodCards.length) {
+    anime.animate(prodCards, {
+      opacity: [0, 1], translateY: [24, 0],
+      duration: 450, ease: 'outExpo',
+      delay: anime.stagger(40, { start: 100 })
+    });
+  }
+
+  // Wishlist scroll items
+  const wlCards = container.querySelectorAll('.home-wl-scroll > *');
+  if (wlCards.length) {
+    anime.animate(wlCards, {
+      opacity: [0, 1], translateX: [30, 0],
+      duration: 450, ease: 'outExpo',
+      delay: anime.stagger(60, { start: 250 })
+    });
+  }
+
+  // Announcements
+  const announcements = container.querySelectorAll('.ann-card');
+  if (announcements.length) {
+    anime.animate(announcements, {
+      opacity: [0, 1], translateY: [15, 0],
+      duration: 400, ease: 'outExpo',
+      delay: anime.stagger(50, { start: 150 })
+    });
+  }
+}
+
+// Animate gift card grid on tab switch
+function sfAnimateGcGrid(gridEl) {
+  if (typeof anime === 'undefined' || !anime.animate) return;
+  const cards = gridEl.querySelectorAll('.gc-card');
+  if (cards.length) {
+    anime.animate(cards, {
+      opacity: [0, 1], scale: [0.88, 1], translateY: [15, 0],
+      duration: 400, ease: 'outBack(1.3)',
+      delay: anime.stagger(40)
+    });
+  }
+}
+
+// Detail page animations
+function sfAnimateDetail(container) {
+  if (typeof anime === 'undefined' || !anime.animate) return;
+
+  // Top section entrance
+  const topSection = container.querySelector('.pd-top-section');
+  if (topSection) {
+    anime.animate(topSection, {
+      opacity: [0, 1], translateY: [20, 0],
+      duration: 500, ease: 'outExpo'
+    });
+  }
+
+  // Gift card title pop
+  const gcName = container.querySelector('.pd-gc-name');
+  if (gcName) {
+    anime.animate(gcName, {
+      opacity: [0, 1], scale: [0.85, 1],
+      duration: 600, ease: 'outBack(1.5)', delay: 150
+    });
+  }
+
+  // Game header thumb
+  const gameThumb = container.querySelector('.pd-game-thumb');
+  if (gameThumb) {
+    anime.animate(gameThumb, {
+      opacity: [0, 1], scale: [0.9, 1], rotate: [-3, 0],
+      duration: 500, ease: 'outBack(1.4)', delay: 100
+    });
+  }
+
+  // Cards staggered
+  const pdCards = container.querySelectorAll('.pd-card');
+  if (pdCards.length) {
+    anime.animate(pdCards, {
+      opacity: [0, 1], translateY: [30, 0],
+      duration: 500, ease: 'outExpo',
+      delay: anime.stagger(80, { start: 200 })
+    });
+  }
+
+  // Package cards pop in
+  const pkgCards = container.querySelectorAll('.pd-gcpkg-card, .pd-gpkg-card, .pd-pkg-card');
+  if (pkgCards.length) {
+    anime.animate(pkgCards, {
+      opacity: [0, 1], scale: [0.88, 1],
+      duration: 400, ease: 'outBack(1.3)',
+      delay: anime.stagger(60, { start: 300 })
+    });
+  }
+
+  // Breadcrumb
+  const bc = container.querySelector('.breadcrumb');
+  if (bc) {
+    anime.animate(bc, {
+      opacity: [0, 1], translateX: [-15, 0],
+      duration: 400, ease: 'outExpo', delay: 50
+    });
+  }
+
+  // Rating row
+  const ratingRow = container.querySelector('.pd-rating-row');
+  if (ratingRow) {
+    anime.animate(ratingRow, {
+      opacity: [0, 1], translateY: [10, 0],
+      duration: 400, ease: 'outExpo', delay: 250
+    });
+  }
+
+  // Reviews staggered
+  const reviews = container.querySelectorAll('.pd-review-item');
+  if (reviews.length) {
+    anime.animate(reviews, {
+      opacity: [0, 1], translateY: [20, 0],
+      duration: 400, ease: 'outExpo',
+      delay: anime.stagger(60, { start: 400 })
+    });
+  }
 }
