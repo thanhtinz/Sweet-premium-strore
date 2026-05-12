@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   ShopKey — Main SPA Application
+   Main SPA Application
    Stack: Vanilla JS, FastAPI backend, Neon Auth
    DashStack-inspired UI
 ═══════════════════════════════════════════════════════════════ */

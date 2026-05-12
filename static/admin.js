@@ -1910,7 +1910,7 @@ async function renderAdminSettings(view) {
               { value: 'summary', label: 'summary' },
             ]
           })}
-          ${field('g-copyright', 'Copyright Text', g.copyright_text, { placeholder: 'Copyright © 2024 ShopKey. All rights reserved.' })}
+          ${field('g-copyright', 'Copyright Text', g.copyright_text, { placeholder: 'Copyright © 2024. All rights reserved.' })}
           ${field('g-keywords', 'Từ khóa (legacy)', g.keywords, { placeholder: 'shop, digital, key, game' })}
           ${field('g-author', 'Tác giả (legacy)', g.author, { placeholder: 'Tên tác giả' })}
           ${field('g-timezone', 'Múi giờ (Timezone)', g.timezone, {

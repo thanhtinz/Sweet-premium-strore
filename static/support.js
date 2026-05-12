@@ -56,7 +56,7 @@ async function renderSupportHome(view) {
   try {
     const pages = await apiFetch("/support/pages").catch(() => []);
 
-    const contactEmail = appSettings.contact_email || 'support@shopkey.vn';
+    const contactEmail = appSettings.contact_email || '';
     const contactPhone = appSettings.contact_phone || '';
     const contactHours = appSettings.contact_hours || '8:00 - 22:00';
     const fb = appSettings.social_fb || '';
