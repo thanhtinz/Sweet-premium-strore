@@ -153,7 +153,7 @@ async function renderAdminOAuthSettings(view) {
           <h4>Bước 2: Lấy Client ID & Secret</h4>
           <p>General Information tab</p>
           <h4>Bước 3: Cấu hình OAuth2</h4>
-          <p>Redirects: <code>${window.location.origin}/api/auth/oauth/discord/callback</code></p>
+          <p>Redirects: <code>${window.location.origin}/api/auth/discord/callback</code></p>
         </div>
       `,
       tiktok: `

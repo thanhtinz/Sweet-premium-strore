@@ -53,6 +53,5 @@ async function renderOAuthLoginButtons(container) {
 
 function loginWithOAuth(provider) {
   // Redirect to OAuth flow endpoint
-  const redirectUri = encodeURIComponent(window.location.origin + '/api/auth/oauth/' + provider + '/callback');
-  window.location.href = `/api/auth/oauth/${provider}/auth?redirect_uri=${redirectUri}`;
+  window.location.href = `/api/auth/${provider}`;
 }
