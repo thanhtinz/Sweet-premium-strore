@@ -353,7 +353,7 @@ async function renderProfile(view) {
                   <div class="fw-600">Discord DM Bot</div>
                   ${discord.linked
                     ? `<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:rgba(52,199,89,.16);color:#34c759;border:1px solid rgba(52,199,89,.45);font-weight:700;">✓ Đã liên kết</span>`
-                    : ''}
+                    : `<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border);">Chưa liên kết</span>`}
                 </div>
               </div>
               ${discord.linked ? `
@@ -388,7 +388,7 @@ async function renderProfile(view) {
                   <div class="fw-600">Telegram Bot</div>
                   ${telegram.linked
                     ? `<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:rgba(52,199,89,.16);color:#34c759;border:1px solid rgba(52,199,89,.45);font-weight:700;">✓ Đã liên kết</span>`
-                    : ''}
+                    : `<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border);">Chưa liên kết</span>`}
                 </div>
               </div>
               ${telegram.linked ? `
