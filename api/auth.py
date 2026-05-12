@@ -20,8 +20,11 @@ router.include_router(admin_router)
 def auth_config(db: Session = Depends(get_db)):
     cfg = _get_oauth_config(db)
     return {
-        "google_enabled": bool(cfg["google_client_id"]),
-        "discord_enabled": bool(cfg["discord_client_id"]),
+        "google_enabled": bool(cfg.get("google_client_id")),
+        "facebook_enabled": bool(cfg.get("facebook_client_id")),
+        "github_enabled": bool(cfg.get("github_client_id")),
+        "discord_enabled": bool(cfg.get("discord_client_id")),
+        "tiktok_enabled": bool(cfg.get("tiktok_client_id")),
     }
 
 

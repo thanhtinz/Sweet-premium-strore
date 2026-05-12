@@ -27,12 +27,16 @@ if not JWT_SECRET:
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_DAYS = 30
 
-GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
-GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
-GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "")
-DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID", "")
-DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
-DISCORD_REDIRECT_URI = os.environ.get("DISCORD_REDIRECT_URI", "")
+OAUTH_PROVIDERS = ["google", "facebook", "github", "discord", "tiktok"]
+OAUTH_FIELDS = ["client_id", "client_secret", "redirect_uri"]
+
+# Env var fallbacks
+_ENV_DEFAULTS = {}
+for _p in OAUTH_PROVIDERS:
+    for _f in OAUTH_FIELDS:
+        _env_key = f"{_p.upper()}_{_f.upper()}"
+        _cfg_key = f"{_p}_{_f}"
+        _ENV_DEFAULTS[_cfg_key] = os.environ.get(_env_key, "")
 
 
 def _hash_password(password: str) -> str:
@@ -44,33 +48,20 @@ def _verify_password(password: str, hashed: str) -> bool:
 
 
 def _get_oauth_config(db: Session = None):
-    cfg = {
-        "google_client_id": GOOGLE_CLIENT_ID,
-        "google_client_secret": GOOGLE_CLIENT_SECRET,
-        "google_redirect_uri": GOOGLE_REDIRECT_URI,
-        "discord_client_id": DISCORD_CLIENT_ID,
-        "discord_client_secret": DISCORD_CLIENT_SECRET,
-        "discord_redirect_uri": DISCORD_REDIRECT_URI,
-    }
+    cfg = dict(_ENV_DEFAULTS)
     if db:
         repo = SiteConfigRepository(db)
-        # Map internal config key -> possible DB keys (oauth_ prefix used by admin panel)
-        key_mapping = {
-            "google_client_id": ["oauth_google_client_id", "google_client_id"],
-            "google_client_secret": ["oauth_google_client_secret", "google_client_secret"],
-            "google_redirect_uri": ["oauth_google_redirect_uri", "google_redirect_uri"],
-            "discord_client_id": ["oauth_discord_client_id", "discord_client_id"],
-            "discord_client_secret": ["oauth_discord_client_secret", "discord_client_secret"],
-            "discord_redirect_uri": ["oauth_discord_redirect_uri", "discord_redirect_uri"],
-        }
-        for cfg_key, db_keys in key_mapping.items():
-            if cfg.get(cfg_key):
-                continue
-            for db_key in db_keys:
-                value = repo.get_value(db_key)
-                if value:
-                    cfg[cfg_key] = value
-                    break
+        for provider in OAUTH_PROVIDERS:
+            for field in OAUTH_FIELDS:
+                cfg_key = f"{provider}_{field}"
+                if cfg.get(cfg_key):
+                    continue
+                # Admin panel saves with oauth_ prefix, try both
+                for db_key in [f"oauth_{cfg_key}", cfg_key]:
+                    value = repo.get_value(db_key)
+                    if value:
+                        cfg[cfg_key] = value
+                        break
     return cfg
 
 

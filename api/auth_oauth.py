@@ -114,6 +114,181 @@ async def discord_callback(code: str, request: Request, db: Session = Depends(ge
     )
 
 
+# ── Facebook ──────────────────────────────────────────────
+
+@router.get("/facebook")
+def facebook_redirect(request: Request, db: Session = Depends(get_db)):
+    cfg = _get_oauth_config(db)
+    if not cfg.get("facebook_client_id"):
+        raise HTTPException(501, "Facebook OAuth chưa được cấu hình")
+    redirect_uri = cfg.get("facebook_redirect_uri") or str(request.base_url).rstrip("/") + "/api/auth/facebook/callback"
+    params = {
+        "client_id": cfg["facebook_client_id"],
+        "redirect_uri": redirect_uri,
+        "scope": "email,public_profile",
+        "response_type": "code",
+    }
+    return RedirectResponse(f"https://www.facebook.com/v19.0/dialog/oauth?{urlencode(params)}")
+
+
+@router.get("/facebook/callback")
+async def facebook_callback(code: str, request: Request, db: Session = Depends(get_db)):
+    cfg = _get_oauth_config(db)
+    redirect_uri = cfg.get("facebook_redirect_uri") or str(request.base_url).rstrip("/") + "/api/auth/facebook/callback"
+    async with httpx.AsyncClient() as client:
+        token_res = await client.get("https://graph.facebook.com/v19.0/oauth/access_token", params={
+            "code": code,
+            "client_id": cfg["facebook_client_id"],
+            "client_secret": cfg["facebook_client_secret"],
+            "redirect_uri": redirect_uri,
+        })
+        if token_res.status_code != 200:
+            return RedirectResponse("/login?error=facebook_failed")
+        access_token = token_res.json().get("access_token")
+        info_res = await client.get("https://graph.facebook.com/me", params={
+            "fields": "id,name,email,picture.type(large)",
+            "access_token": access_token,
+        })
+        if info_res.status_code != 200:
+            return RedirectResponse("/login?error=facebook_failed")
+        info = info_res.json()
+
+    avatar_url = ""
+    pic = info.get("picture", {}).get("data", {})
+    if pic.get("url"):
+        avatar_url = pic["url"]
+
+    return _social_login_finish(
+        db=db,
+        provider="facebook",
+        provider_id=info["id"],
+        email=info.get("email", ""),
+        display_name=info.get("name", ""),
+        avatar_url=avatar_url,
+    )
+
+
+# ── GitHub ────────────────────────────────────────────────
+
+@router.get("/github")
+def github_redirect(request: Request, db: Session = Depends(get_db)):
+    cfg = _get_oauth_config(db)
+    if not cfg.get("github_client_id"):
+        raise HTTPException(501, "GitHub OAuth chưa được cấu hình")
+    redirect_uri = cfg.get("github_redirect_uri") or str(request.base_url).rstrip("/") + "/api/auth/github/callback"
+    params = {
+        "client_id": cfg["github_client_id"],
+        "redirect_uri": redirect_uri,
+        "scope": "read:user user:email",
+    }
+    return RedirectResponse(f"https://github.com/login/oauth/authorize?{urlencode(params)}")
+
+
+@router.get("/github/callback")
+async def github_callback(code: str, request: Request, db: Session = Depends(get_db)):
+    cfg = _get_oauth_config(db)
+    redirect_uri = cfg.get("github_redirect_uri") or str(request.base_url).rstrip("/") + "/api/auth/github/callback"
+    async with httpx.AsyncClient() as client:
+        token_res = await client.post("https://github.com/login/oauth/access_token", data={
+            "code": code,
+            "client_id": cfg["github_client_id"],
+            "client_secret": cfg["github_client_secret"],
+            "redirect_uri": redirect_uri,
+        }, headers={"Accept": "application/json"})
+        if token_res.status_code != 200:
+            return RedirectResponse("/login?error=github_failed")
+        access_token = token_res.json().get("access_token")
+        if not access_token:
+            return RedirectResponse("/login?error=github_failed")
+        # Get user info
+        info_res = await client.get("https://api.github.com/user", headers={
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/vnd.github+json",
+        })
+        if info_res.status_code != 200:
+            return RedirectResponse("/login?error=github_failed")
+        info = info_res.json()
+        # Get primary email if not public
+        email = info.get("email") or ""
+        if not email:
+            emails_res = await client.get("https://api.github.com/user/emails", headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/vnd.github+json",
+            })
+            if emails_res.status_code == 200:
+                for e in emails_res.json():
+                    if e.get("primary") and e.get("verified"):
+                        email = e["email"]
+                        break
+
+    return _social_login_finish(
+        db=db,
+        provider="github",
+        provider_id=str(info["id"]),
+        email=email,
+        display_name=info.get("name") or info.get("login", ""),
+        avatar_url=info.get("avatar_url", ""),
+    )
+
+
+# ── TikTok ────────────────────────────────────────────────
+
+@router.get("/tiktok")
+def tiktok_redirect(request: Request, db: Session = Depends(get_db)):
+    cfg = _get_oauth_config(db)
+    if not cfg.get("tiktok_client_id"):
+        raise HTTPException(501, "TikTok OAuth chưa được cấu hình")
+    redirect_uri = cfg.get("tiktok_redirect_uri") or str(request.base_url).rstrip("/") + "/api/auth/tiktok/callback"
+    import secrets as _secrets
+    state = _secrets.token_urlsafe(16)
+    params = {
+        "client_key": cfg["tiktok_client_id"],
+        "redirect_uri": redirect_uri,
+        "scope": "user.info.basic",
+        "response_type": "code",
+        "state": state,
+    }
+    return RedirectResponse(f"https://www.tiktok.com/v2/auth/authorize/?{urlencode(params)}")
+
+
+@router.get("/tiktok/callback")
+async def tiktok_callback(code: str, request: Request, db: Session = Depends(get_db)):
+    cfg = _get_oauth_config(db)
+    redirect_uri = cfg.get("tiktok_redirect_uri") or str(request.base_url).rstrip("/") + "/api/auth/tiktok/callback"
+    async with httpx.AsyncClient() as client:
+        token_res = await client.post("https://open.tiktokapis.com/v2/oauth/token/", data={
+            "client_key": cfg["tiktok_client_id"],
+            "client_secret": cfg["tiktok_client_secret"],
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": redirect_uri,
+        }, headers={"Content-Type": "application/x-www-form-urlencoded"})
+        if token_res.status_code != 200:
+            return RedirectResponse("/login?error=tiktok_failed")
+        token_data = token_res.json()
+        access_token = token_data.get("access_token")
+        open_id = token_data.get("open_id", "")
+        if not access_token:
+            return RedirectResponse("/login?error=tiktok_failed")
+        info_res = await client.get("https://open.tiktokapis.com/v2/user/info/", params={
+            "fields": "open_id,display_name,avatar_url",
+        }, headers={
+            "Authorization": f"Bearer {access_token}",
+        })
+        if info_res.status_code != 200:
+            return RedirectResponse("/login?error=tiktok_failed")
+        data = info_res.json().get("data", {}).get("user", {})
+
+    return _social_login_finish(
+        db=db,
+        provider="tiktok",
+        provider_id=data.get("open_id") or open_id,
+        email="",
+        display_name=data.get("display_name", ""),
+        avatar_url=data.get("avatar_url", ""),
+    )
+
+
 def _social_login_finish(db: Session, provider: str, provider_id: str, email: str, display_name: str, avatar_url: str):
     user = db.query(User).filter(User.provider == provider, User.provider_id == provider_id).first()
     if not user and email:
