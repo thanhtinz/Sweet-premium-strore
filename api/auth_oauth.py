@@ -20,6 +20,20 @@ def _get_origin(request: Request) -> str:
     return f"{proto}://{host}"
 
 
+@router.get("/debug-origin")
+def debug_origin(request: Request):
+    """Temporary debug endpoint - remove after fixing"""
+    return {
+        "base_url": str(request.base_url),
+        "origin": _get_origin(request),
+        "x_forwarded_proto": request.headers.get("x-forwarded-proto"),
+        "x_forwarded_host": request.headers.get("x-forwarded-host"),
+        "host": request.headers.get("host"),
+        "scheme": request.url.scheme,
+        "google_callback": _get_origin(request) + "/api/auth/google/callback",
+    }
+
+
 @router.get("/google")
 def google_redirect(request: Request, db: Session = Depends(get_db)):
     cfg = _get_oauth_config(db)
