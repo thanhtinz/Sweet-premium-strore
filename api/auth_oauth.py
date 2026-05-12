@@ -13,12 +13,19 @@ from db.models import User
 router = APIRouter(tags=["auth"])
 
 
+def _get_origin(request: Request) -> str:
+    """Get the public-facing origin, respecting X-Forwarded-* headers from reverse proxy."""
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    return f"{proto}://{host}"
+
+
 @router.get("/google")
 def google_redirect(request: Request, db: Session = Depends(get_db)):
     cfg = _get_oauth_config(db)
     if not cfg["google_client_id"]:
         raise HTTPException(501, "Google OAuth chưa được cấu hình")
-    redirect_uri = cfg["google_redirect_uri"] or str(request.base_url).rstrip("/") + "/api/auth/google/callback"
+    redirect_uri = cfg["google_redirect_uri"] or _get_origin(request) + "/api/auth/google/callback"
     params = {
         "client_id": cfg["google_client_id"],
         "redirect_uri": redirect_uri,
@@ -33,7 +40,7 @@ def google_redirect(request: Request, db: Session = Depends(get_db)):
 @router.get("/google/callback")
 async def google_callback(code: str, request: Request, db: Session = Depends(get_db)):
     cfg = _get_oauth_config(db)
-    redirect_uri = cfg["google_redirect_uri"] or str(request.base_url).rstrip("/") + "/api/auth/google/callback"
+    redirect_uri = cfg["google_redirect_uri"] or _get_origin(request) + "/api/auth/google/callback"
     async with httpx.AsyncClient() as client:
         token_res = await client.post("https://oauth2.googleapis.com/token", data={
             "code": code,
@@ -67,7 +74,7 @@ def discord_redirect(request: Request, db: Session = Depends(get_db)):
     cfg = _get_oauth_config(db)
     if not cfg["discord_client_id"]:
         raise HTTPException(501, "Discord OAuth chưa được cấu hình")
-    redirect_uri = cfg["discord_redirect_uri"] or str(request.base_url).rstrip("/") + "/api/auth/discord/callback"
+    redirect_uri = cfg["discord_redirect_uri"] or _get_origin(request) + "/api/auth/discord/callback"
     params = {
         "client_id": cfg["discord_client_id"],
         "redirect_uri": redirect_uri,
@@ -81,7 +88,7 @@ def discord_redirect(request: Request, db: Session = Depends(get_db)):
 @router.get("/discord/callback")
 async def discord_callback(code: str, request: Request, db: Session = Depends(get_db)):
     cfg = _get_oauth_config(db)
-    redirect_uri = cfg["discord_redirect_uri"] or str(request.base_url).rstrip("/") + "/api/auth/discord/callback"
+    redirect_uri = cfg["discord_redirect_uri"] or _get_origin(request) + "/api/auth/discord/callback"
     async with httpx.AsyncClient() as client:
         token_res = await client.post("https://discord.com/api/oauth2/token", data={
             "code": code,
@@ -121,7 +128,7 @@ def facebook_redirect(request: Request, db: Session = Depends(get_db)):
     cfg = _get_oauth_config(db)
     if not cfg.get("facebook_client_id"):
         raise HTTPException(501, "Facebook OAuth chưa được cấu hình")
-    redirect_uri = cfg.get("facebook_redirect_uri") or str(request.base_url).rstrip("/") + "/api/auth/facebook/callback"
+    redirect_uri = cfg.get("facebook_redirect_uri") or _get_origin(request) + "/api/auth/facebook/callback"
     params = {
         "client_id": cfg["facebook_client_id"],
         "redirect_uri": redirect_uri,
@@ -134,7 +141,7 @@ def facebook_redirect(request: Request, db: Session = Depends(get_db)):
 @router.get("/facebook/callback")
 async def facebook_callback(code: str, request: Request, db: Session = Depends(get_db)):
     cfg = _get_oauth_config(db)
-    redirect_uri = cfg.get("facebook_redirect_uri") or str(request.base_url).rstrip("/") + "/api/auth/facebook/callback"
+    redirect_uri = cfg.get("facebook_redirect_uri") or _get_origin(request) + "/api/auth/facebook/callback"
     async with httpx.AsyncClient() as client:
         token_res = await client.get("https://graph.facebook.com/v19.0/oauth/access_token", params={
             "code": code,
@@ -175,7 +182,7 @@ def github_redirect(request: Request, db: Session = Depends(get_db)):
     cfg = _get_oauth_config(db)
     if not cfg.get("github_client_id"):
         raise HTTPException(501, "GitHub OAuth chưa được cấu hình")
-    redirect_uri = cfg.get("github_redirect_uri") or str(request.base_url).rstrip("/") + "/api/auth/github/callback"
+    redirect_uri = cfg.get("github_redirect_uri") or _get_origin(request) + "/api/auth/github/callback"
     params = {
         "client_id": cfg["github_client_id"],
         "redirect_uri": redirect_uri,
@@ -187,7 +194,7 @@ def github_redirect(request: Request, db: Session = Depends(get_db)):
 @router.get("/github/callback")
 async def github_callback(code: str, request: Request, db: Session = Depends(get_db)):
     cfg = _get_oauth_config(db)
-    redirect_uri = cfg.get("github_redirect_uri") or str(request.base_url).rstrip("/") + "/api/auth/github/callback"
+    redirect_uri = cfg.get("github_redirect_uri") or _get_origin(request) + "/api/auth/github/callback"
     async with httpx.AsyncClient() as client:
         token_res = await client.post("https://github.com/login/oauth/access_token", data={
             "code": code,
@@ -238,7 +245,7 @@ def tiktok_redirect(request: Request, db: Session = Depends(get_db)):
     cfg = _get_oauth_config(db)
     if not cfg.get("tiktok_client_id"):
         raise HTTPException(501, "TikTok OAuth chưa được cấu hình")
-    redirect_uri = cfg.get("tiktok_redirect_uri") or str(request.base_url).rstrip("/") + "/api/auth/tiktok/callback"
+    redirect_uri = cfg.get("tiktok_redirect_uri") or _get_origin(request) + "/api/auth/tiktok/callback"
     import secrets as _secrets
     state = _secrets.token_urlsafe(16)
     params = {
@@ -254,7 +261,7 @@ def tiktok_redirect(request: Request, db: Session = Depends(get_db)):
 @router.get("/tiktok/callback")
 async def tiktok_callback(code: str, request: Request, db: Session = Depends(get_db)):
     cfg = _get_oauth_config(db)
-    redirect_uri = cfg.get("tiktok_redirect_uri") or str(request.base_url).rstrip("/") + "/api/auth/tiktok/callback"
+    redirect_uri = cfg.get("tiktok_redirect_uri") or _get_origin(request) + "/api/auth/tiktok/callback"
     async with httpx.AsyncClient() as client:
         token_res = await client.post("https://open.tiktokapis.com/v2/oauth/token/", data={
             "client_key": cfg["tiktok_client_id"],
