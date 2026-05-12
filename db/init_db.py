@@ -5,7 +5,7 @@ from db.models import (  # noqa: F401 — import to register models
     Category, Product, ProductPackage, StockItem,
     PackageField, Order, OrderItem, SiteSetting, AdminUser, User,
     Announcement, UploadedImage, UserBotLink, ApiKey, ApiProvider,
-    CardChargeTransaction,
+    CardChargeTransaction, SmmPlatform, SmmCategory, SmmService, SmmOrder
 )
 from db.schema_version import LATEST_SCHEMA_VERSION, apply_versioned_patches
 
@@ -214,6 +214,16 @@ def _patch_v5(conn):
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_card_charge_request ON card_charge_transactions(request_id)"))
 
 
+def _patch_v6(conn):
+    """SMM Panel tables — created by create_all, just ensure extra indexes."""
+    for stmt in [
+        "CREATE INDEX IF NOT EXISTS idx_smm_orders_user ON smm_orders(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_smm_orders_status ON smm_orders(status)",
+        "CREATE INDEX IF NOT EXISTS idx_smm_services_category ON smm_services(category_id)",
+    ]:
+        conn.execute(text(stmt))
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
     with engine.begin() as conn:
@@ -223,6 +233,7 @@ def init_db():
             (3, _patch_v3),
             (4, _patch_v4),
             (5, _patch_v5),
+            (6, _patch_v6),
         ])
-        if LATEST_SCHEMA_VERSION < 5:
+        if LATEST_SCHEMA_VERSION < 6:
             raise RuntimeError("LATEST_SCHEMA_VERSION is behind applied patch definitions")

@@ -45,6 +45,7 @@ from api.ai_generate import router as ai_router
 from api.api_keys import router as apikeys_router
 from api.api_providers import router as api_providers_router
 from api.card_charge import router as card_charge_router
+from api.smm import router as smm_router
 
 
 def get_file_hash(filepath: str) -> str:
@@ -364,6 +365,7 @@ def create_app(static_dir: str) -> FastAPI:
     api.include_router(apikeys_router)
     api.include_router(api_providers_router)
     api.include_router(card_charge_router)
+    api.include_router(smm_router)
 
     @api.get("/health")
     def health():
@@ -509,7 +511,7 @@ def create_app(static_dir: str) -> FastAPI:
                                 "url": canonical_url(settings, request, request.url.path, include_query=True),
                             },
                         )
-            elif path in {"/admin", "/login", "/register", "/profile", "/cart", "/checkout", "/orders"} or path.startswith(("/admin/", "/orders/", "/payos-checkout/")):
+            elif path in {"/admin", "/login", "/register", "/profile", "/cart", "/checkout", "/orders"} or path.startswith(("/admin/", "/orders/", "/payos-checkout/", "/smm/")):
                 meta = build_spa_meta(settings, request, robots="noindex,nofollow")
 
         return templates.TemplateResponse(

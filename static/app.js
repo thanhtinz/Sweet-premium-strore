@@ -64,6 +64,7 @@ const routes = {
   '/admin/balance': renderAdminBalance,
   '/admin/api-keys': renderAdminApiKeys,
   '/admin/api-providers': renderAdminApiProviders,
+  '/admin/smm': renderAdminSmm,
   '/blog': renderBlogList,
   '/blog/:slug': renderBlogPost,
   '/profile': renderProfile,
@@ -73,6 +74,10 @@ const routes = {
   '/support/tickets': renderUserTickets,
   '/support/tickets/:ticketId': (view, { ticketId }) => renderTicketDetail(ticketId),
   '/support/:slug': (view, { slug }) => renderSupportPage(slug),
+  '/smm/services': renderSmmServices,
+  '/smm/order': renderSmmOrder,
+  '/smm/history': renderSmmHistory,
+  '/smm/refill': renderSmmRefill,
 };
 
 function parseRoute(pathWithQuery = getCurrentPath()) {
@@ -113,6 +118,7 @@ const adminHeaderMeta = {
   '/admin/settings': { title: 'Cài đặt chung', subtitle: 'Thiết lập hệ thống, giao diện và tính năng' },
   '/admin/images': { title: 'Thư viện ảnh', subtitle: 'Quản lý ảnh đã upload và nơi đang sử dụng' },
       '/admin/bot-config': { title: 'Kết nối & Thông báo', subtitle: 'Cấu hình Telegram, Discord và mail hệ thống' },
+  '/admin/smm': { title: 'SMM Panel', subtitle: 'Nền tảng, danh mục, dịch vụ và đơn hàng SMM' },
 };
 
 function updateHeaderMode(pathWithQuery = getCurrentPath(), isAdmin) {
@@ -298,6 +304,7 @@ async function loadSidebar() {
         { href: '/admin/products', icon: '<i class="fa-solid fa-bag-shopping"></i>', text: 'Sản phẩm' },
         { href: '/admin/stock', icon: '<i class="fa-solid fa-boxes-stacked"></i>', text: 'Kho tài khoản' },
         { href: '/admin/api-providers', icon: '<i class="fa-solid fa-plug"></i>', text: 'Đấu nối API' },
+        { href: '/admin/smm', icon: '<i class="fa-solid fa-hashtag"></i>', text: 'SMM Panel' },
         { divider: 'Tính năng' },
         { href: '/admin/banners', icon: '<i class="fa-solid fa-image"></i>', text: 'Banners' },
         { href: '/admin/images', icon: '<i class="fa-solid fa-images"></i>', text: 'Thư viện ảnh' },
@@ -402,6 +409,72 @@ async function loadSidebar() {
         nav.appendChild(item);
       }
     });
+
+    // ── Topup Game dropdown ──
+    const gameCats = categories.filter(c => c.product_type === 'game');
+    if (gameCats.length) {
+      const group = el('div', 'nav-cat-group');
+      const item = el('div', 'nav-item nav-item-parent');
+      item.innerHTML = `<a href="#" class="nav-item-link" onclick="event.preventDefault()"><div class="nav-icon"><i class="fa-solid fa-gamepad"></i></div><span>Topup Game</span></a><button class="nav-expand-btn" aria-label="Mở rộng"><i class="fa-solid fa-chevron-down"></i></button>`;
+      group.appendChild(item);
+
+      const subList = el('div', 'nav-sub-list');
+      gameCats.forEach(cat => {
+        const subItem = el('a', 'nav-item nav-item-sub');
+        subItem.href = `/all?cat=${encodeURIComponent(cat.slug)}`;
+        const iconUrl = cat.image_url || cat.icon_url;
+        const subIcon = iconUrl ? `<img src="${iconUrl}" alt="" style="width:16px;height:16px;object-fit:contain;border-radius:2px;" />` : '<i class="fa-solid fa-chevron-right" style="font-size:10px;color:var(--text-muted);"></i>';
+        subItem.innerHTML = `<div class="nav-icon">${subIcon}</div><span>${cat.name}</span>`;
+        subList.appendChild(subItem);
+      });
+      group.appendChild(subList);
+
+      const toggleBtn = group.querySelector('.nav-expand-btn');
+      const params = new URLSearchParams(location.search);
+      if (gameCats.some(c => params.get('cat') === c.slug)) {
+        group.classList.add('expanded');
+      }
+      toggleBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        group.classList.toggle('expanded');
+      });
+      nav.appendChild(group);
+    }
+
+    // ── SMM Panel dropdown ──
+    if (appSettings.features?.smm !== false) {
+      const smmGroup = el('div', 'nav-cat-group');
+      const smmItem = el('div', 'nav-item nav-item-parent');
+      smmItem.innerHTML = `<a href="#" class="nav-item-link" onclick="event.preventDefault()"><div class="nav-icon"><i class="fa-solid fa-hashtag"></i></div><span>SMM Panel</span></a><button class="nav-expand-btn" aria-label="Mở rộng"><i class="fa-solid fa-chevron-down"></i></button>`;
+      smmGroup.appendChild(smmItem);
+
+      const smmSubList = el('div', 'nav-sub-list');
+      const smmLinks = [
+        { href: '/smm/order', icon: '<i class="fa-solid fa-cart-plus" style="font-size:10px;color:var(--text-muted);"></i>', text: 'Đặt đơn' },
+        { href: '/smm/history', icon: '<i class="fa-solid fa-clock-rotate-left" style="font-size:10px;color:var(--text-muted);"></i>', text: 'Lịch sử' },
+        { href: '/smm/services', icon: '<i class="fa-solid fa-list" style="font-size:10px;color:var(--text-muted);"></i>', text: 'Danh sách' },
+        { href: '/smm/refill', icon: '<i class="fa-solid fa-shield-halved" style="font-size:10px;color:var(--text-muted);"></i>', text: 'Bảo hành' },
+      ];
+      smmLinks.forEach(link => {
+        const subItem = el('a', 'nav-item nav-item-sub' + (path === link.href ? ' active' : ''));
+        subItem.href = link.href;
+        subItem.innerHTML = `<div class="nav-icon">${link.icon}</div><span>${link.text}</span>`;
+        smmSubList.appendChild(subItem);
+      });
+      smmGroup.appendChild(smmSubList);
+
+      const smmToggleBtn = smmGroup.querySelector('.nav-expand-btn');
+      if (path.startsWith('/smm')) {
+        smmGroup.classList.add('expanded');
+      }
+      smmToggleBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        smmGroup.classList.toggle('expanded');
+      });
+      nav.appendChild(smmGroup);
+    }
 
     // ── Offers & Blog link ──
     const divider = el('div', 'sidebar-divider');

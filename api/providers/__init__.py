@@ -1,10 +1,11 @@
 """External API provider adapters.
 
 Protocol templates are hardcoded — each shop only needs domain + credentials.
-Three provider types:
+Four provider types:
   - account_premium (ShopKey/CMSNT): X-API-Key + X-API-Secret
   - topup_game (Shoperis): Bearer token
   - giftcard (Thesieure/chargingws/v2): partner_id + partner_key, md5 sign
+  - smm_panel (smmresell/perfectpanel): single POST endpoint, key in body
 """
 
 from abc import ABC, abstractmethod
@@ -122,6 +123,7 @@ def get_provider(provider_row) -> BaseProvider:
     from api.providers.account_premium import AccountPremiumProvider
     from api.providers.topup_game import TopupGameProvider
     from api.providers.giftcard import GiftcardProvider
+    from api.providers.smm_panel import SmmPanelProvider
 
     t = provider_row.provider_type
     if t == "account_premium":
@@ -141,6 +143,11 @@ def get_provider(provider_row) -> BaseProvider:
             api_key=provider_row.api_key,
             api_secret=provider_row.api_secret,
             partner_id=provider_row.partner_id,
+        )
+    elif t == "smm_panel":
+        return SmmPanelProvider(
+            base_url=provider_row.base_url,
+            api_key=provider_row.api_key,
         )
     else:
         raise ValueError(f"Unknown provider type: {t}")

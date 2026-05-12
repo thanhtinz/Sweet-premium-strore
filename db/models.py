@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Column, Integer, String, Text, Boolean, Numeric, DateTime,
+    Column, Integer, String, Text, Boolean, Numeric, DateTime, Float,
     ForeignKey, JSON, UniqueConstraint, LargeBinary
 )
 from sqlalchemy.sql import func
@@ -549,5 +549,75 @@ class CardChargeTransaction(Base):
     created_at = Column(DateTime(timezone=True), default=now_utc)
     updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
 
+
+class SmmPlatform(Base):
+    __tablename__ = "smm_platforms"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    slug = Column(String(255), unique=True, nullable=False, index=True)
+    icon_url = Column(Text, nullable=True)
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+
+
+class SmmCategory(Base):
+    __tablename__ = "smm_categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    platform_id = Column(Integer, ForeignKey("smm_platforms.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)
+    slug = Column(String(255), unique=True, nullable=False, index=True)
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+
+
+class SmmService(Base):
+    __tablename__ = "smm_services"
+
+    id = Column(Integer, primary_key=True, index=True)
+    category_id = Column(Integer, ForeignKey("smm_categories.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(500), nullable=False)
+    description = Column(Text, nullable=True)
+    rate = Column(Float, default=0)
+    min = Column(Integer, default=1)
+    max = Column(Integer, default=10000)
+    delivery_type = Column(String(20), default="manual")  # manual | api
+    api_provider_id = Column(Integer, ForeignKey("api_providers.id", ondelete="SET NULL"), nullable=True)
+    external_service_id = Column(String(100), nullable=True)
+    can_refill = Column(Boolean, default=False)
+    can_cancel = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+    updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
+
+
+class SmmOrder(Base):
+    __tablename__ = "smm_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_code = Column(String(50), unique=True, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    smm_service_id = Column(Integer, ForeignKey("smm_services.id", ondelete="SET NULL"), nullable=True)
+    platform_name = Column(String(255), nullable=True)
+    category_name = Column(String(255), nullable=True)
+    service_name = Column(String(500), nullable=True)
+    link = Column(Text, nullable=False)
+    quantity = Column(Integer, nullable=False)
+    charge = Column(Float, default=0)
+    status = Column(String(50), default="pending")  # pending|processing|in_progress|completed|partial|canceled
+    delivery_type = Column(String(20), default="manual")
+    api_provider_id = Column(Integer, ForeignKey("api_providers.id", ondelete="SET NULL"), nullable=True)
+    external_order_id = Column(String(100), nullable=True)
+    admin_notes = Column(Text, nullable=True)
+    refill_id = Column(String(100), nullable=True)
+    refill_status = Column(String(50), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=now_utc)
+    updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
+
     user = relationship("User")
+    smm_service = relationship("SmmService")
     api_provider = relationship("ApiProvider")

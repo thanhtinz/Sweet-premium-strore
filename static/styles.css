@@ -4708,6 +4708,15 @@ a.support-contact-value:hover {
   box-shadow: var(--shadow-sm);
 }
 
+/* SMM Panel breadcrumb & clickable rows */
+.smm-breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 14px; }
+.smm-breadcrumb .smm-bc-item { color: var(--primary); cursor: pointer; font-weight: 500; }
+.smm-breadcrumb .smm-bc-item:hover { text-decoration: underline; }
+.smm-breadcrumb .smm-bc-sep { color: var(--text-muted); }
+.smm-row-clickable { cursor: pointer; }
+.smm-row-clickable:hover { background: var(--bg-hover, rgba(0,0,0,0.02)); }
+.form-select-sm { padding: 4px 8px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-heading); }
+
 /* Blog post form (full-page) */
 .blog-post-form {
   background: var(--bg-card);

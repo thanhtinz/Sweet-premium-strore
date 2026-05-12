@@ -4345,7 +4345,7 @@ async function renderAdminApiProviders(view) {
           <tr>
             <td class="text-muted">#${p.id}</td>
             <td class="td-bold">${esc(p.name)}</td>
-            <td><span class="badge ${p.provider_type === 'account_premium' ? 'badge-blue' : p.provider_type === 'giftcard' ? 'badge-orange' : 'badge-purple'}">${p.provider_type === 'account_premium' ? 'Account Premium' : p.provider_type === 'giftcard' ? 'Gift Card' : 'Topup Game'}</span></td>
+            <td><span class="badge ${p.provider_type === 'account_premium' ? 'badge-blue' : p.provider_type === 'giftcard' ? 'badge-orange' : p.provider_type === 'smm_panel' ? 'badge-cyan' : 'badge-purple'}">${p.provider_type === 'account_premium' ? 'Account Premium' : p.provider_type === 'giftcard' ? 'Gift Card' : p.provider_type === 'smm_panel' ? 'SMM Panel' : 'Topup Game'}</span></td>
             <td class="td-mono text-sm">${esc(p.base_url)}</td>
             <td class="td-balance" id="bal-${p.id}"><span class="text-muted">—</span></td>
             <td>${p.is_active ? '<span class="badge badge-green">Hoạt động</span>' : '<span class="badge badge-gray">Tắt</span>'}</td>
@@ -4436,6 +4436,7 @@ function showProviderModal(prov, refresh) {
           <option value="account_premium" ${prov?.provider_type === 'account_premium' || !prov ? 'selected' : ''}>Account Premium</option>
           <option value="topup_game" ${prov?.provider_type === 'topup_game' ? 'selected' : ''}>Topup Game</option>
           <option value="giftcard" ${prov?.provider_type === 'giftcard' ? 'selected' : ''}>Gift Card</option>
+          <option value="smm_panel" ${prov?.provider_type === 'smm_panel' ? 'selected' : ''}>SMM Panel</option>
         </select>
       </div>
       <div class="form-group"><label class="form-label">Domain / Base URL<span class="req">*</span></label><input class="form-input" id="prov-url" value="${prov?.base_url || ''}" required placeholder="https://shop.example.com" /></div>
@@ -4533,4 +4534,566 @@ function showProviderModal(prov, refresh) {
       el.style.display = 'block';
     }
   };
+}
+
+// ── SMM PANEL ──────────────────────────────────────────────────
+async function renderAdminSmm(view) {
+  if (!view) return;
+  const content = view;
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+
+  let activeTab = 'platforms'; // platforms | orders
+  let currentView = { level: 'platforms' }; // {level, platformId, platformName, categoryId, categoryName}
+  let orderStatus = '';
+  let orderPage = 1;
+  const ORDER_LIMIT = 20;
+
+  const smmStatusBadge = (s) => {
+    const map = {
+      pending: ['badge-yellow', 'Chờ xử lý'],
+      processing: ['badge-blue', 'Đang xử lý'],
+      in_progress: ['badge-blue', 'Đang chạy'],
+      completed: ['badge-green', 'Hoàn thành'],
+      partial: ['badge-orange', 'Hoàn một phần'],
+      canceled: ['badge-red', 'Đã hủy'],
+    };
+    const [cls, label] = map[s] || ['badge-gray', s];
+    return `<span class="badge ${cls}">${label}</span>`;
+  };
+
+  const deliveryBadge = (d) => {
+    return d === 'api'
+      ? '<span class="badge badge-green">API</span>'
+      : '<span class="badge badge-gray">Thủ công</span>';
+  };
+
+  const renderBreadcrumb = () => {
+    const parts = ['<span class="smm-bc-item" data-bc-level="platforms">Nền tảng</span>'];
+    if (currentView.level === 'categories' || currentView.level === 'services') {
+      parts.push(`<span class="smm-bc-sep">›</span><span class="smm-bc-item" data-bc-level="categories" data-bc-platform-id="${currentView.platformId}">${esc(currentView.platformName)}</span>`);
+    }
+    if (currentView.level === 'services') {
+      parts.push(`<span class="smm-bc-sep">›</span><span class="smm-bc-item" data-bc-level="services" data-bc-category-id="${currentView.categoryId}">${esc(currentView.categoryName)}</span>`);
+    }
+    return `<div class="smm-breadcrumb">${parts.join('')}</div>`;
+  };
+
+  const renderPlatforms = async () => {
+    const platforms = await apiFetch('/smm/platforms');
+    content.innerHTML = `
+      ${cuiPageHeader('SMM Panel', 'Quản lý nền tảng, dịch vụ và đơn hàng SMM', '<button class="btn btn-primary" id="btn-add-platform"><i class="fa-solid fa-plus"></i> Thêm nền tảng</button>')}
+      <div class="admin-tabs mb-16">
+        <button class="admin-tab ${activeTab === 'platforms' ? 'active' : ''}" data-smm-tab="platforms"><i class="fa-solid fa-layer-group"></i> Nền tảng</button>
+        <button class="admin-tab ${activeTab === 'orders' ? 'active' : ''}" data-smm-tab="orders"><i class="fa-solid fa-receipt"></i> Đơn hàng</button>
+      </div>
+      ${platforms.length === 0 ? '<div class="empty-state"><i class="fa-solid fa-hashtag"></i><p>Chưa có nền tảng SMM nào</p></div>' : `
+      <div class="table-wrap"><table>
+        <thead><tr><th>Icon</th><th>Tên</th><th>Slug</th><th>Danh mục</th><th>Dịch vụ</th><th>Trạng thái</th><th>Thứ tự</th><th></th></tr></thead>
+        <tbody>${platforms.map(p => `
+          <tr class="smm-row-clickable" data-platform-id="${p.id}" data-platform-name="${esc(p.name)}">
+            <td>${p.icon_url ? `<img src="${p.icon_url}" style="width:24px;height:24px;border-radius:4px;object-fit:cover;" alt="" />` : '<span class="text-muted">—</span>'}</td>
+            <td class="td-bold">${esc(p.name)}</td>
+            <td class="td-mono text-sm">${esc(p.slug)}</td>
+            <td>${p.category_count ?? 0}</td>
+            <td>${p.service_count ?? 0}</td>
+            <td>${p.is_active ? '<span class="badge badge-green">Hoạt động</span>' : '<span class="badge badge-gray">Tắt</span>'}</td>
+            <td>${p.sort_order ?? 0}</td>
+            <td><div class="tbl-actions">
+              <button class="tbl-btn tbl-edit" data-edit-platform="${p.id}">Sửa</button>
+              <button class="tbl-btn tbl-delete" data-del-platform="${p.id}">Xóa</button>
+            </div></td>
+          </tr>
+        `).join('')}</tbody>
+      </table></div>`}
+    `;
+  };
+
+  const renderCategories = async () => {
+    const categories = await apiFetch(`/smm/platforms/${currentView.platformId}/categories`);
+    content.innerHTML = `
+      ${cuiPageHeader(currentView.platformName, 'Danh mục SMM', '<button class="btn btn-primary" id="btn-add-category"><i class="fa-solid fa-plus"></i> Thêm danh mục</button>')}
+      <div class="admin-tabs mb-16">
+        <button class="admin-tab ${activeTab === 'platforms' ? 'active' : ''}" data-smm-tab="platforms"><i class="fa-solid fa-layer-group"></i> Nền tảng</button>
+        <button class="admin-tab ${activeTab === 'orders' ? 'active' : ''}" data-smm-tab="orders"><i class="fa-solid fa-receipt"></i> Đơn hàng</button>
+      </div>
+      ${renderBreadcrumb()}
+      ${categories.length === 0 ? '<div class="empty-state"><i class="fa-solid fa-folder"></i><p>Chưa có danh mục nào</p></div>' : `
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Tên</th><th>Thứ tự</th><th>Trạng thái</th><th></th></tr></thead>
+        <tbody>${categories.map(c => `
+          <tr class="smm-row-clickable" data-category-id="${c.id}" data-category-name="${esc(c.name)}">
+            <td class="text-muted">#${c.id}</td>
+            <td class="td-bold">${esc(c.name)}</td>
+            <td>${c.sort_order ?? 0}</td>
+            <td>${c.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td>
+            <td><div class="tbl-actions">
+              <button class="tbl-btn tbl-edit" data-edit-category="${c.id}">Sửa</button>
+              <button class="tbl-btn tbl-delete" data-del-category="${c.id}">Xóa</button>
+            </div></td>
+          </tr>
+        `).join('')}</tbody>
+      </table></div>`}
+    `;
+  };
+
+  const renderServices = async () => {
+    const [services, allProviders] = await Promise.all([
+      apiFetch(`/smm/categories/${currentView.categoryId}/services`),
+      apiFetch('/api-providers/').catch(() => [])
+    ]);
+    const smmProviders = allProviders.filter(p => p.provider_type === 'smm_panel');
+
+    content.innerHTML = `
+      ${cuiPageHeader(currentView.categoryName, 'Dịch vụ SMM', `
+        <button class="btn btn-outline" id="btn-sync-services"><i class="fa-solid fa-arrows-rotate"></i> Sync từ API</button>
+        <button class="btn btn-primary" id="btn-add-service"><i class="fa-solid fa-plus"></i> Thêm dịch vụ</button>
+      `)}
+      <div class="admin-tabs mb-16">
+        <button class="admin-tab ${activeTab === 'platforms' ? 'active' : ''}" data-smm-tab="platforms"><i class="fa-solid fa-layer-group"></i> Nền tảng</button>
+        <button class="admin-tab ${activeTab === 'orders' ? 'active' : ''}" data-smm-tab="orders"><i class="fa-solid fa-receipt"></i> Đơn hàng</button>
+      </div>
+      ${renderBreadcrumb()}
+      ${services.length === 0 ? '<div class="empty-state"><i class="fa-solid fa-list"></i><p>Chưa có dịch vụ nào</p></div>' : `
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Tên</th><th>Giá/1000</th><th>Min</th><th>Max</th><th>Giao hàng</th><th>Refill</th><th>Trạng thái</th><th></th></tr></thead>
+        <tbody>${services.map(s => `
+          <tr>
+            <td class="text-muted">#${s.id}</td>
+            <td class="td-bold">${esc(s.name)}</td>
+            <td class="text-primary">${fmt(s.rate)}</td>
+            <td>${s.min_quantity ?? '—'}</td>
+            <td>${s.max_quantity ?? '—'}</td>
+            <td>${deliveryBadge(s.delivery_type)}</td>
+            <td>${s.can_refill ? '<span class="badge badge-green">✓</span>' : '<span class="text-muted">—</span>'}</td>
+            <td>${s.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td>
+            <td><div class="tbl-actions">
+              <button class="tbl-btn tbl-edit" data-edit-service="${s.id}">Sửa</button>
+              <button class="tbl-btn tbl-delete" data-del-service="${s.id}">Xóa</button>
+            </div></td>
+          </tr>
+        `).join('')}</tbody>
+      </table></div>`}
+    `;
+    // Store smmProviders for sync modal
+    content._smmProviders = smmProviders;
+  };
+
+  const renderOrders = async () => {
+    const data = await apiFetch(`/smm/admin/orders?limit=${ORDER_LIMIT}&page=${orderPage}${orderStatus ? '&status=' + orderStatus : ''}`);
+    const orders = data.orders || [];
+    const total = data.total || 0;
+    const totalPages = Math.ceil(total / ORDER_LIMIT) || 1;
+    const statusOptions = ['', 'pending', 'processing', 'in_progress', 'completed', 'partial', 'canceled'];
+    const statusLabels = { pending: 'Chờ xử lý', processing: 'Đang xử lý', in_progress: 'Đang chạy', completed: 'Hoàn thành', partial: 'Hoàn một phần', canceled: 'Đã hủy' };
+
+    content.innerHTML = `
+      ${cuiPageHeader('Đơn hàng SMM', `${total} đơn hàng`, '<button class="btn btn-outline" id="btn-check-all-orders"><i class="fa-solid fa-arrows-rotate"></i> Check tất cả</button>')}
+      <div class="admin-tabs mb-16">
+        <button class="admin-tab ${activeTab === 'platforms' ? 'active' : ''}" data-smm-tab="platforms"><i class="fa-solid fa-layer-group"></i> Nền tảng</button>
+        <button class="admin-tab ${activeTab === 'orders' ? 'active' : ''}" data-smm-tab="orders"><i class="fa-solid fa-receipt"></i> Đơn hàng</button>
+      </div>
+      <div class="d-flex align-center gap-8 mb-12">
+        <select class="form-select" id="smm-order-status-filter" style="width:auto;">
+          ${statusOptions.map(s => `<option value="${s}" ${orderStatus === s ? 'selected' : ''}>${s ? statusLabels[s] : 'Tất cả trạng thái'}</option>`).join('')}
+        </select>
+      </div>
+      ${orders.length === 0 ? '<div class="empty-state"><i class="fa-solid fa-receipt"></i><p>Chưa có đơn hàng nào</p></div>' : `
+      <div class="table-wrap"><table>
+        <thead><tr><th>Mã</th><th>Khách</th><th>Nền tảng</th><th>Dịch vụ</th><th>Link</th><th>SL</th><th>Phí</th><th>Trạng thái</th><th>Giao hàng</th><th>Ngày tạo</th><th></th></tr></thead>
+        <tbody>${orders.map(o => `
+          <tr>
+            <td class="td-mono text-sm">${esc(o.code || o.id)}</td>
+            <td class="text-sm">${esc(o.user_email || '—')}</td>
+            <td class="text-sm">${esc(o.platform_name || '—')}</td>
+            <td class="text-sm" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(o.service_name || '—')}</td>
+            <td class="text-sm" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(o.link || '')}">${esc(o.link || '—')}</td>
+            <td>${o.quantity ?? '—'}</td>
+            <td class="text-primary">${fmt(o.charge ?? 0)}</td>
+            <td>${smmStatusBadge(o.status)}</td>
+            <td>${deliveryBadge(o.delivery_type)}</td>
+            <td class="text-sm text-muted">${fmtDate(o.created_at)}</td>
+            <td><div class="tbl-actions">
+              ${o.delivery_type === 'api' ? `<button class="tbl-btn" data-check-order="${o.id}"><i class="fa-solid fa-arrows-rotate"></i> Check</button>` : ''}
+              ${o.delivery_type !== 'api' ? `<select class="form-select form-select-sm" data-change-order-status="${o.id}" style="width:auto;font-size:12px;">
+                <option value="">Đổi trạng thái</option>
+                ${statusOptions.filter(s => s).map(s => `<option value="${s}" ${o.status === s ? 'selected' : ''}>${statusLabels[s]}</option>`).join('')}
+              </select>` : ''}
+            </div></td>
+          </tr>
+        `).join('')}</tbody>
+      </table></div>
+      ${totalPages > 1 ? `
+      <div class="d-flex align-center justify-center gap-8 mt-16">
+        <button class="btn btn-sm btn-ghost" data-order-page="${orderPage - 1}" ${orderPage <= 1 ? 'disabled' : ''}>Trước</button>
+        <span class="text-muted text-sm">Trang ${orderPage} / ${totalPages}</span>
+        <button class="btn btn-sm btn-ghost" data-order-page="${orderPage + 1}" ${orderPage >= totalPages ? 'disabled' : ''}>Sau</button>
+      </div>` : ''}`}
+    `;
+  };
+
+  const refresh = async () => {
+    try {
+      if (activeTab === 'orders') {
+        await renderOrders();
+      } else {
+        if (currentView.level === 'platforms') await renderPlatforms();
+        else if (currentView.level === 'categories') await renderCategories();
+        else if (currentView.level === 'services') await renderServices();
+      }
+    } catch (err) {
+      content.innerHTML = `<div class="empty-state"><h3>Lỗi</h3><p class="text-muted">${esc(err.message)}</p></div>`;
+    }
+  };
+
+  // ── Modals ──
+
+  const showPlatformModal = async (platform) => {
+    const isEdit = !!platform;
+    openModal(`
+      <form id="smm-platform-form">
+        <div class="form-group"><label class="form-label">Tên nền tảng<span class="req">*</span></label><input class="form-input" id="sp-name" value="${platform?.name || ''}" required placeholder="Ví dụ: Instagram" /></div>
+        <div class="form-group"><label class="form-label">Icon URL</label><input class="form-input" id="sp-icon" value="${platform?.icon_url || ''}" placeholder="https://..." /></div>
+        <div class="form-row form-row-2">
+          <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="sp-order" value="${platform?.sort_order ?? 0}" /></div>
+          <div class="form-group"><label class="form-label">Trạng thái</label><select class="form-select" id="sp-active"><option value="true" ${platform?.is_active !== false ? 'selected' : ''}>Hoạt động</option><option value="false" ${platform?.is_active === false ? 'selected' : ''}>Tắt</option></select></div>
+        </div>
+        <div id="sp-form-err" class="form-error mb-12" style="display:none"></div>
+        <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">${isEdit ? 'Cập nhật' : 'Tạo mới'}</button><button type="button" class="btn btn-ghost" id="sp-cancel">Hủy</button></div>
+      </form>
+    `, isEdit ? `Sửa nền tảng: ${platform.name}` : 'Thêm nền tảng');
+    qs('#sp-cancel').onclick = closeModal;
+    qs('#smm-platform-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const body = {
+        name: qs('#sp-name').value,
+        icon_url: qs('#sp-icon').value || null,
+        sort_order: parseInt(qs('#sp-order').value) || 0,
+        is_active: qs('#sp-active').value === 'true',
+      };
+      try {
+        if (isEdit) await apiFetch(`/smm/platforms/${platform.id}`, { method: 'PUT', body: JSON.stringify(body) });
+        else await apiFetch('/smm/platforms', { method: 'POST', body: JSON.stringify(body) });
+        closeModal();
+        toast(isEdit ? 'Đã cập nhật' : 'Đã tạo nền tảng', 'success');
+        refresh();
+      } catch (err) {
+        const el = qs('#sp-form-err');
+        el.textContent = err.message;
+        el.style.display = 'block';
+      }
+    };
+  };
+
+  const showCategoryModal = async (category) => {
+    const isEdit = !!category;
+    openModal(`
+      <form id="smm-category-form">
+        <div class="form-group"><label class="form-label">Tên danh mục<span class="req">*</span></label><input class="form-input" id="sc-name" value="${category?.name || ''}" required /></div>
+        <div class="form-row form-row-2">
+          <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="sc-order" value="${category?.sort_order ?? 0}" /></div>
+          <div class="form-group"><label class="form-label">Trạng thái</label><select class="form-select" id="sc-active"><option value="true" ${category?.is_active !== false ? 'selected' : ''}>Hiện</option><option value="false" ${category?.is_active === false ? 'selected' : ''}>Ẩn</option></select></div>
+        </div>
+        <div id="sc-form-err" class="form-error mb-12" style="display:none"></div>
+        <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">${isEdit ? 'Cập nhật' : 'Tạo mới'}</button><button type="button" class="btn btn-ghost" id="sc-cancel">Hủy</button></div>
+      </form>
+    `, isEdit ? `Sửa danh mục: ${category.name}` : 'Thêm danh mục');
+    qs('#sc-cancel').onclick = closeModal;
+    qs('#smm-category-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const body = {
+        name: qs('#sc-name').value,
+        sort_order: parseInt(qs('#sc-order').value) || 0,
+        is_active: qs('#sc-active').value === 'true',
+      };
+      try {
+        if (isEdit) await apiFetch(`/smm/categories/${category.id}`, { method: 'PUT', body: JSON.stringify(body) });
+        else await apiFetch(`/smm/platforms/${currentView.platformId}/categories`, { method: 'POST', body: JSON.stringify(body) });
+        closeModal();
+        toast(isEdit ? 'Đã cập nhật' : 'Đã tạo danh mục', 'success');
+        refresh();
+      } catch (err) {
+        const el = qs('#sc-form-err');
+        el.textContent = err.message;
+        el.style.display = 'block';
+      }
+    };
+  };
+
+  const showServiceModal = async (service) => {
+    const isEdit = !!service;
+    const providers = await apiFetch('/api-providers/').catch(() => []);
+    const smmProviders = providers.filter(p => p.provider_type === 'smm_panel');
+    const providerOptions = smmProviders.map(p => `<option value="${p.id}" ${service?.api_provider_id === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+
+    openModal(`
+      <form id="smm-service-form">
+        <div class="form-group"><label class="form-label">Tên dịch vụ<span class="req">*</span></label><input class="form-input" id="ss-name" value="${service?.name || ''}" required /></div>
+        <div class="form-group"><label class="form-label">Mô tả</label><textarea class="form-input" id="ss-desc" rows="2" placeholder="Mô tả ngắn">${service?.description || ''}</textarea></div>
+        <div class="form-row form-row-2">
+          <div class="form-group"><label class="form-label">Giá / 1000<span class="req">*</span></label><input type="number" step="0.01" class="form-input" id="ss-rate" value="${service?.rate ?? ''}" required /></div>
+          <div class="form-group"><label class="form-label">Giao hàng</label><select class="form-select" id="ss-delivery"><option value="api" ${service?.delivery_type === 'api' ? 'selected' : ''}>API</option><option value="manual" ${service?.delivery_type === 'manual' || !service ? 'selected' : ''}>Thủ công</option></select></div>
+        </div>
+        <div class="form-row form-row-2">
+          <div class="form-group"><label class="form-label">Số lượng tối thiểu</label><input type="number" class="form-input" id="ss-min" value="${service?.min_quantity ?? 10}" /></div>
+          <div class="form-group"><label class="form-label">Số lượng tối đa</label><input type="number" class="form-input" id="ss-max" value="${service?.max_quantity ?? 10000}" /></div>
+        </div>
+        <div class="form-row form-row-2">
+          <div class="form-group"><label class="form-label">Nguồn API</label><select class="form-select" id="ss-provider"><option value="">Không</option>${providerOptions}</select></div>
+          <div class="form-group"><label class="form-label">External Service ID</label><input class="form-input" id="ss-ext-id" value="${service?.external_service_id || ''}" placeholder="ID từ API bên ngoài" /></div>
+        </div>
+        <div class="form-row form-row-3">
+          <div class="form-group"><label class="form-label">Refill</label><select class="form-select" id="ss-refill"><option value="true" ${service?.can_refill ? 'selected' : ''}>Có</option><option value="false" ${!service?.can_refill ? 'selected' : ''}>Không</option></select></div>
+          <div class="form-group"><label class="form-label">Cancel</label><select class="form-select" id="ss-cancel"><option value="true" ${service?.can_cancel ? 'selected' : ''}>Có</option><option value="false" ${!service?.can_cancel ? 'selected' : ''}>Không</option></select></div>
+          <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="ss-order" value="${service?.sort_order ?? 0}" /></div>
+        </div>
+        <div class="form-group"><label class="form-label">Trạng thái</label><select class="form-select" id="ss-active"><option value="true" ${service?.is_active !== false ? 'selected' : ''}>Hiện</option><option value="false" ${service?.is_active === false ? 'selected' : ''}>Ẩn</option></select></div>
+        <div id="ss-form-err" class="form-error mb-12" style="display:none"></div>
+        <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">${isEdit ? 'Cập nhật' : 'Tạo mới'}</button><button type="button" class="btn btn-ghost" id="ss-cancel-btn">Hủy</button></div>
+      </form>
+    `, isEdit ? `Sửa dịch vụ: ${service.name}` : 'Thêm dịch vụ');
+    qs('#ss-cancel-btn').onclick = closeModal;
+    qs('#smm-service-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const body = {
+        name: qs('#ss-name').value,
+        description: qs('#ss-desc').value || null,
+        rate: parseFloat(qs('#ss-rate').value),
+        min_quantity: parseInt(qs('#ss-min').value) || 10,
+        max_quantity: parseInt(qs('#ss-max').value) || 10000,
+        delivery_type: qs('#ss-delivery').value,
+        api_provider_id: qs('#ss-provider').value ? parseInt(qs('#ss-provider').value) : null,
+        external_service_id: qs('#ss-ext-id').value || null,
+        can_refill: qs('#ss-refill').value === 'true',
+        can_cancel: qs('#ss-cancel').value === 'true',
+        sort_order: parseInt(qs('#ss-order').value) || 0,
+        is_active: qs('#ss-active').value === 'true',
+      };
+      try {
+        if (isEdit) await apiFetch(`/smm/services/${service.id}`, { method: 'PUT', body: JSON.stringify(body) });
+        else await apiFetch(`/smm/categories/${currentView.categoryId}/services`, { method: 'POST', body: JSON.stringify(body) });
+        closeModal();
+        toast(isEdit ? 'Đã cập nhật' : 'Đã tạo dịch vụ', 'success');
+        refresh();
+      } catch (err) {
+        const el = qs('#ss-form-err');
+        el.textContent = err.message;
+        el.style.display = 'block';
+      }
+    };
+  };
+
+  const showSyncModal = async () => {
+    const smmProviders = content._smmProviders || [];
+    if (!smmProviders.length) {
+      toast('Chưa có nguồn API SMM Panel nào. Thêm ở Đấu nối API trước.', 'warning');
+      return;
+    }
+    const providerOptions = smmProviders.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+    openModal(`
+      <form id="smm-sync-form">
+        <div class="form-group"><label class="form-label">Nguồn API<span class="req">*</span></label><select class="form-select" id="sync-provider" required><option value="">Chọn nguồn</option>${providerOptions}</select></div>
+        <div class="text-muted text-sm mb-12">Dịch vụ sẽ được đồng bộ từ API provider vào nền tảng hiện tại.</div>
+        <div id="sync-form-err" class="form-error mb-12" style="display:none"></div>
+        <div id="sync-result" style="display:none" class="mb-12"></div>
+        <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1" id="sync-submit"><i class="fa-solid fa-arrows-rotate"></i> Sync</button><button type="button" class="btn btn-ghost" id="sync-cancel">Hủy</button></div>
+      </form>
+    `, 'Sync dịch vụ từ API');
+    qs('#sync-cancel').onclick = closeModal;
+    qs('#smm-sync-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const providerId = parseInt(qs('#sync-provider').value);
+      if (!providerId) return;
+      const submitBtn = qs('#sync-submit');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang sync...';
+      try {
+        const res = await apiFetch('/smm/services/sync', { method: 'POST', body: JSON.stringify({ provider_id: providerId, platform_id: currentView.platformId }) });
+        const resultEl = qs('#sync-result');
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = `<div class="text-success">Đồng bộ thành công! ${res.synced ?? 0} dịch vụ đã được cập nhật.</div>`;
+        toast('Đã sync dịch vụ', 'success');
+        setTimeout(() => { closeModal(); refresh(); }, 1500);
+      } catch (err) {
+        const el = qs('#sync-form-err');
+        el.textContent = err.message;
+        el.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Sync';
+      }
+    };
+  };
+
+  // ── Event delegation ──
+  content.onclick = async (e) => {
+    // Tab switching
+    const tabBtn = e.target.closest('[data-smm-tab]');
+    if (tabBtn) {
+      activeTab = tabBtn.dataset.smmTab;
+      if (activeTab === 'platforms') currentView = { level: 'platforms' };
+      orderPage = 1;
+      await refresh();
+      return;
+    }
+
+    // Breadcrumb navigation
+    const bcItem = e.target.closest('[data-bc-level]');
+    if (bcItem) {
+      const level = bcItem.dataset.bcLevel;
+      if (level === 'platforms') currentView = { level: 'platforms' };
+      else if (level === 'categories') currentView = { level: 'categories', platformId: parseInt(bcItem.dataset.bcPlatformId), platformName: bcItem.textContent.trim() };
+      await refresh();
+      return;
+    }
+
+    // Platform row click → drill into categories
+    const platformRow = e.target.closest('[data-platform-id]');
+    if (platformRow && !e.target.closest('.tbl-actions')) {
+      currentView = { level: 'categories', platformId: parseInt(platformRow.dataset.platformId), platformName: platformRow.dataset.platformName };
+      await refresh();
+      return;
+    }
+
+    // Category row click → drill into services
+    const categoryRow = e.target.closest('[data-category-id]');
+    if (categoryRow && !e.target.closest('.tbl-actions')) {
+      currentView = { ...currentView, level: 'services', categoryId: parseInt(categoryRow.dataset.categoryId), categoryName: categoryRow.dataset.categoryName };
+      await refresh();
+      return;
+    }
+
+    // Add platform
+    if (e.target.closest('#btn-add-platform')) { showPlatformModal(null); return; }
+
+    // Edit platform
+    const editPlatformBtn = e.target.closest('[data-edit-platform]');
+    if (editPlatformBtn) {
+      const platforms = await apiFetch('/smm/platforms');
+      const p = platforms.find(x => x.id === parseInt(editPlatformBtn.dataset.editPlatform));
+      if (p) showPlatformModal(p);
+      return;
+    }
+
+    // Delete platform
+    const delPlatformBtn = e.target.closest('[data-del-platform]');
+    if (delPlatformBtn) {
+      if (!confirm('Xóa nền tảng này? Tất cả danh mục và dịch vụ sẽ bị xóa theo.')) return;
+      try {
+        await apiFetch(`/smm/platforms/${delPlatformBtn.dataset.delPlatform}`, { method: 'DELETE' });
+        toast('Đã xóa nền tảng', 'success');
+        refresh();
+      } catch (err) { toast(err.message, 'error'); }
+      return;
+    }
+
+    // Add category
+    if (e.target.closest('#btn-add-category')) { showCategoryModal(null); return; }
+
+    // Edit category
+    const editCategoryBtn = e.target.closest('[data-edit-category]');
+    if (editCategoryBtn) {
+      const categories = await apiFetch(`/smm/platforms/${currentView.platformId}/categories`);
+      const c = categories.find(x => x.id === parseInt(editCategoryBtn.dataset.editCategory));
+      if (c) showCategoryModal(c);
+      return;
+    }
+
+    // Delete category
+    const delCategoryBtn = e.target.closest('[data-del-category]');
+    if (delCategoryBtn) {
+      if (!confirm('Xóa danh mục này? Tất cả dịch vụ sẽ bị xóa theo.')) return;
+      try {
+        await apiFetch(`/smm/categories/${delCategoryBtn.dataset.delCategory}`, { method: 'DELETE' });
+        toast('Đã xóa danh mục', 'success');
+        refresh();
+      } catch (err) { toast(err.message, 'error'); }
+      return;
+    }
+
+    // Add service
+    if (e.target.closest('#btn-add-service')) { showServiceModal(null); return; }
+
+    // Sync services
+    if (e.target.closest('#btn-sync-services')) { showSyncModal(); return; }
+
+    // Edit service
+    const editServiceBtn = e.target.closest('[data-edit-service]');
+    if (editServiceBtn) {
+      const services = await apiFetch(`/smm/categories/${currentView.categoryId}/services`);
+      const s = services.find(x => x.id === parseInt(editServiceBtn.dataset.editService));
+      if (s) showServiceModal(s);
+      return;
+    }
+
+    // Delete service
+    const delServiceBtn = e.target.closest('[data-del-service]');
+    if (delServiceBtn) {
+      if (!confirm('Xóa dịch vụ này?')) return;
+      try {
+        await apiFetch(`/smm/services/${delServiceBtn.dataset.delService}`, { method: 'DELETE' });
+        toast('Đã xóa dịch vụ', 'success');
+        refresh();
+      } catch (err) { toast(err.message, 'error'); }
+      return;
+    }
+
+    // Check single order
+    const checkOrderBtn = e.target.closest('[data-check-order]');
+    if (checkOrderBtn) {
+      checkOrderBtn.disabled = true;
+      checkOrderBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+      try {
+        await apiFetch(`/smm/admin/orders/${checkOrderBtn.dataset.checkOrder}/check`, { method: 'POST' });
+        toast('Đã cập nhật trạng thái', 'success');
+        refresh();
+      } catch (err) { toast(err.message, 'error'); checkOrderBtn.disabled = false; checkOrderBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Check'; }
+      return;
+    }
+
+    // Check all orders
+    if (e.target.closest('#btn-check-all-orders')) {
+      const btn = e.target.closest('#btn-check-all-orders');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang check...';
+      try {
+        await apiFetch('/smm/admin/orders/check-all', { method: 'POST' });
+        toast('Đã cập nhật tất cả đơn hàng', 'success');
+        refresh();
+      } catch (err) { toast(err.message, 'error'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Check tất cả'; }
+      return;
+    }
+
+    // Order pagination
+    const pageBtn = e.target.closest('[data-order-page]');
+    if (pageBtn) {
+      const p = parseInt(pageBtn.dataset.orderPage);
+      if (p >= 1) { orderPage = p; await refresh(); }
+      return;
+    }
+  };
+
+  content.onchange = async (e) => {
+    // Order status filter
+    const statusFilter = e.target.closest('#smm-order-status-filter');
+    if (statusFilter) {
+      orderStatus = statusFilter.value;
+      orderPage = 1;
+      await refresh();
+      return;
+    }
+
+    // Change manual order status
+    const statusChange = e.target.closest('[data-change-order-status]');
+    if (statusChange && statusChange.value) {
+      const orderId = statusChange.dataset.changeOrderStatus;
+      const newStatus = statusChange.value;
+      try {
+        await apiFetch(`/smm/admin/orders/${orderId}/status`, { method: 'PUT', body: JSON.stringify({ status: newStatus }) });
+        toast('Đã cập nhật trạng thái', 'success');
+        refresh();
+      } catch (err) { toast(err.message, 'error'); }
+      return;
+    }
+  };
+
+  await refresh();
 }
