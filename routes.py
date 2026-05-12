@@ -127,9 +127,9 @@ def json_ld_text(data: dict | None) -> str:
 
 
 def build_spa_meta(settings: dict, request: Request, **overrides) -> dict:
-    site_name = str(settings.get("site_name") or "ShopKey").strip()
+    site_name = str(settings.get("site_name") or "").strip()
     site_description = str(settings.get("seo_description") or settings.get("site_description") or "Mua tài khoản, key, gift card và các sản phẩm số uy tín").strip()
-    title = str(overrides.get("title") or settings.get("seo_title") or site_name or "ShopKey — Sản phẩm số").strip()
+    title = str(overrides.get("title") or settings.get("seo_title") or site_name or site_name).strip()
     description = clean_meta_text(overrides.get("description"), site_description, 220)
     canonical = overrides.get("canonical_url") or canonical_url(settings, request, overrides.get("path"), overrides.get("include_query", False))
     image_url = overrides.get("image_url") or default_meta_image(settings, request)
@@ -162,7 +162,7 @@ def build_spa_meta(settings: dict, request: Request, **overrides) -> dict:
 
 
 def product_meta(product: Product, settings: dict, request: Request, include_query: bool = False) -> dict:
-    site_name = str(settings.get("site_name") or "ShopKey").strip()
+    site_name = str(settings.get("site_name") or "").strip()
     site_description = str(settings.get("seo_description") or settings.get("site_description") or "Mua tài khoản, key, gift card và các sản phẩm số uy tín").strip()
     title = f"{product.name.strip()} | {site_name}"
     description = clean_meta_text(product.description or product.notes, site_description, 220)
@@ -239,7 +239,7 @@ def build_share_product_html(product: Product, settings: dict, request: Request,
 
 
 def build_blog_meta(post: BlogPost | None, settings: dict, request: Request) -> dict:
-    site_name = str(settings.get("site_name") or "ShopKey").strip()
+    site_name = str(settings.get("site_name") or "").strip()
     site_description = str(settings.get("seo_description") or settings.get("site_description") or "Cập nhật tin tức, hướng dẫn và mẹo hay mỗi ngày").strip()
     public_base = public_base_url(settings, request)
     logo_url = absolute_url(settings.get("logo_url") or settings.get("site_logo") or "", request, public_base)
@@ -447,7 +447,7 @@ def create_app(static_dir: str) -> FastAPI:
                 slug = path.removeprefix("/support/").strip("/")
                 page = db.query(SupportPage).filter(SupportPage.slug == slug, SupportPage.is_published == True).first()
                 if page:
-                    title = f"{page.title} | {settings.get('site_name') or 'ShopKey'}"
+                    title = f"{page.title} | {settings.get('site_name') or ''}"
                     page_url = canonical_url(settings, request, f"/support/{page.slug}")
                     description = clean_meta_text(page.meta_description or page.content, settings.get("site_description") or "", 220)
                     meta = build_spa_meta(
@@ -463,14 +463,14 @@ def create_app(static_dir: str) -> FastAPI:
                             "headline": title,
                             "description": description,
                             "url": page_url,
-                            "publisher": {"@type": "Organization", "name": settings.get("site_name") or "ShopKey"},
+                            "publisher": {"@type": "Organization", "name": settings.get("site_name") or ""},
                         },
                     )
             elif path.startswith("/category/"):
                 slug = path.removeprefix("/category/").strip("/")
                 category = db.query(Category).filter(Category.slug == slug, Category.is_active == True).first()
                 if category:
-                    title = f"{category.name} | {settings.get('site_name') or 'ShopKey'}"
+                    title = f"{category.name} | {settings.get('site_name') or ''}"
                     image_url = absolute_url(category.image_url or category.icon_url or default_meta_image(settings, request), request, public_base_url(settings, request))
                     meta = build_spa_meta(
                         settings,
@@ -492,7 +492,7 @@ def create_app(static_dir: str) -> FastAPI:
                 if cat_slug:
                     category = db.query(Category).filter(Category.slug == cat_slug, Category.is_active == True).first()
                     if category:
-                        title = f"{category.name} | {settings.get('site_name') or 'ShopKey'}"
+                        title = f"{category.name} | {settings.get('site_name') or ''}"
                         image_url = absolute_url(category.image_url or category.icon_url or default_meta_image(settings, request), request, public_base_url(settings, request))
                         meta = build_spa_meta(
                             settings,

@@ -498,9 +498,9 @@ async function init() {
     const faviconUrl = appSettings.favicon_url || getFaviconUrl();
     const defaultImageUrl = appSettings.seo_image_url || appSettings.default_image_url;
     const defaultAvatarUrl = appSettings.default_avatar_url;
-    const siteName = appSettings.site_name || 'ShopKey';
+    const siteName = appSettings.site_name || '';
     const siteDescription = appSettings.seo_description || appSettings.site_description || 'Mua tài khoản, key, gift card và các sản phẩm số uy tín';
-    const seoTitle = appSettings.seo_title || appSettings.site_name || 'ShopKey';
+    const seoTitle = appSettings.seo_title || appSettings.site_name || '';
     const seoKeywords = appSettings.seo_keywords || appSettings.keywords || '';
     const seoAuthor = appSettings.seo_author || appSettings.author || '';
     const twitterCard = appSettings.twitter_card || 'summary_large_image';
@@ -546,7 +546,7 @@ async function init() {
 
     const fSiteName = qs('#f-site-name');
     if (fSiteName) {
-      fSiteName.textContent = appSettings.site_name || 'ShopKey';
+      fSiteName.textContent = appSettings.site_name || '';
     }
 
     const fSiteDesc = qs('#f-site-desc');
@@ -565,7 +565,7 @@ async function init() {
 
     const fSiteCopy = qs('#f-site-copy');
     if (fSiteCopy) {
-      fSiteCopy.innerHTML = appSettings.copyright_text || `Copyright © ${new Date().getFullYear()} ${appSettings.site_name || 'ShopKey'}. All rights reserved.`;
+      fSiteCopy.innerHTML = appSettings.copyright_text || `Copyright © ${new Date().getFullYear()} ${appSettings.site_name || ''}. All rights reserved.`;
     }
   } catch (_) {
     appSettings = {};

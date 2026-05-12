@@ -3,31 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-  <title>{{ seo_title or site_name or 'ShopKey — Sản phẩm số' }}</title>
-  <meta name="description" content="{{ seo_description or site_description or 'Mua tài khoản, key, gift card và các sản phẩm số uy tín' }}" />
+  <title>{{ seo_title or site_name or site_name }}</title>
+  <meta name="description" content="{{ seo_description or site_description or site_description }}" />
   {% if robots %}<meta name="robots" content="{{ robots }}" />{% endif %}
   {% if seo_keywords %}<meta name="keywords" content="{{ seo_keywords }}" />{% endif %}
   {% if seo_author %}<meta name="author" content="{{ seo_author }}" />{% endif %}
   <link rel="canonical" href="{{ canonical_url or '' }}" />
   <meta property="og:locale" content="vi_VN" />
   <meta property="og:type" content="{{ og_type or 'website' }}" />
-  <meta property="og:title" content="{{ seo_title or site_name or 'ShopKey — Sản phẩm số' }}" />
-  <meta property="og:description" content="{{ seo_description or site_description or 'Mua tài khoản, key, gift card và các sản phẩm số uy tín' }}" />
+  <meta property="og:title" content="{{ seo_title or site_name or site_name }}" />
+  <meta property="og:description" content="{{ seo_description or site_description or site_description }}" />
   <meta property="og:image" content="{{ seo_image_url or default_image_url or '' }}" />
   <meta property="og:image:secure_url" content="{{ seo_image_url or default_image_url or '' }}" />
-  <meta property="og:image:alt" content="{{ og_image_alt or seo_title or site_name or 'ShopKey — Sản phẩm số' }}" />
+  <meta property="og:image:alt" content="{{ og_image_alt or seo_title or site_name or site_name }}" />
   <link rel="image_src" href="{{ seo_image_url or default_image_url or '' }}" />
   <meta property="og:url" content="{{ social_url or canonical_url or '' }}" />
-  <meta property="og:site_name" content="{{ site_name or 'ShopKey' }}" />
-  <meta itemprop="name" content="{{ seo_title or site_name or 'ShopKey — Sản phẩm số' }}" />
-  <meta itemprop="description" content="{{ seo_description or site_description or 'Mua tài khoản, key, gift card và các sản phẩm số uy tín' }}" />
+  <meta property="og:site_name" content="{{ site_name or site_name }}" />
+  <meta itemprop="name" content="{{ seo_title or site_name or site_name }}" />
+  <meta itemprop="description" content="{{ seo_description or site_description or site_description }}" />
   <meta itemprop="image" content="{{ seo_image_url or default_image_url or '' }}" />
   <meta name="thumbnail" content="{{ seo_image_url or default_image_url or '' }}" />
   <meta name="theme-color" content="{{ theme_color or '#7c3aed' }}" />
 
   <meta name="twitter:card" content="{{ twitter_card or 'summary_large_image' }}" />
-  <meta name="twitter:title" content="{{ seo_title or site_name or 'ShopKey — Sản phẩm số' }}" />
-  <meta name="twitter:description" content="{{ seo_description or site_description or 'Mua tài khoản, key, gift card và các sản phẩm số uy tín' }}" />
+  <meta name="twitter:title" content="{{ seo_title or site_name or site_name }}" />
+  <meta name="twitter:description" content="{{ seo_description or site_description or site_description }}" />
   <meta name="twitter:image" content="{{ seo_image_url or default_image_url or '' }}" />
   {% if json_ld %}<script type="application/ld+json">{{ json_ld|tojson }}</script>{% endif %}
 
@@ -67,7 +67,7 @@
         <span class="logo-icon">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
         </span>
-        <span class="logo-text">ShopKey</span>
+        <span class="logo-text">{{ site_name or '' }}</span>
       </a>
     </div>
     <nav class="sidebar-nav" id="sidebar-nav">
@@ -186,13 +186,10 @@
       <div class="footer-container">
         <div class="footer-col" style="flex: 2; padding-right: 40px;">
           <div class="footer-logo">
-            <span id="f-site-name">ShopKey</span>
+            <span id="f-site-name">{{ site_name or '' }}</span>
           </div>
-          <div class="footer-desc" id="f-site-desc">
-            Chúng tôi tự hào cung cấp phần mềm, tài khoản giải trí, công cụ marketing chất lượng cao với giá tốt nhất thị trường. Cam kết bảo hành uy tín và hỗ trợ khách hàng tận tâm 24/7.
-          </div>
-          <div class="footer-socials" id="f-socials" style="margin-top: 24px;">
-          </div>
+          <div class="footer-desc" id="f-site-desc">{{ site_description or '' }}</div>
+          <div class="footer-socials" id="f-socials" style="margin-top: 24px;"></div>
         </div>
         <div class="footer-col">
           <div class="footer-title">Khám phá</div>
@@ -209,10 +206,9 @@
           <a href="/support/faq" class="footer-link">Câu hỏi thường gặp</a>
           <a href="/support/privacy" class="footer-link">Chính sách bảo mật</a>
         </div>
-
       </div>
       <div class="footer-bottom">
-        <div style="margin: 0 auto;" id="f-site-copy">Copyright © 2024 ShopKey. All rights reserved.</div>
+        <div style="margin: 0 auto;" id="f-site-copy">{{ copyright_text or '' }}</div>
       </div>
     </footer>
   </div>

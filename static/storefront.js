@@ -1066,7 +1066,7 @@ async function renderProduct(view, { slug }) {
             const rate = aff.commission_rate || 5;
             const refCode = aff.ref_code;
             const siteBase = location.origin;
-            const shareTitle = `${p.name} | ${window.appSettings?.site_name || 'ShopKey'}`;
+            const shareTitle = `${p.name} | ${window.appSettings?.site_name || ''}`;
             const shareDesc = (p.description || p.notes || window.appSettings?.site_description || 'Xem ngay sản phẩm này').replace(/<[^>]*>/g, ' ').trim().slice(0, 180);
             const shareImage = withImageFallback(p.image_url || p.category_icon || window.appSettings?.logo_url || window.appSettings?.site_logo);
             const refLink = `${siteBase}/product/${p.slug}?ref=${refCode}`;
@@ -1118,7 +1118,7 @@ async function renderProduct(view, { slug }) {
                   <div class="share-share-preview">
                     <div class="share-share-preview-thumb">${shareImage ? `<img src="${shareImage}" alt="${p.name}" onerror="${onImgFallback()}" />` : '<i class="fa-solid fa-image"></i>'}</div>
                     <div class="share-share-preview-meta">
-                      <div class="share-share-preview-site">${window.appSettings?.site_name || 'ShopKey'}</div>
+                      <div class="share-share-preview-site">${window.appSettings?.site_name || ''}</div>
                       <div class="share-share-preview-title">${shareTitle}</div>
                       <div class="share-share-preview-desc">${shareDesc}</div>
                     </div>

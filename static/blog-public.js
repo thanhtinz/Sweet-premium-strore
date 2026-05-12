@@ -317,7 +317,7 @@ async function renderHome() {
     toc: '',
     searchValue: searchQuery,
   });
-  blogMeta(`Blog | ${blogBoot.siteName || 'ShopKey'}`, blogBoot.siteDescription || 'Blog', blogBoot.logoUrl || blogBoot.faviconUrl || '');
+  blogMeta(`Blog | ${blogBoot.siteName || ''}`, blogBoot.siteDescription || 'Blog', blogBoot.logoUrl || blogBoot.faviconUrl || '');
 }
 
 async function renderPost() {
@@ -341,7 +341,7 @@ async function renderPost() {
     `,
     toc: renderToc(toc),
   });
-  blogMeta(post.meta_title || `${post.title} | ${blogBoot.siteName || 'ShopKey'}`, post.meta_description || post.excerpt || blogBoot.siteDescription || '', post.thumbnail_url || blogBoot.logoUrl || blogBoot.faviconUrl || '');
+  blogMeta(post.meta_title || `${post.title} | ${blogBoot.siteName || ''}`, post.meta_description || post.excerpt || blogBoot.siteDescription || '', post.thumbnail_url || blogBoot.logoUrl || blogBoot.faviconUrl || '');
 }
 
 async function initBlogTheme() {
