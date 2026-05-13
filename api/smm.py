@@ -1326,6 +1326,8 @@ def user_catalog(db: Session = Depends(get_db)):
                         "service_type": s.service_type or "Default",
                         "avg_time_minutes": getattr(s, "avg_time_minutes", None),
                         "computed_avg_time_minutes": compute_avg_time_per_1000(db, s.id),
+                        "sort_order": s.sort_order or 0,
+                        "display_id": s.sort_order if s.sort_order else s.id,
                     }
                     for s in svcs
                 ],

@@ -115,7 +115,7 @@ async function renderSmmServices(view) {
       return allServices.filter(s => {
         if (platformFilter && String(s.platform_id) !== String(platformFilter)) return false;
         if (categoryFilter && String(s.category_id) !== String(categoryFilter)) return false;
-        if (q && !s.name.toLowerCase().includes(q) && !String(s.id).includes(q)) return false;
+        if (q && !s.name.toLowerCase().includes(q) && !String(s.id).includes(q) && !String(s.display_id ?? '').includes(q)) return false;
         return true;
       });
     }
@@ -181,7 +181,7 @@ async function renderSmmServices(view) {
         const hidden = collapsedPlatforms.has(s.platform_id) ? ' style="display:none;"' : '';
         html += `
             <tr class="svc-row" data-platform-row="${s.platform_id}"${hidden} onclick="navigateTo('/smm/order?service=${s.id}')">
-              <td class="svc-td-id">#${s.id}</td>
+              <td class="svc-td-id">#${s.display_id ?? s.id}</td>
               <td class="svc-td-name">
                 <div class="svc-name-wrap">
                   ${iconHtml}
@@ -637,7 +637,7 @@ async function renderSmmOrder(view) {
         const q = quickSearch.value.toLowerCase().trim();
         if (!q) { quickResults.style.display = 'none'; return; }
         const matches = allServices.filter(s =>
-          s.name.toLowerCase().includes(q) || String(s.id).includes(q)
+          s.name.toLowerCase().includes(q) || String(s.id).includes(q) || String(s.display_id ?? '').includes(q)
         ).slice(0, 20);
         if (!matches.length) {
           quickResults.innerHTML = '<div style="padding:12px 16px;color:var(--text-muted);font-size:13px;">Không tìm thấy dịch vụ</div>';
@@ -648,7 +648,7 @@ async function renderSmmOrder(view) {
           const icon = platformIconHtml(s.platform_id, 16);
           return `<div class="smm-quick-item" data-sid="${s.id}" style="padding:10px 16px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;transition:background 0.1s;">
             ${icon}
-            <span style="background:var(--primary);color:#fff;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;">#${s.id}</span>
+            <span style="background:var(--primary);color:#fff;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;">#${s.display_id ?? s.id}</span>
             <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.name)}</span>
             <span style="color:var(--primary);font-weight:600;font-size:12px;white-space:nowrap;">${fmt(s.rate)}</span>
           </div>`;
@@ -717,7 +717,7 @@ async function renderSmmOrder(view) {
       cat.services.forEach(s => {
         const opt = document.createElement('option');
         opt.value = s.id;
-        opt.innerHTML = icon + `<span style="background:var(--primary);color:#fff;border-radius:4px;padding:1px 5px;font-size:11px;font-weight:700;margin-right:4px;">#${s.id}</span> ` + esc(s.name);
+        opt.innerHTML = icon + `<span style="background:var(--primary);color:#fff;border-radius:4px;padding:1px 5px;font-size:11px;font-weight:700;margin-right:4px;">#${s.display_id ?? s.id}</span> ` + esc(s.name);
         serviceSel.appendChild(opt);
       });
       validateForm();
