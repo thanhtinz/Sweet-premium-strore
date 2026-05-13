@@ -1005,6 +1005,16 @@ async def admin_check_all_orders(db: Session = Depends(get_db)):
                     if isinstance(data, dict) and not data.get("error"):
                         raw = data.get("status", "")
                         o.status = status_map.get(raw, raw.lower()) if raw else o.status
+                        try:
+                            if data.get("start_count") not in (None, "", "null"):
+                                o.start_count = int(float(data.get("start_count")))
+                        except Exception:
+                            pass
+                        try:
+                            if data.get("remains") not in (None, "", "null"):
+                                o.remains = int(float(data.get("remains")))
+                        except Exception:
+                            pass
                         checked += 1
             except Exception as e:
                 logger.error(f"Batch status check failed for provider {pid}: {e}")
@@ -1354,15 +1364,32 @@ async def user_get_order(
                 result = await adapter.get_order_status(o.external_order_id)
                 prev_status = o.status
                 o.status = result.status
-                # Parse start_count / remains from message if available
-                msg = result.message or ""
-                import re
-                sc = re.search(r"start_count[:\s]*(\d+)", msg, re.I)
-                rm = re.search(r"remains[:\s]*(\d+)", msg, re.I)
-                if sc:
-                    o.start_count = int(sc.group(1))
-                if rm:
-                    o.remains = int(rm.group(1))
+                # Parse start_count / remains — ưu tiên delivery_data JSON, fallback regex message
+                import re, json as _json
+                sc_val = rm_val = None
+                if result.delivery_data:
+                    try:
+                        _dd = _json.loads(result.delivery_data) if isinstance(result.delivery_data, str) else result.delivery_data
+                        sc_val = _dd.get("start_count")
+                        rm_val = _dd.get("remains")
+                    except Exception:
+                        pass
+                if sc_val is None or rm_val is None:
+                    msg = result.message or ""
+                    sc = re.search(r"start_count[:\s]*(\d+)", msg, re.I)
+                    rm = re.search(r"remains[:\s]*(\d+)", msg, re.I)
+                    if sc and sc_val is None: sc_val = sc.group(1)
+                    if rm and rm_val is None: rm_val = rm.group(1)
+                try:
+                    if sc_val is not None and str(sc_val).strip() not in ("", "None", "null"):
+                        o.start_count = int(float(sc_val))
+                except Exception:
+                    pass
+                try:
+                    if rm_val is not None and str(rm_val).strip() not in ("", "None", "null"):
+                        o.remains = int(float(rm_val))
+                except Exception:
+                    pass
                 db.commit()
                 # Notify on terminal transitions
                 if o.status != prev_status and o.status in ("completed", "partial", "canceled", "cancelled", "failed"):

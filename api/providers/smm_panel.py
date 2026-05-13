@@ -4,6 +4,7 @@ Protocol: smmresell.com style (v2)
 Auth: API Key sent in POST body
 """
 
+import json
 import logging
 from typing import Optional
 
@@ -111,7 +112,13 @@ class SmmPanelProvider(BaseProvider):
             return ProviderOrderResult(
                 order_id=order_id,
                 status=internal_status,
-                delivery_data=None,
+                delivery_data=json.dumps({
+                    "start_count": data.get("start_count"),
+                    "remains": data.get("remains"),
+                    "charge": data.get("charge"),
+                    "currency": data.get("currency"),
+                    "raw_status": data.get("status"),
+                }),
                 message=f"start_count: {data.get('start_count', '0')}, remains: {data.get('remains', '0')}"
             )
         except Exception as e:
