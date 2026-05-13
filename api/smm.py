@@ -853,11 +853,11 @@ async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
 
             if existing:
                 # Update existing service
-                # Name luôn refresh từ nguồn (an toàn, không ảnh hưởng description)
-                raw_name_u = svc.get("name", existing.name)
-                if raw_name_u:
-                    existing.name = strip_html(raw_name_u) if filter_html else raw_name_u
+                # Toggle "Cập nhật Tên & Mô tả" → gate cả name lẫn description
                 if sync_descriptions:
+                    raw_name_u = svc.get("name")
+                    if raw_name_u:
+                        existing.name = strip_html(raw_name_u) if filter_html else raw_name_u
                     raw_desc_u = svc.get("description") or svc.get("desc") or svc.get("name", "")
                     if raw_desc_u:
                         existing.description = strip_html(raw_desc_u) if filter_html else raw_desc_u
