@@ -488,7 +488,12 @@ async function renderSmmOrder(view) {
       function syncLabel() {
         const opt = sel.options[sel.selectedIndex];
         const txt = opt ? opt.textContent : '';
-        labelEl.textContent = txt || placeholder || '';
+        const m = txt.match(/^\s*(#\d+)\s*(.*)$/);
+        if (m && sel.value) {
+          labelEl.innerHTML = `<span class="smm-cdd-id">${m[1]}</span> <span class="smm-cdd-text">${m[2].replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>`;
+        } else {
+          labelEl.textContent = txt || placeholder || '';
+        }
         labelEl.classList.toggle('is-placeholder', !sel.value);
         trigger.disabled = sel.disabled;
         trigger.classList.toggle('is-disabled', sel.disabled);
