@@ -429,7 +429,21 @@ function paymentMethodLabel(method) {
   }
 
   // ── Gift Card Section (tabs by category + logo grid) ─────
-  const giftcardCats = categories.filter(c => c.product_type === 'giftcard' && c.is_active);
+  const giftcardCatsAll = categories.filter(c => c.product_type === 'giftcard' && c.is_active);
+  // Pre-check which categories actually have products; hide whole section if none
+  let giftcardCats = [];
+  const gcProductCache = {};
+  if (giftcardCatsAll.length) {
+    const checks = await Promise.all(giftcardCatsAll.map(async (cat) => {
+      try {
+        const data = await apiFetch(`/products/?category_slug=${cat.slug}&limit=30`);
+        const items = data.items || data || [];
+        if (items.length) { gcProductCache[cat.slug] = items; return cat; }
+      } catch(_) {}
+      return null;
+    }));
+    giftcardCats = checks.filter(Boolean);
+  }
   if (giftcardCats.length) {
     const gcSection = el('div', 'gc-section mt-32');
 
@@ -457,8 +471,12 @@ function paymentMethodLabel(method) {
     const loadGcCat = async (slug) => {
       gcGrid.innerHTML = '<div class="gc-grid-loading"><div class="spinner"></div></div>';
       try {
-        const data = await apiFetch(`/products/?category_slug=${slug}&limit=30`);
-        const items = data.items || data || [];
+        let items = gcProductCache[slug];
+        if (!items) {
+          const data = await apiFetch(`/products/?category_slug=${slug}&limit=30`);
+          items = data.items || data || [];
+          gcProductCache[slug] = items;
+        }
         if (!items.length) {
           gcGrid.innerHTML = '<div class="text-muted text-center" style="padding:32px 0;grid-column:1/-1">Chưa có sản phẩm</div>';
           return;
