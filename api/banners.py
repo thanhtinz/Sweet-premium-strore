@@ -37,6 +37,7 @@ def list_banners(db: Session = Depends(get_db)):
 @router.get("/admin/list", dependencies=[Depends(get_current_admin)])
 def admin_list(db: Session = Depends(get_db)):
     rows = db.query(Banner).order_by(Banner.sort_order, Banner.id).all()
+    return [_to_dict(b) for b in rows]
 
 
 def _image_url(image_id: int) -> str:
