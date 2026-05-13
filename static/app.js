@@ -476,7 +476,24 @@ async function loadSidebar() {
     }
 
     // ── Giftcard dropdown (hiển thị sản phẩm thay vì danh mục) ──
-    const giftcardCats = categories.filter(c => c.product_type === 'giftcard');
+    const giftcardCatsAll = categories.filter(c => c.product_type === 'giftcard');
+    // Pre-check: chỉ hiện menu nếu có ít nhất 1 sản phẩm trong các category giftcard
+    let giftcardProducts = [];
+    if (giftcardCatsAll.length) {
+      try {
+        const promises = giftcardCatsAll.map(c => apiFetch(`/products/?category_id=${c.id}&limit=50`).catch(() => ({ items: [] })));
+        const results = await Promise.all(promises);
+        const seen = new Set();
+        for (const r of results) {
+          for (const p of (r.items || [])) {
+            if (seen.has(p.id)) continue;
+            seen.add(p.id);
+            giftcardProducts.push(p);
+          }
+        }
+      } catch (_) {}
+    }
+    const giftcardCats = giftcardProducts.length ? giftcardCatsAll : [];
     if (giftcardCats.length) {
       const group = el('div', 'nav-cat-group');
       const item = el('div', 'nav-item nav-item-parent');
@@ -492,19 +509,7 @@ async function loadSidebar() {
         if (loaded) return;
         loaded = true;
         try {
-          const catIds = giftcardCats.map(c => c.id);
-          // Fetch products thuộc các category giftcard (gộp các page nhỏ)
-          const promises = catIds.map(cid => apiFetch(`/products/?category_id=${cid}&limit=50`).catch(() => ({ items: [] })));
-          const results = await Promise.all(promises);
-          const seen = new Set();
-          const products = [];
-          for (const r of results) {
-            for (const p of (r.items || [])) {
-              if (seen.has(p.id)) continue;
-              seen.add(p.id);
-              products.push(p);
-            }
-          }
+          const products = giftcardProducts;
           if (!products.length) {
             const empty = el('div', 'nav-item nav-item-sub');
             empty.style.cssText = 'opacity:.6;cursor:default;font-size:12px;';
