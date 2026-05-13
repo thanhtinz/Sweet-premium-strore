@@ -712,7 +712,7 @@ async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
 
     from api.providers import get_provider
     adapter = get_provider(provider)
-    raw_services = await adapter.get_services_raw()
+    raw_services = await adapter.get_services()
 
     # Exchange rate & markup from provider settings
     settings = provider.settings or {}
