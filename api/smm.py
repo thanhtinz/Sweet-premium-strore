@@ -690,13 +690,16 @@ async def sync_selected_services(body: SyncSelectedRequest, db: Session = Depend
             return t
         return re.sub(r"<[^>]+>", "", t).strip()
     def conv(r):
+        """Cost VND (chưa markup)."""
         try:
-            v = float(r) * exchange_rate
-            if price_markup > 0:
-                v *= (1 + price_markup / 100)
-            return round(v, 2)
+            return round(float(r) * exchange_rate, 2)
         except Exception:
             return 0.0
+    def apply_markup(c):
+        try:
+            return round(float(c) * (1 + price_markup / 100), 2) if price_markup > 0 else round(float(c), 2)
+        except Exception:
+            return float(c or 0)
 
     wanted = {int(x) for x in body.external_service_ids}
     selected = [s for s in raw if int(s.get("service", 0) or 0) in wanted]
@@ -706,7 +709,8 @@ async def sync_selected_services(body: SyncSelectedRequest, db: Session = Depend
         ext_id = str(int(svc.get("service", 0)))
         raw_name = svc.get("name", f"Service {ext_id}")
         name = strip_html(raw_name) if filter_html else raw_name
-        cv = conv(svc.get("rate", 0))
+        cost = conv(svc.get("rate", 0))
+        price = apply_markup(cost)
         existing = db.query(SmmService).filter(
             SmmService.api_provider_id == provider.id,
             SmmService.external_service_id == ext_id,
@@ -714,8 +718,8 @@ async def sync_selected_services(body: SyncSelectedRequest, db: Session = Depend
         if existing:
             existing.category_id = target.id
             existing.name = name
-            existing.rate = cv
-            existing.cost_rate = cv
+            existing.rate = price
+            existing.cost_rate = cost
             existing.min_quantity = int(svc.get("min", existing.min_quantity) or existing.min_quantity)
             existing.max_quantity = int(svc.get("max", existing.max_quantity) or existing.max_quantity)
             existing.service_type = svc.get("type", existing.service_type or "Default")
@@ -727,8 +731,8 @@ async def sync_selected_services(body: SyncSelectedRequest, db: Session = Depend
             db.add(SmmService(
                 category_id=target.id,
                 name=name,
-                rate=cv,
-                cost_rate=cv,
+                rate=price,
+                cost_rate=cost,
                 min_quantity=int(svc.get("min", 1) or 1),
                 max_quantity=int(svc.get("max", 10000) or 10000),
                 delivery_type="api",
@@ -787,11 +791,14 @@ async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
         return re.sub(r'<[^>]+>', '', text).strip()
 
     def convert_rate(raw_rate):
-        """Convert API rate to VND with markup."""
-        r = float(raw_rate) * exchange_rate
+        """Cost trong VND (chưa markup)."""
+        return round(float(raw_rate) * exchange_rate, 2)
+
+    def apply_markup(cost_vnd):
+        """Giá bán = cost × (1 + markup%)."""
         if price_markup > 0:
-            r = r * (1 + price_markup / 100)
-        return round(r, 2)
+            return round(float(cost_vnd) * (1 + price_markup / 100), 2)
+        return round(float(cost_vnd), 2)
 
     created, updated, skipped = 0, 0, 0
     # Group by category
@@ -830,9 +837,12 @@ async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
                     name = svc.get("name", existing.name)
                     existing.name = strip_html(name) if filter_html else name
                 if sync_prices:
-                    _converted = convert_rate(svc.get("rate", existing.rate / exchange_rate if exchange_rate else existing.rate))
-                    existing.cost_rate = _converted  # always track provider cost
-                    existing.rate = _converted
+                    raw_rate = svc.get("rate")
+                    if raw_rate is not None:
+                        existing.cost_rate = convert_rate(raw_rate)
+                # Luôn re-apply markup lên cost_rate hiện có để giá bán phản ánh % mới
+                if existing.cost_rate is not None:
+                    existing.rate = apply_markup(existing.cost_rate)
                 existing.min_quantity = int(svc.get("min", existing.min_quantity))
                 existing.max_quantity = int(svc.get("max", existing.max_quantity))
                 if sync_advanced:
@@ -848,13 +858,14 @@ async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
                 raw_name = svc.get("name", f"Service {ext_id}")
                 name = strip_html(raw_name) if filter_html else raw_name
                 desc = name if sync_descriptions else None
-                _converted = convert_rate(svc.get("rate", 0))
+                _cost = convert_rate(svc.get("rate", 0))
+                _price = apply_markup(_cost)
                 new_svc = SmmService(
                     category_id=cat.id,
                     name=name,
                     description=desc,
-                    rate=_converted,
-                    cost_rate=_converted,
+                    rate=_price,
+                    cost_rate=_cost,
                     min_quantity=int(svc.get("min", 1)),
                     max_quantity=int(svc.get("max", 10000)),
                     delivery_type="api",
