@@ -24,6 +24,45 @@ from api.auth_shared import get_current_admin, get_current_user
 from api.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+# ── Refund helper ──────────────────────────────────────────────
+_TERMINAL_REFUND = {"canceled", "cancelled", "failed"}
+_REFUND_MARKER = "[REFUNDED]"
+
+
+def _maybe_refund_on_terminal(db: Session, order: SmmOrder, prev_status: str | None) -> bool:
+    """
+    Hoàn tiền user nếu đơn API chuyển sang trạng thái canceled/cancelled/failed
+    từ trạng thái chưa terminal. Tránh hoàn trùng bằng marker trong admin_notes.
+    Trả về True nếu vừa hoàn tiền lần này.
+    """
+    from decimal import Decimal
+    try:
+        if not order or not order.user_id:
+            return False
+        new_status = (order.status or "").lower()
+        if new_status not in _TERMINAL_REFUND:
+            return False
+        prev = (prev_status or "").lower()
+        # Nếu trạng thái trước đã là terminal thì không hoàn (đã xử lý trước đó)
+        if prev in _TERMINAL_REFUND or prev in ("completed", "partial"):
+            return False
+        # Đã hoàn rồi thì thôi
+        if order.admin_notes and _REFUND_MARKER in order.admin_notes:
+            return False
+        charge = Decimal(str(order.charge or 0))
+        if charge <= 0:
+            return False
+        user = db.query(User).filter(User.id == order.user_id).with_for_update().first()
+        if not user:
+            return False
+        user.balance = Decimal(str(user.balance or 0)) + charge
+        note = f"{_REFUND_MARKER} +{charge:,.0f} ({new_status})"
+        order.admin_notes = (order.admin_notes + " | " + note) if order.admin_notes else note
+        return True
+    except Exception as _e:
+        logger.warning(f"Refund-on-terminal failed for order {getattr(order, 'id', '?')}: {_e}")
+        return False
 router = APIRouter(prefix="/smm", tags=["smm"])
 
 
@@ -1029,6 +1068,17 @@ async def admin_check_all_orders(db: Session = Depends(get_db)):
 
     db.commit()
 
+    # Auto-refund cho các đơn vừa chuyển sang canceled/cancelled/failed
+    try:
+        for _pid, plist in by_provider.items():
+            for o in plist:
+                prev = prev_status_map.get(o.id)
+                if o.status != prev:
+                    _maybe_refund_on_terminal(db, o, prev)
+        db.commit()
+    except Exception as _e:
+        logger.warning(f"Batch refund pass failed: {_e}")
+
     # Notify users on terminal status transitions
     try:
         from api.order_notifications import notify_smm_order_event
@@ -1341,6 +1391,128 @@ def user_list_orders(
     }
 
 
+@router.post("/orders/refresh-all")
+async def user_refresh_all_orders(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Batch refresh trạng thái các đơn API đang pending/processing/in_progress của user."""
+    uid = int(current_user["user_id"])
+    orders = (
+        db.query(SmmOrder)
+        .filter(
+            SmmOrder.user_id == uid,
+            SmmOrder.delivery_type == "api",
+            SmmOrder.external_order_id.isnot(None),
+            SmmOrder.api_provider_id.isnot(None),
+            SmmOrder.status.in_(["pending", "processing", "in_progress"]),
+        )
+        .limit(100)
+        .all()
+    )
+    if not orders:
+        return {"ok": True, "checked": 0, "refunded": 0}
+
+    from api.providers import get_provider
+    import json as _json
+
+    by_provider: dict[int, list] = {}
+    for o in orders:
+        by_provider.setdefault(o.api_provider_id, []).append(o)
+
+    prev_status_map = {o.id: o.status for o in orders}
+    checked = 0
+    status_map = {
+        "Completed": "completed", "Processing": "processing",
+        "In progress": "in_progress", "Partial": "partial",
+        "Canceled": "canceled", "Pending": "pending",
+    }
+
+    for pid, plist in by_provider.items():
+        provider = db.query(ApiProvider).get(pid)
+        if not provider:
+            continue
+        adapter = get_provider(provider)
+        order_ids = [o.external_order_id for o in plist if o.external_order_id]
+        used_batch = False
+        if hasattr(adapter, "get_multiple_status") and len(order_ids) > 1:
+            try:
+                statuses = await adapter.get_multiple_status(order_ids)
+                used_batch = True
+                for o in plist:
+                    data = statuses.get(o.external_order_id, {})
+                    if isinstance(data, dict) and not data.get("error"):
+                        raw = data.get("status", "")
+                        if raw:
+                            new_st = status_map.get(raw, raw.lower())
+                            if new_st and new_st != "unknown":
+                                o.status = new_st
+                        for fld, key in (("start_count", "start_count"), ("remains", "remains")):
+                            v = data.get(key)
+                            if v not in (None, "", "null"):
+                                try:
+                                    setattr(o, fld, int(float(v)))
+                                except Exception:
+                                    pass
+                        checked += 1
+            except Exception as e:
+                logger.warning(f"User batch status check failed for provider {pid}: {e}")
+        if not used_batch:
+            for o in plist:
+                try:
+                    result = await adapter.get_order_status(o.external_order_id)
+                    if result.status and result.status != "unknown":
+                        o.status = result.status
+                    if result.delivery_data:
+                        try:
+                            dd = _json.loads(result.delivery_data) if isinstance(result.delivery_data, str) else result.delivery_data
+                            for fld, key in (("start_count", "start_count"), ("remains", "remains")):
+                                v = (dd or {}).get(key)
+                                if v not in (None, "", "null"):
+                                    try:
+                                        setattr(o, fld, int(float(v)))
+                                    except Exception:
+                                        pass
+                        except Exception:
+                            pass
+                    checked += 1
+                except Exception as e:
+                    logger.warning(f"User status check failed for order {o.id}: {e}")
+
+    db.commit()
+
+    # Refund on terminal transitions
+    refunded = 0
+    try:
+        for _pid, plist in by_provider.items():
+            for o in plist:
+                prev = prev_status_map.get(o.id)
+                if o.status != prev:
+                    if _maybe_refund_on_terminal(db, o, prev):
+                        refunded += 1
+        db.commit()
+    except Exception as _e:
+        logger.warning(f"User batch refund pass failed: {_e}")
+
+    # Notify
+    try:
+        from api.order_notifications import notify_smm_order_event
+        terminal = {"completed", "partial", "canceled", "cancelled", "failed"}
+        for _pid, plist in by_provider.items():
+            for o in plist:
+                prev = prev_status_map.get(o.id)
+                if o.status != prev and o.status in terminal:
+                    event = "completed" if o.status in ("completed", "partial") else "failed"
+                    try:
+                        notify_smm_order_event(db, o, event=event, previous_status=prev)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+    return {"ok": True, "checked": checked, "refunded": refunded}
+
+
 @router.get("/orders/{oid}")
 async def user_get_order(
     oid: int,
@@ -1392,6 +1564,9 @@ async def user_get_order(
                         o.remains = int(float(rm_val))
                 except Exception:
                     pass
+                # Refund nếu chuyển sang canceled/cancelled/failed từ trạng thái chưa terminal
+                if o.status != prev_status:
+                    _maybe_refund_on_terminal(db, o, prev_status)
                 db.commit()
                 # Notify on terminal transitions
                 if o.status != prev_status and o.status in ("completed", "partial", "canceled", "cancelled", "failed"):

@@ -1275,12 +1275,39 @@ async function renderSmmHistoryPage(view, page, statusFilter, searchFilter) {
   });
   view.appendChild(tabsWrap);
 
-  // ── Search Bar ──
+  // ── Search Bar + Refresh ──
+  const headerRow = el('div', 'smm-history-header-row');
   const searchWrap = el('div', 'smm-search-wrap');
   searchWrap.innerHTML = `
     <input type="text" class="smm-search-input" placeholder="Tìm ID hoặc liên kết..." value="${esc(searchFilter)}">
     <i class="fa-solid fa-magnifying-glass smm-search-icon"></i>`;
-  view.appendChild(searchWrap);
+  const refreshAllBtn = el('button', 'btn btn-outline btn-sm smm-history-refresh-btn');
+  refreshAllBtn.type = 'button';
+  refreshAllBtn.title = 'Đồng bộ trạng thái mới nhất từ nguồn';
+  refreshAllBtn.innerHTML = '<i class="fa-solid fa-rotate"></i> <span>Cập nhật</span>';
+  refreshAllBtn.addEventListener('click', async () => {
+    if (refreshAllBtn.disabled) return;
+    refreshAllBtn.disabled = true;
+    refreshAllBtn.classList.add('is-loading');
+    const icon = refreshAllBtn.querySelector('i');
+    if (icon) icon.classList.add('fa-spin');
+    try {
+      const r = await apiFetch('/smm/orders/refresh-all', { method: 'POST' });
+      let msg = `Đã đồng bộ ${r.checked || 0} đơn`;
+      if (r.refunded) msg += ` · Hoàn tiền ${r.refunded}`;
+      toast(msg, 'success');
+      await renderSmmHistoryPage(view, page, statusFilter, searchFilter);
+    } catch (err) {
+      toast(err.message || 'Đồng bộ thất bại', 'error');
+    } finally {
+      refreshAllBtn.disabled = false;
+      refreshAllBtn.classList.remove('is-loading');
+      if (icon) icon.classList.remove('fa-spin');
+    }
+  });
+  headerRow.appendChild(searchWrap);
+  headerRow.appendChild(refreshAllBtn);
+  view.appendChild(headerRow);
 
   let debounceTimer;
   const searchInput = searchWrap.querySelector('input');
