@@ -214,10 +214,25 @@ def update_smm_provider(pid: int, body: dict, db: Session = Depends(get_db)):
         prov.api_key = body["api_key"]
     if "is_active" in body:
         prov.is_active = body["is_active"]
+
+    recomputed = 0
     if "settings" in body:
-        prov.settings = body["settings"]
+        old_settings = prov.settings or {}
+        new_settings = body["settings"] or {}
+        old_markup = float(old_settings.get("price_markup", 0) or 0)
+        new_markup = float(new_settings.get("price_markup", 0) or 0)
+        prov.settings = new_settings
+        # Auto recompute sell rate cho tất cả service của provider này khi markup đổi
+        if abs(new_markup - old_markup) > 1e-9:
+            factor = 1 + new_markup / 100 if new_markup > 0 else 1
+            svcs = db.query(SmmService).filter(SmmService.api_provider_id == prov.id).all()
+            for sv in svcs:
+                if sv.cost_rate is None:
+                    continue
+                sv.rate = round(float(sv.cost_rate) * factor, 2)
+                recomputed += 1
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "recomputed": recomputed}
 
 
 @router.delete("/providers/{pid}", dependencies=[Depends(get_current_admin)])
@@ -630,6 +645,7 @@ async def remote_services(pid: int, db: Session = Depends(get_db)):
         services.append({
             "service": sid,
             "name": s.get("name", ""),
+            "description": s.get("description") or s.get("desc") or "",
             "category": cat,
             "type": s.get("type", "Default"),
             "rate_raw": float(s.get("rate", 0) or 0),
@@ -709,6 +725,8 @@ async def sync_selected_services(body: SyncSelectedRequest, db: Session = Depend
         ext_id = str(int(svc.get("service", 0)))
         raw_name = svc.get("name", f"Service {ext_id}")
         name = strip_html(raw_name) if filter_html else raw_name
+        raw_desc = svc.get("description") or svc.get("desc") or raw_name
+        desc = strip_html(raw_desc) if filter_html else raw_desc
         cost = conv(svc.get("rate", 0))
         price = apply_markup(cost)
         existing = db.query(SmmService).filter(
@@ -718,6 +736,7 @@ async def sync_selected_services(body: SyncSelectedRequest, db: Session = Depend
         if existing:
             existing.category_id = target.id
             existing.name = name
+            existing.description = desc
             existing.rate = price
             existing.cost_rate = cost
             existing.min_quantity = int(svc.get("min", existing.min_quantity) or existing.min_quantity)
@@ -731,6 +750,7 @@ async def sync_selected_services(body: SyncSelectedRequest, db: Session = Depend
             db.add(SmmService(
                 category_id=target.id,
                 name=name,
+                description=desc,
                 rate=price,
                 cost_rate=cost,
                 min_quantity=int(svc.get("min", 1) or 1),
@@ -833,9 +853,14 @@ async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
 
             if existing:
                 # Update existing service
+                # Name luôn refresh từ nguồn (an toàn, không ảnh hưởng description)
+                raw_name_u = svc.get("name", existing.name)
+                if raw_name_u:
+                    existing.name = strip_html(raw_name_u) if filter_html else raw_name_u
                 if sync_descriptions:
-                    name = svc.get("name", existing.name)
-                    existing.name = strip_html(name) if filter_html else name
+                    raw_desc_u = svc.get("description") or svc.get("desc") or svc.get("name", "")
+                    if raw_desc_u:
+                        existing.description = strip_html(raw_desc_u) if filter_html else raw_desc_u
                 if sync_prices:
                     raw_rate = svc.get("rate")
                     if raw_rate is not None:
@@ -857,7 +882,11 @@ async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
                     continue
                 raw_name = svc.get("name", f"Service {ext_id}")
                 name = strip_html(raw_name) if filter_html else raw_name
-                desc = name if sync_descriptions else None
+                if sync_descriptions:
+                    raw_desc = svc.get("description") or svc.get("desc") or raw_name
+                    desc = strip_html(raw_desc) if filter_html else raw_desc
+                else:
+                    desc = None
                 _cost = convert_rate(svc.get("rate", 0))
                 _price = apply_markup(_cost)
                 new_svc = SmmService(
