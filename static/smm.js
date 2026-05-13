@@ -166,8 +166,10 @@ async function renderSmmServices(view) {
           html += `
             <tr class="svc-group-row">
               <td colspan="5" class="svc-group-cell">
-                ${platIconHtml}
-                <span class="svc-group-name">${esc(s.platform_name || '—')}</span>
+                <div class="svc-group-cell-inner">
+                  ${platIconHtml}
+                  <span class="svc-group-name">${esc(s.platform_name || '—')}</span>
+                </div>
               </td>
             </tr>`;
         }
