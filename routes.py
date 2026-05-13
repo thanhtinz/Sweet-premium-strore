@@ -26,7 +26,7 @@ from api.products import router as prod_router
 from api.stock import router as stock_router
 from api.orders import router as orders_router
 from api.payment import router as payment_router
-from api.admin import router as admin_router
+from api.admin_routes import router as admin_router
 from api.banners import router as banner_router
 from api.flash_sales import router as flash_router
 from api.gift_codes import router as gift_router
