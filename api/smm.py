@@ -767,6 +767,57 @@ async def sync_selected_services(body: SyncSelectedRequest, db: Session = Depend
     return {"ok": True, "created": created, "updated": updated, "selected": len(selected)}
 
 
+@router.post("/categories/sync", dependencies=[Depends(get_current_admin)])
+async def sync_categories_only(body: SyncRequest, db: Session = Depends(get_db)):
+    """Sync ONLY categories from provider (no services). Tạo các category còn thiếu cho platform.
+    Yêu cầu provider có settings.sync_categories=True."""
+    provider = db.query(ApiProvider).filter(
+        ApiProvider.id == body.provider_id,
+        ApiProvider.provider_type == "smm_panel",
+        ApiProvider.is_active == True,
+    ).first()
+    if not provider:
+        raise HTTPException(404, "SMM provider not found or inactive")
+    settings = provider.settings or {}
+    if not settings.get("sync_categories", True):
+        raise HTTPException(400, "Toggle 'Đồng bộ Chuyên mục' đang tắt — bật lên ở cài đặt provider trước")
+    platform = db.query(SmmPlatform).get(body.platform_id)
+    if not platform:
+        raise HTTPException(404, "Platform not found")
+    from api.providers import get_provider
+    adapter = get_provider(provider)
+    try:
+        raw_services = await adapter.get_services()
+    except Exception as e:
+        logger.exception("SMM sync_categories_only: get_services failed")
+        raise HTTPException(502, f"Lỗi gọi nguồn: {e!r}")
+    if not isinstance(raw_services, list):
+        raise HTTPException(502, f"Nguồn trả về định dạng không hợp lệ: {type(raw_services).__name__}")
+
+    # Thu thập tên category duy nhất + đếm
+    cat_counts: dict[str, int] = {}
+    for s in raw_services:
+        cat = (s.get("category") or "Other").strip()
+        if cat:
+            cat_counts[cat] = cat_counts.get(cat, 0) + 1
+
+    created = 0
+    existed = 0
+    for cat_name, cnt in cat_counts.items():
+        slug = _slugify(cat_name)
+        exists = db.query(SmmCategory).filter(
+            SmmCategory.platform_id == platform.id,
+            SmmCategory.slug == slug,
+        ).first()
+        if exists:
+            existed += 1
+            continue
+        db.add(SmmCategory(platform_id=platform.id, name=cat_name, slug=slug))
+        created += 1
+    db.commit()
+    return {"ok": True, "created": created, "existed": existed, "total_remote": len(cat_counts)}
+
+
 @router.post("/services/sync", dependencies=[Depends(get_current_admin)])
 async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
     """Sync services from SMM panel API provider into a platform."""

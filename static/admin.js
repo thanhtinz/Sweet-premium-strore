@@ -4542,10 +4542,18 @@ async function renderAdminSmmCategories(view) {
   let filterPlatformId = '';
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   const refresh = async () => {
-    const [platforms, allCats] = await Promise.all([apiFetch('/smm/platforms'), apiFetch('/smm/categories/all')]);
+    const [platforms, allCats, providers] = await Promise.all([
+      apiFetch('/smm/platforms'),
+      apiFetch('/smm/categories/all'),
+      apiFetch('/api-providers/').catch(()=>[]),
+    ]);
+    const smmProviders = (providers || []).filter(p => p.provider_type === 'smm_panel' && p.is_active && (p.settings?.sync_categories !== false));
     const cats = filterPlatformId ? allCats.filter(c=>c.platform_id===parseInt(filterPlatformId)) : allCats;
+    const syncBtn = smmProviders.length > 0
+      ? `<button class="btn btn-outline btn-sm" id="btn-sync-cats" title="Đồng bộ danh mục từ nguồn"><i class="fa-solid fa-arrows-rotate"></i> Đồng bộ từ nguồn</button>`
+      : '';
     content.innerHTML = `
-      ${cuiPageHeader('Danh mục SMM', `${cats.length} danh mục`, '<button class="btn btn-primary" id="btn-add-category"><i class="fa-solid fa-plus"></i> Thêm danh mục</button>')}
+      ${cuiPageHeader('Danh mục SMM', `${cats.length} danh mục`, `${syncBtn}<button class="btn btn-primary" id="btn-add-category"><i class="fa-solid fa-plus"></i> Thêm danh mục</button>`)}
       <div class="d-flex align-center gap-8 mb-16 p-16" style="background:var(--bg-surface);border:1px solid var(--border-color);border-radius:8px;">
         <label class="form-label mb-0">Lọc nền tảng:</label>
         <select class="form-select" id="smm-filter-plat-cat" style="width:200px;"><option value="">Tất cả</option>${platforms.map(p=>`<option value="${p.id}" ${filterPlatformId==p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select>
@@ -4588,7 +4596,35 @@ async function renderAdminSmmCategories(view) {
       } catch(err){ qs('#sc-err').textContent=err.message; qs('#sc-err').style.display='block'; }
     };
   };
+  const showSyncModal = async () => {
+    const [platforms, providers] = await Promise.all([
+      apiFetch('/smm/platforms'),
+      apiFetch('/api-providers/').catch(()=>[]),
+    ]);
+    const smmProviders = (providers||[]).filter(p => p.provider_type === 'smm_panel' && p.is_active && (p.settings?.sync_categories !== false));
+    if (!smmProviders.length) { toast('Không có nhà cung cấp nào bật "Đồng bộ Chuyên mục"','error'); return; }
+    if (!platforms.length) { toast('Chưa có nền tảng nào — tạo nền tảng trước','error'); return; }
+    openModal(`<form id="cat-sync-form">
+      <div class="form-group"><label class="form-label">Nhà cung cấp<span class="req">*</span></label><select class="form-select" id="csync-prov" required>${smmProviders.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div>
+      <div class="form-group"><label class="form-label">Nền tảng đích<span class="req">*</span></label><select class="form-select" id="csync-plat" required>${platforms.map(p=>`<option value="${p.id}" ${filterPlatformId==p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div>
+      <div class="form-hint text-muted text-sm mb-12">Chỉ tạo các chuyên mục còn thiếu; không thêm dịch vụ. Muốn import dịch vụ → trang Dịch vụ SMM.</div>
+      <div id="csync-err" class="form-error mb-12" style="display:none"></div>
+      <div class="flex gap-8 justify-end"><button type="button" class="btn btn-ghost" id="csync-cancel">Hủy</button><button type="submit" class="btn btn-primary" id="csync-ok"><i class="fa-solid fa-arrows-rotate"></i> Đồng bộ</button></div>
+    </form>`, 'Đồng bộ Chuyên mục từ nguồn');
+    qs('#csync-cancel').onclick = closeModal;
+    qs('#cat-sync-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = qs('#csync-ok'); btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Đang đồng bộ...';
+      try {
+        const r = await apiFetch('/smm/categories/sync', { method:'POST', body: JSON.stringify({ provider_id: parseInt(qs('#csync-prov').value), platform_id: parseInt(qs('#csync-plat').value) }) });
+        closeModal();
+        toast(`Đã tạo ${r.created} danh mục (${r.existed} đã tồn tại / ${r.total_remote} từ nguồn)`, 'success');
+        refresh();
+      } catch(err){ qs('#csync-err').textContent=err.message; qs('#csync-err').style.display='block'; btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-arrows-rotate"></i> Đồng bộ'; }
+    };
+  };
   content.onclick = async (e) => {
+    if (e.target.closest('#btn-sync-cats')) { showSyncModal(); return; }
     if (e.target.closest('#btn-add-category')) { showModal(null); return; }
     const eb = e.target.closest('[data-edit-category]');
     if (eb) { const cs = await apiFetch('/smm/categories/all'); const c = cs.find(x=>x.id===parseInt(eb.dataset.editCategory)); if(c) showModal(c); return; }
