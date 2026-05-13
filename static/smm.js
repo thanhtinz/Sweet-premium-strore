@@ -870,10 +870,16 @@ async function renderSmmOrder(view) {
       if (!svc.description) { serviceDesc.style.display = 'none'; return; }
       serviceDesc.style.display = 'block';
       const descId = 'smm-desc-content';
+      // Sanitize nhẹ: bỏ script/iframe/style; nếu plain text thì giữ xuống dòng
+      let _descHtml = String(svc.description || '');
+      _descHtml = _descHtml.replace(/<\s*(script|iframe|style)[\s\S]*?<\s*\/\s*\1\s*>/gi, '');
+      if (!/<[a-z][\s\S]*>/i.test(_descHtml)) {
+        _descHtml = _descHtml.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+      }
       serviceDesc.innerHTML = `
         <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px;margin-bottom:16px;">
-          <div id="${descId}" style="font-size:13px;line-height:1.6;color:var(--text-body);max-height:120px;overflow:hidden;transition:max-height 0.3s ease;">
-            ${esc(svc.description)}
+          <div id="${descId}" class="smm-rich-text" style="font-size:13px;line-height:1.6;color:var(--text-body);max-height:120px;overflow:hidden;transition:max-height 0.3s ease;">
+            ${_descHtml}
           </div>
           <button id="smm-desc-toggle" type="button" style="background:none;border:none;color:var(--primary);font-size:13px;font-weight:600;cursor:pointer;padding:6px 0 0;margin-top:4px;">
             <i class="fa-solid fa-chevron-down" style="margin-right:4px;font-size:10px;"></i> Xem thêm
@@ -1485,7 +1491,7 @@ async function renderSmmOrderDetail(view, { id }) {
       ${o.service_description ? `
       <div class="card smm-detail-notes-card">
         <h3 class="smm-detail-section-title">Ghi chú & Hỗ trợ</h3>
-        <div class="smm-detail-description">${o.service_description}</div>
+        <div class="smm-detail-description smm-rich-text">${o.service_description}</div>
       </div>` : ''}
 
       <!-- Support / Actions Card -->
