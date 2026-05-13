@@ -1363,7 +1363,9 @@ async def user_get_order(
                 adapter = get_provider(provider)
                 result = await adapter.get_order_status(o.external_order_id)
                 prev_status = o.status
-                o.status = result.status
+                # Chỉ cập nhật status nếu provider trả về trạng thái hợp lệ (tránh ghi đè bằng "unknown")
+                if result.status and result.status != "unknown":
+                    o.status = result.status
                 # Parse start_count / remains — ưu tiên delivery_data JSON, fallback regex message
                 import re, json as _json
                 sc_val = rm_val = None
@@ -1399,8 +1401,8 @@ async def user_get_order(
                         notify_smm_order_event(db, o, event=event, previous_status=prev_status)
                     except Exception:
                         pass
-        except Exception:
-            pass  # fallback to cached data
+        except Exception as _e:
+            logger.warning(f"SMM live status fetch failed for order {o.id}: {_e}")
 
     svc = o.smm_service
     return {

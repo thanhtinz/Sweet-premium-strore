@@ -1429,7 +1429,12 @@ async function renderSmmOrderDetail(view, { id }) {
       <a href="/smm/history" class="smm-detail-back" onclick="event.preventDefault();navigateTo('/smm/history')">
         <i class="fa-solid fa-arrow-left"></i> Quay lại danh sách
       </a>
-      <h1 class="smm-detail-title">Chi tiết đơn hàng #${esc(String(o.order_code || o.id))}</h1>
+      <div class="smm-detail-header-row">
+        <h1 class="smm-detail-title">Chi tiết đơn hàng #${esc(String(o.order_code || o.id))}</h1>
+        <button id="smm-detail-refresh" type="button" class="btn btn-outline btn-sm" title="Lấy trạng thái mới nhất từ nguồn">
+          <i class="fa-solid fa-rotate"></i> Cập nhật trạng thái
+        </button>
+      </div>
 
       <!-- Service Name Card -->
       <div class="card smm-detail-service-card">
@@ -1571,6 +1576,25 @@ async function renderSmmOrderDetail(view, { id }) {
         const subject = encodeURIComponent(`Báo lỗi đơn SMM #${code}`);
         const msg = encodeURIComponent(`Mã đơn: ${code}\nDịch vụ: ${o.service_name || ''}\nLink: ${o.link || ''}\n\nMô tả vấn đề:\n`);
         navigateTo(`/support?subject=${subject}&category=order&message=${msg}`);
+      });
+    }
+
+    // Wire up nút "Cập nhật trạng thái" — gọi lại endpoint để pull live status từ provider
+    const refreshBtn = qs('#smm-detail-refresh', view);
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', async () => {
+        const orig = refreshBtn.innerHTML;
+        refreshBtn.disabled = true;
+        refreshBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang cập nhật...';
+        try {
+          // Endpoint /smm/orders/{id} đã tự pull live status từ provider
+          await renderSmmOrderDetail(view, { id });
+          if (typeof toast === 'function') toast('Đã cập nhật trạng thái mới nhất', 'success');
+        } catch (e) {
+          refreshBtn.disabled = false;
+          refreshBtn.innerHTML = orig;
+          if (typeof toast === 'function') toast('Cập nhật thất bại: ' + (e.message || ''), 'error');
+        }
       });
     }
 

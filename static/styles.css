@@ -10172,6 +10172,9 @@ body.admin-mode {
 .smm-cdd-id { display: inline-block; background: #2563eb; color: #fff; font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 6px; margin-right: 4px; line-height: 1.4; vertical-align: middle; }
 .smm-cdd-item.is-selected .smm-cdd-id { background: #1d4ed8; }
 .smm-cdd-text { vertical-align: middle; }
+.smm-detail-header-row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin: 8px 0 16px; }
+.smm-detail-header-row .smm-detail-title { margin: 0; }
+.smm-detail-header-row .btn-sm { padding: 8px 14px; font-size: 13px; border-radius: 10px; white-space: nowrap; }
 
 /* === Rich-text content (SMM service description / generic HTML từ API) === */
 .smm-rich-text { word-wrap: break-word; overflow-wrap: break-word; }
