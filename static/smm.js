@@ -257,6 +257,7 @@ async function renderSmmOrder(view) {
 
     const urlParams = new URLSearchParams(location.search || '');
     const preselectedServiceId = urlParams.get('service');
+    const preselectedPlatformSlug = (urlParams.get('platform') || '').trim().toLowerCase();
 
     // Flatten services for lookup
     const allServices = [];
@@ -962,6 +963,13 @@ async function renderSmmOrder(view) {
       const svc = allServices.find(s => String(s.id) === String(preselectedServiceId));
       if (svc) {
         selectServiceByCascade(svc.platform_id, svc.category_id, svc.id);
+      }
+    } else if (preselectedPlatformSlug) {
+      // ── Pre-select only platform via ?platform=slug ──
+      const p = catalog.find(x => String(x.slug || '').toLowerCase() === String(preselectedPlatformSlug).toLowerCase());
+      if (p) {
+        platformSel.value = String(p.id);
+        platformSel.dispatchEvent(new Event('change'));
       }
     }
 

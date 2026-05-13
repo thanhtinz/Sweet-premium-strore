@@ -529,7 +529,14 @@ function paymentMethodLabel(method) {
           const iconHTML = p.icon_url
             ? `<img src="${esc(p.icon_url)}" alt="${esc(p.name)}" />`
             : `<i class="fa-solid fa-share-nodes"></i>`;
-          card.innerHTML = `<div class="smm-home-card-media">${iconHTML}</div>`;
+          const catCount = (p.categories || []).length;
+          card.innerHTML = `
+            <div class="smm-home-card-icon">${iconHTML}</div>
+            <div class="smm-home-card-body">
+              <div class="smm-home-card-name">${esc(p.name)}</div>
+              <div class="smm-home-card-meta">${catCount} danh mục</div>
+            </div>
+          `;
           smmGrid.appendChild(card);
         });
         frag.appendChild(smmGrid);
