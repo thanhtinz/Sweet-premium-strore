@@ -865,9 +865,9 @@ async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
                     raw_rate = svc.get("rate")
                     if raw_rate is not None:
                         existing.cost_rate = convert_rate(raw_rate)
-                # Luôn re-apply markup lên cost_rate hiện có để giá bán phản ánh % mới
-                if existing.cost_rate is not None:
-                    existing.rate = apply_markup(existing.cost_rate)
+                    # Chỉ re-apply markup khi đồng bộ giá → giá bán = cost × (1 + markup%)
+                    if existing.cost_rate is not None:
+                        existing.rate = apply_markup(existing.cost_rate)
                 existing.min_quantity = int(svc.get("min", existing.min_quantity))
                 existing.max_quantity = int(svc.get("max", existing.max_quantity))
                 if sync_advanced:
