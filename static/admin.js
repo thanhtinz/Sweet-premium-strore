@@ -4597,94 +4597,189 @@ async function renderAdminSmmCategories(view) {
     };
   };
   const showSyncModal = async () => {
-    const [platforms, providers] = await Promise.all([
+    const [smmProviders, platforms] = await Promise.all([
+      apiFetch('/smm/providers').catch(()=>[]),
       apiFetch('/smm/platforms'),
-      apiFetch('/api-providers/').catch(()=>[]),
     ]);
-    const smmProviders = (providers||[]).filter(p => p.provider_type === 'smm_panel' && p.is_active && (p.settings?.sync_categories !== false));
-    if (!smmProviders.length) { toast('Không có nhà cung cấp nào bật "Đồng bộ Chuyên mục"','error'); return; }
-    if (!platforms.length) { toast('Chưa có nền tảng nào — tạo nền tảng trước','error'); return; }
-    let remoteCats = null; // {name,count,exists}[]
-    const selected = new Set();
-    openModal(`<form id="cat-sync-form">
-      <div class="form-row form-row-2">
-        <div class="form-group"><label class="form-label">Nhà cung cấp<span class="req">*</span></label><select class="form-select" id="csync-prov" required>${smmProviders.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div>
-        <div class="form-group"><label class="form-label">Nền tảng đích<span class="req">*</span></label><select class="form-select" id="csync-plat" required>${platforms.map(p=>`<option value="${p.id}" ${filterPlatformId==p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div>
-      </div>
-      <div class="flex gap-8 mb-12"><button type="button" class="btn btn-secondary" id="csync-load"><i class="fa-solid fa-cloud-arrow-down"></i> Tải danh mục từ nguồn</button><input type="text" id="csync-search" class="form-input" placeholder="Tìm tên..." style="flex:1;display:none" /></div>
-      <div id="csync-list" style="max-height:340px;overflow:auto;border:1px solid var(--border-color);border-radius:8px;display:none;background:var(--bg-surface)"></div>
-      <div id="csync-toolbar" style="display:none" class="d-flex gap-8 mt-8 mb-8 align-center text-sm">
-        <button type="button" class="btn btn-ghost btn-sm" id="csync-all">Chọn tất cả</button>
-        <button type="button" class="btn btn-ghost btn-sm" id="csync-none">Bỏ chọn</button>
-        <button type="button" class="btn btn-ghost btn-sm" id="csync-new">Chỉ các mục mới</button>
-        <span class="text-muted" id="csync-count" style="margin-left:auto"></span>
-      </div>
-      <div id="csync-err" class="form-error mb-12" style="display:none"></div>
-      <div class="flex gap-8 justify-end"><button type="button" class="btn btn-ghost" id="csync-cancel">Hủy</button><button type="submit" class="btn btn-primary" id="csync-ok" disabled><i class="fa-solid fa-arrows-rotate"></i> Đồng bộ</button></div>
-    </form>`, 'Đồng bộ Chuyên mục từ nguồn');
+    const usable = (smmProviders||[]).filter(p => p.is_active && (p.settings?.sync_categories !== false));
+    if (!usable.length) { toast('Chưa có nguồn SMM hoặc tất cả đều tắt "Đồng bộ Chuyên mục".','warning'); return; }
+    if (!platforms.length) { toast('Chưa có nền tảng — tạo nền tảng trước.','warning'); return; }
 
-    const renderList = (filter = '') => {
-      const $list = qs('#csync-list');
-      const f = filter.trim().toLowerCase();
-      const items = remoteCats.filter(c => !f || c.name.toLowerCase().includes(f));
-      $list.innerHTML = items.length ? items.map(c => {
-        const checked = selected.has(c.name) ? 'checked' : '';
-        const badge = c.exists ? '<span class="badge badge-gray" style="margin-left:8px">đã có</span>' : '<span class="badge badge-green" style="margin-left:8px">mới</span>';
-        return `<label class="d-flex align-center gap-8" style="padding:8px 12px;border-bottom:1px solid var(--border-color);cursor:pointer">
-          <input type="checkbox" class="csync-item" data-name="${esc(c.name)}" ${checked} />
-          <span class="td-bold">${esc(c.name)}</span>
-          <span class="text-muted text-sm">${c.count} dịch vụ</span>
-          ${badge}
+    const state = {
+      step: 1,
+      providerId: '',
+      platformId: filterPlatformId || '',
+      remoteCats: [], // [{name,count,exists,slug}]
+      selected: new Set(),
+      searchQ: '',
+    };
+
+    openModal(`
+      <div class="smm-sync-wizard">
+        <div class="smm-sync-stepper">
+          <div class="smm-sync-step is-active" data-step="1"><span>1</span>Nguồn</div>
+          <div class="smm-sync-step" data-step="2"><span>2</span>Chọn danh mục</div>
+          <div class="smm-sync-step" data-step="3"><span>3</span>Đồng bộ</div>
+        </div>
+        <div id="csw-body"></div>
+        <div id="csw-err" class="form-error mb-12" style="display:none"></div>
+        <div class="smm-sync-footer">
+          <button type="button" class="btn btn-ghost" id="csw-cancel">Hủy</button>
+          <button type="button" class="btn btn-outline" id="csw-back" style="display:none">← Quay lại</button>
+          <button type="button" class="btn btn-primary" id="csw-next">Tiếp tục →</button>
+        </div>
+      </div>
+    `, 'Đồng bộ danh mục từ nguồn');
+
+    const $body = qs('#csw-body');
+    const $err = qs('#csw-err');
+    const $next = qs('#csw-next');
+    const $back = qs('#csw-back');
+    const showErr = (m) => { $err.textContent = m||''; $err.style.display = m?'block':'none'; };
+    const updateStepper = () => {
+      qsa('.smm-sync-step', qs('.smm-sync-wizard')).forEach(el => {
+        const s = parseInt(el.dataset.step);
+        el.classList.toggle('is-active', s === state.step);
+        el.classList.toggle('is-done', s < state.step);
+      });
+      $back.style.display = state.step > 1 ? '' : 'none';
+      $next.innerHTML = state.step === 3 ? '<i class="fa-solid fa-arrows-rotate"></i> Đồng bộ' : 'Tiếp tục →';
+    };
+
+    const renderStep1 = () => {
+      $body.innerHTML = `
+        <div class="form-group">
+          <label class="form-label">Chọn nguồn API (SMM)<span class="req">*</span></label>
+          <select class="form-select" id="csw-prov">
+            <option value="">— Chọn nguồn —</option>
+            ${usable.map(p=>`<option value="${p.id}" ${state.providerId==p.id?'selected':''}>${esc(p.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nền tảng đích<span class="req">*</span></label>
+          <select class="form-select" id="csw-plat">
+            <option value="">— Chọn nền tảng —</option>
+            ${platforms.map(p=>`<option value="${p.id}" ${state.platformId==p.id?'selected':''}>${esc(p.name)}</option>`).join('')}
+          </select>
+          <div class="form-hint">Các danh mục được chọn sẽ tạo trong nền tảng này.</div>
+        </div>
+      `;
+      qs('#csw-prov').onchange = (e) => { state.providerId = e.target.value; showErr(''); };
+      qs('#csw-plat').onchange = (e) => { state.platformId = e.target.value; showErr(''); };
+    };
+
+    const renderListInto = (containerId, q='') => {
+      const ql = q.toLowerCase();
+      const filtered = state.remoteCats.filter(c => !ql || c.name.toLowerCase().includes(ql));
+      const $c = qs(containerId, $body);
+      if (!$c) return;
+      $c.innerHTML = filtered.length ? `<div class="smm-sync-cats">${filtered.map(c => {
+        const checked = state.selected.has(c.name) ? 'checked' : '';
+        const badge = c.exists ? '<span class="badge badge-gray">đã có</span>' : '<span class="badge badge-green">mới</span>';
+        return `<label class="smm-sync-cat${state.selected.has(c.name)?' is-active':''}">
+          <input type="checkbox" class="csw-item" data-name="${esc(c.name)}" ${checked}/>
+          <div class="smm-sync-cat-name">${esc(c.name)} ${badge}</div>
+          <div class="smm-sync-cat-count">${c.count} dịch vụ</div>
         </label>`;
-      }).join('') : '<div class="text-muted p-16 text-center">Không khớp</div>';
-      qs('#csync-count').textContent = `Đã chọn ${selected.size} / ${remoteCats.length}`;
-      qs('#csync-ok').disabled = selected.size === 0;
+      }).join('')}</div>` : '<div class="empty-state"><p>Không khớp</p></div>';
+      qs('#csw-count').textContent = `Đã chọn ${state.selected.size} / ${state.remoteCats.length}`;
     };
 
-    qs('#csync-cancel').onclick = closeModal;
-    qs('#csync-load').onclick = async () => {
-      const btn = qs('#csync-load'); btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang tải...';
-      try {
-        const pid = parseInt(qs('#csync-prov').value);
-        const platId = parseInt(qs('#csync-plat').value);
-        const r = await apiFetch(`/smm/providers/${pid}/remote-categories?platform_id=${platId}`);
-        remoteCats = r.categories || [];
-        selected.clear();
-        remoteCats.forEach(c => { if (!c.exists) selected.add(c.name); });
-        qs('#csync-search').style.display = 'block';
-        qs('#csync-list').style.display = 'block';
-        qs('#csync-toolbar').style.display = 'flex';
-        renderList();
-      } catch(err){ qs('#csync-err').textContent=err.message; qs('#csync-err').style.display='block'; }
-      finally { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> Tải lại'; }
+    const renderStep2 = () => {
+      $body.innerHTML = `
+        <div class="form-group">
+          <label class="form-label">Tìm danh mục</label>
+          <input type="text" id="csw-search" class="form-input" placeholder="Lọc theo tên..." value="${esc(state.searchQ)}"/>
+        </div>
+        <div class="d-flex gap-8 mb-12 align-center text-sm">
+          <button type="button" class="btn btn-ghost btn-sm" id="csw-all">Tất cả</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="csw-none">Bỏ chọn</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="csw-new">Chỉ mục mới</button>
+          <span class="text-muted" id="csw-count" style="margin-left:auto"></span>
+        </div>
+        <div id="csw-list"></div>
+      `;
+      renderListInto('#csw-list', state.searchQ);
+      qs('#csw-search').oninput = (e) => { state.searchQ = e.target.value; renderListInto('#csw-list', state.searchQ); };
+      qs('#csw-all').onclick = () => { state.remoteCats.forEach(c => state.selected.add(c.name)); renderListInto('#csw-list', state.searchQ); };
+      qs('#csw-none').onclick = () => { state.selected.clear(); renderListInto('#csw-list', state.searchQ); };
+      qs('#csw-new').onclick = () => { state.selected.clear(); state.remoteCats.forEach(c => { if (!c.exists) state.selected.add(c.name); }); renderListInto('#csw-list', state.searchQ); };
+      $body.addEventListener('change', (e) => {
+        if (e.target.classList?.contains('csw-item')) {
+          const n = e.target.dataset.name;
+          if (e.target.checked) state.selected.add(n); else state.selected.delete(n);
+          qs('#csw-count').textContent = `Đã chọn ${state.selected.size} / ${state.remoteCats.length}`;
+          e.target.closest('.smm-sync-cat')?.classList.toggle('is-active', e.target.checked);
+        }
+      });
     };
-    qs('#cat-sync-form').addEventListener('change', (e) => {
-      if (e.target.classList?.contains('csync-item')) {
-        const n = e.target.dataset.name;
-        if (e.target.checked) selected.add(n); else selected.delete(n);
-        qs('#csync-count').textContent = `Đã chọn ${selected.size} / ${remoteCats.length}`;
-        qs('#csync-ok').disabled = selected.size === 0;
+
+    const renderStep3 = () => {
+      const provName = (usable.find(p => p.id == state.providerId) || {}).name || '';
+      const platName = (platforms.find(p => p.id == state.platformId) || {}).name || '';
+      const newCount = Array.from(state.selected).filter(n => {
+        const c = state.remoteCats.find(x => x.name === n);
+        return c && !c.exists;
+      }).length;
+      $body.innerHTML = `
+        <div class="form-group">
+          <div class="form-label">Xác nhận đồng bộ</div>
+          <div class="text-muted text-sm mb-12">Sẽ tạo danh mục mới trong nền tảng đích. Các tên đã tồn tại sẽ bỏ qua.</div>
+          <div class="cui-card" style="padding:14px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-surface)">
+            <div><b>Nguồn:</b> ${esc(provName)}</div>
+            <div><b>Nền tảng đích:</b> ${esc(platName)}</div>
+            <div><b>Đã chọn:</b> ${state.selected.size} danh mục (${newCount} mục mới sẽ được tạo)</div>
+          </div>
+        </div>
+      `;
+    };
+
+    const renderStep = () => {
+      updateStepper();
+      if (state.step === 1) renderStep1();
+      else if (state.step === 2) renderStep2();
+      else renderStep3();
+    };
+
+    const goNext = async () => {
+      showErr('');
+      if (state.step === 1) {
+        if (!state.providerId) { showErr('Chọn nguồn'); return; }
+        if (!state.platformId) { showErr('Chọn nền tảng đích'); return; }
+        $next.disabled = true; $next.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang tải...';
+        try {
+          const r = await apiFetch(`/smm/providers/${state.providerId}/remote-categories?platform_id=${state.platformId}`);
+          state.remoteCats = r.categories || [];
+          state.selected = new Set(state.remoteCats.filter(c => !c.exists).map(c => c.name));
+          if (!state.remoteCats.length) { showErr('Nguồn không trả về danh mục nào'); $next.disabled=false; updateStepper(); return; }
+          state.step = 2; renderStep();
+        } catch (err) { showErr(err.message); }
+        finally { $next.disabled = false; updateStepper(); }
+        return;
       }
-    });
-    qs('#cat-sync-form').addEventListener('input', (e) => { if (e.target.id === 'csync-search') renderList(e.target.value); });
-    qs('#csync-all').onclick = () => { remoteCats.forEach(c => selected.add(c.name)); renderList(qs('#csync-search').value); };
-    qs('#csync-none').onclick = () => { selected.clear(); renderList(qs('#csync-search').value); };
-    qs('#csync-new').onclick = () => { selected.clear(); remoteCats.forEach(c => { if (!c.exists) selected.add(c.name); }); renderList(qs('#csync-search').value); };
-    qs('#cat-sync-form').onsubmit = async (e) => {
-      e.preventDefault();
-      if (!remoteCats || !selected.size) return;
-      const btn = qs('#csync-ok'); btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Đang đồng bộ...';
-      try {
-        const r = await apiFetch('/smm/categories/sync', { method:'POST', body: JSON.stringify({
-          provider_id: parseInt(qs('#csync-prov').value),
-          platform_id: parseInt(qs('#csync-plat').value),
-          category_names: Array.from(selected),
-        }) });
-        closeModal();
-        toast(`Đã tạo ${r.created} / ${r.existed} đã tồn tại`, 'success');
-        refresh();
-      } catch(err){ qs('#csync-err').textContent=err.message; qs('#csync-err').style.display='block'; btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-arrows-rotate"></i> Đồng bộ'; }
+      if (state.step === 2) {
+        if (state.selected.size === 0) { showErr('Chọn ít nhất 1 danh mục'); return; }
+        state.step = 3; renderStep(); return;
+      }
+      if (state.step === 3) {
+        $next.disabled = true; $next.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang đồng bộ...';
+        try {
+          const r = await apiFetch('/smm/categories/sync', { method:'POST', body: JSON.stringify({
+            provider_id: parseInt(state.providerId),
+            platform_id: parseInt(state.platformId),
+            category_names: Array.from(state.selected),
+          }) });
+          closeModal();
+          toast(`Đã tạo ${r.created} / ${r.existed} đã tồn tại`, 'success');
+          refresh();
+        } catch (err) { showErr(err.message); $next.disabled = false; updateStepper(); }
+      }
     };
+
+    qs('#csw-cancel').onclick = closeModal;
+    $back.onclick = () => { if (state.step > 1) { state.step--; showErr(''); renderStep(); } };
+    $next.onclick = goNext;
+    renderStep();
   };
   content.onclick = async (e) => {
     if (e.target.closest('#btn-sync-cats')) { showSyncModal(); return; }
