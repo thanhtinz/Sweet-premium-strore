@@ -679,6 +679,8 @@ async def sync_selected_services(body: SyncSelectedRequest, db: Session = Depend
     ).first()
     if not provider:
         raise HTTPException(404, "SMM provider not found or inactive")
+    if not (provider.settings or {}).get("sync_services", True):
+        raise HTTPException(400, "Toggle 'Đồng bộ Dịch vụ' đang tắt — bật lên ở cài đặt provider trước")
     target = db.query(SmmCategory).get(body.target_category_id)
     if not target:
         raise HTTPException(404, "Danh mục đích không tồn tại")

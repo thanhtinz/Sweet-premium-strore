@@ -4713,7 +4713,7 @@ async function renderAdminSmmServices(view) {
         <h1 class="smm-svc-title">Quản lý Dịch vụ SMM</h1>
         <p class="smm-svc-subtitle">Quản lý giá bán, tình trạng và nhà cung cấp cho các dịch vụ</p>
         <div class="smm-svc-header-btns">
-          <button class="smm-svc-sync-btn" id="btn-sync-services"><i class="fa-solid fa-arrows-rotate"></i> Đồng bộ từ nguồn</button>
+          ${smmProviders.some(p => p.is_active && (p.settings?.sync_services !== false)) ? `<button class="smm-svc-sync-btn" id="btn-sync-services"><i class="fa-solid fa-arrows-rotate"></i> Đồng bộ từ nguồn</button>` : ''}
           <button class="btn btn-primary" id="btn-add-service"><i class="fa-solid fa-plus"></i> Thêm dịch vụ</button>
         </div>
       </div>
