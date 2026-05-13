@@ -4604,21 +4604,84 @@ async function renderAdminSmmCategories(view) {
     const smmProviders = (providers||[]).filter(p => p.provider_type === 'smm_panel' && p.is_active && (p.settings?.sync_categories !== false));
     if (!smmProviders.length) { toast('Không có nhà cung cấp nào bật "Đồng bộ Chuyên mục"','error'); return; }
     if (!platforms.length) { toast('Chưa có nền tảng nào — tạo nền tảng trước','error'); return; }
+    let remoteCats = null; // {name,count,exists}[]
+    const selected = new Set();
     openModal(`<form id="cat-sync-form">
-      <div class="form-group"><label class="form-label">Nhà cung cấp<span class="req">*</span></label><select class="form-select" id="csync-prov" required>${smmProviders.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div>
-      <div class="form-group"><label class="form-label">Nền tảng đích<span class="req">*</span></label><select class="form-select" id="csync-plat" required>${platforms.map(p=>`<option value="${p.id}" ${filterPlatformId==p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div>
-      <div class="form-hint text-muted text-sm mb-12">Chỉ tạo các chuyên mục còn thiếu; không thêm dịch vụ. Muốn import dịch vụ → trang Dịch vụ SMM.</div>
+      <div class="form-row form-row-2">
+        <div class="form-group"><label class="form-label">Nhà cung cấp<span class="req">*</span></label><select class="form-select" id="csync-prov" required>${smmProviders.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div>
+        <div class="form-group"><label class="form-label">Nền tảng đích<span class="req">*</span></label><select class="form-select" id="csync-plat" required>${platforms.map(p=>`<option value="${p.id}" ${filterPlatformId==p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div>
+      </div>
+      <div class="flex gap-8 mb-12"><button type="button" class="btn btn-secondary" id="csync-load"><i class="fa-solid fa-cloud-arrow-down"></i> Tải danh mục từ nguồn</button><input type="text" id="csync-search" class="form-input" placeholder="Tìm tên..." style="flex:1;display:none" /></div>
+      <div id="csync-list" style="max-height:340px;overflow:auto;border:1px solid var(--border-color);border-radius:8px;display:none;background:var(--bg-surface)"></div>
+      <div id="csync-toolbar" style="display:none" class="d-flex gap-8 mt-8 mb-8 align-center text-sm">
+        <button type="button" class="btn btn-ghost btn-sm" id="csync-all">Chọn tất cả</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="csync-none">Bỏ chọn</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="csync-new">Chỉ các mục mới</button>
+        <span class="text-muted" id="csync-count" style="margin-left:auto"></span>
+      </div>
       <div id="csync-err" class="form-error mb-12" style="display:none"></div>
-      <div class="flex gap-8 justify-end"><button type="button" class="btn btn-ghost" id="csync-cancel">Hủy</button><button type="submit" class="btn btn-primary" id="csync-ok"><i class="fa-solid fa-arrows-rotate"></i> Đồng bộ</button></div>
+      <div class="flex gap-8 justify-end"><button type="button" class="btn btn-ghost" id="csync-cancel">Hủy</button><button type="submit" class="btn btn-primary" id="csync-ok" disabled><i class="fa-solid fa-arrows-rotate"></i> Đồng bộ</button></div>
     </form>`, 'Đồng bộ Chuyên mục từ nguồn');
+
+    const renderList = (filter = '') => {
+      const $list = qs('#csync-list');
+      const f = filter.trim().toLowerCase();
+      const items = remoteCats.filter(c => !f || c.name.toLowerCase().includes(f));
+      $list.innerHTML = items.length ? items.map(c => {
+        const checked = selected.has(c.name) ? 'checked' : '';
+        const badge = c.exists ? '<span class="badge badge-gray" style="margin-left:8px">đã có</span>' : '<span class="badge badge-green" style="margin-left:8px">mới</span>';
+        return `<label class="d-flex align-center gap-8" style="padding:8px 12px;border-bottom:1px solid var(--border-color);cursor:pointer">
+          <input type="checkbox" class="csync-item" data-name="${esc(c.name)}" ${checked} />
+          <span class="td-bold">${esc(c.name)}</span>
+          <span class="text-muted text-sm">${c.count} dịch vụ</span>
+          ${badge}
+        </label>`;
+      }).join('') : '<div class="text-muted p-16 text-center">Không khớp</div>';
+      qs('#csync-count').textContent = `Đã chọn ${selected.size} / ${remoteCats.length}`;
+      qs('#csync-ok').disabled = selected.size === 0;
+    };
+
     qs('#csync-cancel').onclick = closeModal;
+    qs('#csync-load').onclick = async () => {
+      const btn = qs('#csync-load'); btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang tải...';
+      try {
+        const pid = parseInt(qs('#csync-prov').value);
+        const platId = parseInt(qs('#csync-plat').value);
+        const r = await apiFetch(`/smm/providers/${pid}/remote-categories?platform_id=${platId}`);
+        remoteCats = r.categories || [];
+        selected.clear();
+        remoteCats.forEach(c => { if (!c.exists) selected.add(c.name); });
+        qs('#csync-search').style.display = 'block';
+        qs('#csync-list').style.display = 'block';
+        qs('#csync-toolbar').style.display = 'flex';
+        renderList();
+      } catch(err){ qs('#csync-err').textContent=err.message; qs('#csync-err').style.display='block'; }
+      finally { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> Tải lại'; }
+    };
+    qs('#cat-sync-form').addEventListener('change', (e) => {
+      if (e.target.classList?.contains('csync-item')) {
+        const n = e.target.dataset.name;
+        if (e.target.checked) selected.add(n); else selected.delete(n);
+        qs('#csync-count').textContent = `Đã chọn ${selected.size} / ${remoteCats.length}`;
+        qs('#csync-ok').disabled = selected.size === 0;
+      }
+    });
+    qs('#cat-sync-form').addEventListener('input', (e) => { if (e.target.id === 'csync-search') renderList(e.target.value); });
+    qs('#csync-all').onclick = () => { remoteCats.forEach(c => selected.add(c.name)); renderList(qs('#csync-search').value); };
+    qs('#csync-none').onclick = () => { selected.clear(); renderList(qs('#csync-search').value); };
+    qs('#csync-new').onclick = () => { selected.clear(); remoteCats.forEach(c => { if (!c.exists) selected.add(c.name); }); renderList(qs('#csync-search').value); };
     qs('#cat-sync-form').onsubmit = async (e) => {
       e.preventDefault();
+      if (!remoteCats || !selected.size) return;
       const btn = qs('#csync-ok'); btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Đang đồng bộ...';
       try {
-        const r = await apiFetch('/smm/categories/sync', { method:'POST', body: JSON.stringify({ provider_id: parseInt(qs('#csync-prov').value), platform_id: parseInt(qs('#csync-plat').value) }) });
+        const r = await apiFetch('/smm/categories/sync', { method:'POST', body: JSON.stringify({
+          provider_id: parseInt(qs('#csync-prov').value),
+          platform_id: parseInt(qs('#csync-plat').value),
+          category_names: Array.from(selected),
+        }) });
         closeModal();
-        toast(`Đã tạo ${r.created} danh mục (${r.existed} đã tồn tại / ${r.total_remote} từ nguồn)`, 'success');
+        toast(`Đã tạo ${r.created} / ${r.existed} đã tồn tại`, 'success');
         refresh();
       } catch(err){ qs('#csync-err').textContent=err.message; qs('#csync-err').style.display='block'; btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-arrows-rotate"></i> Đồng bộ'; }
     };

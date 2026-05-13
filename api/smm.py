@@ -128,6 +128,11 @@ class SyncRequest(BaseModel):
     provider_id: int
     platform_id: int = 0  # 0 = auto-create/match by category
 
+class SyncCategoriesRequest(BaseModel):
+    provider_id: int
+    platform_id: int
+    category_names: list[str] | None = None  # None hoặc rỗng = tất cả
+
 class SyncSelectedRequest(BaseModel):
     provider_id: int
     target_category_id: int
@@ -769,10 +774,51 @@ async def sync_selected_services(body: SyncSelectedRequest, db: Session = Depend
     return {"ok": True, "created": created, "updated": updated, "selected": len(selected)}
 
 
+@router.get("/providers/{pid}/remote-categories", dependencies=[Depends(get_current_admin)])
+async def remote_categories(pid: int, platform_id: int = 0, db: Session = Depends(get_db)):
+    """Preview các category mà nguồn cung cấp + đánh dấu đã tồn tại trên platform."""
+    p = db.query(ApiProvider).filter(
+        ApiProvider.id == pid,
+        ApiProvider.provider_type == "smm_panel",
+        ApiProvider.is_active == True,
+    ).first()
+    if not p:
+        raise HTTPException(404, "Provider not found")
+    from api.providers import get_provider
+    adapter = get_provider(p)
+    try:
+        raw = await adapter.get_services()
+    except Exception as e:
+        logger.exception("SMM remote_categories: get_services failed")
+        raise HTTPException(502, f"Lỗi gọi nguồn: {e!r}")
+    if not isinstance(raw, list):
+        raise HTTPException(502, "Nguồn trả về định dạng không hợp lệ")
+    cat_counts: dict[str, int] = {}
+    for s in raw:
+        cat = (s.get("category") or "Other").strip()
+        if cat:
+            cat_counts[cat] = cat_counts.get(cat, 0) + 1
+    existing_slugs: set[str] = set()
+    if platform_id:
+        existing_slugs = {
+            row[0] for row in db.query(SmmCategory.slug).filter(SmmCategory.platform_id == platform_id).all()
+        }
+    out = []
+    for name, cnt in cat_counts.items():
+        out.append({
+            "name": name,
+            "count": cnt,
+            "slug": _slugify(name),
+            "exists": _slugify(name) in existing_slugs,
+        })
+    out.sort(key=lambda x: x["name"].lower())
+    return {"provider_id": p.id, "platform_id": platform_id, "categories": out}
+
+
 @router.post("/categories/sync", dependencies=[Depends(get_current_admin)])
-async def sync_categories_only(body: SyncRequest, db: Session = Depends(get_db)):
-    """Sync ONLY categories from provider (no services). Tạo các category còn thiếu cho platform.
-    Yêu cầu provider có settings.sync_categories=True."""
+async def sync_categories_only(body: SyncCategoriesRequest, db: Session = Depends(get_db)):
+    """Sync ONLY categories from provider (no services). Nếu body.category_names rỗng → tạo tất cả còn thiếu;
+    có giá trị → chỉ tạo các tên trong danh sách. Yêu cầu provider.settings.sync_categories=True."""
     provider = db.query(ApiProvider).filter(
         ApiProvider.id == body.provider_id,
         ApiProvider.provider_type == "smm_panel",
@@ -802,6 +848,11 @@ async def sync_categories_only(body: SyncRequest, db: Session = Depends(get_db))
         cat = (s.get("category") or "Other").strip()
         if cat:
             cat_counts[cat] = cat_counts.get(cat, 0) + 1
+
+    # Lọc theo selection (nếu có)
+    selection = set(body.category_names or [])
+    if selection:
+        cat_counts = {k: v for k, v in cat_counts.items() if k in selection}
 
     created = 0
     existed = 0
