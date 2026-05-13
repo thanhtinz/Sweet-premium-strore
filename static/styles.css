@@ -10169,6 +10169,9 @@ body.admin-mode {
 .smm-cdd-item:hover { background: rgba(59,130,246,.08); }
 .smm-cdd-item.is-selected { background: rgba(59,130,246,.14); color: #2563eb; font-weight: 600; }
 .smm-cdd-item.is-placeholder { color: var(--text-muted); font-style: italic; }
+.smm-cdd-id { display: inline-block; background: #2563eb; color: #fff; font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 6px; margin-right: 4px; line-height: 1.4; vertical-align: middle; }
+.smm-cdd-item.is-selected .smm-cdd-id { background: #1d4ed8; }
+.smm-cdd-text { vertical-align: middle; }
 
 
 

@@ -498,7 +498,14 @@ async function renderSmmOrder(view) {
         Array.from(sel.options).forEach((opt, idx) => {
           const item = document.createElement('div');
           item.className = 'smm-cdd-item' + (idx === sel.selectedIndex ? ' is-selected' : '') + (opt.value === '' ? ' is-placeholder' : '');
-          item.textContent = opt.textContent;
+          const raw = opt.textContent || '';
+          // Highlight leading #ID (vd: "#123 Facebook Post...")
+          const m = raw.match(/^\s*(#\d+)\s*(.*)$/);
+          if (m) {
+            item.innerHTML = `<span class="smm-cdd-id">${m[1]}</span> <span class="smm-cdd-text">${m[2].replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>`;
+          } else {
+            item.textContent = raw;
+          }
           item.dataset.value = opt.value;
           item.addEventListener('click', () => {
             sel.value = opt.value;
