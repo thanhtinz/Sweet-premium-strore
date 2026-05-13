@@ -5628,7 +5628,7 @@ async function renderAdminSmmProviders(view) {
             <div class="smmprov-sync-col-title">Đồng bộ Cơ bản</div>
             <div class="smmprov-sync-row"><span>Đồng bộ Chuyên mục</span><label class="smmprov-bigtoggle"><input type="checkbox" id="spv-sync-categories" ${s.sync_categories!==false?'checked':''} /><span class="smmprov-bigtoggle-track"></span></label></div>
             <div class="smmprov-sync-row"><span>Đồng bộ Dịch vụ</span><label class="smmprov-bigtoggle"><input type="checkbox" id="spv-sync-services" ${s.sync_services!==false?'checked':''} /><span class="smmprov-bigtoggle-track"></span></label></div>
-            <div class="smmprov-sync-row"><span>Đồng bộ Giá</span><label class="smmprov-bigtoggle"><input type="checkbox" id="spv-sync-prices" ${s.sync_prices!==false?'checked':''} /><span class="smmprov-bigtoggle-track"></span></label></div>
+            <div class="smmprov-sync-row"><span>Đồng bộ Giá<small style="display:block;font-size:11px;opacity:.65;font-weight:400">Bật → refresh giá vốn + áp Lợi nhuận %</small></span><label class="smmprov-bigtoggle"><input type="checkbox" id="spv-sync-prices" ${s.sync_prices!==false?'checked':''} /><span class="smmprov-bigtoggle-track"></span></label></div>
           </div>
           <div class="smmprov-sync-col">
             <div class="smmprov-sync-col-title">Xử lý Nội dung</div>
@@ -5645,7 +5645,7 @@ async function renderAdminSmmProviders(view) {
         </div>
         <div class="form-row form-row-2">
           <div class="form-group"><label class="form-label">Định dạng giá API</label><select class="form-select" id="spv-price-format"><option value="per1000" ${s.price_format!=='per1'?'selected':''}>Giá cho 1,000 lượt</option><option value="per1" ${s.price_format==='per1'?'selected':''}>Giá cho 1 lượt</option></select></div>
-          <div class="form-group"><label class="form-label">Lợi nhuận (%)</label><input type="number" class="form-input" id="spv-markup" value="${s.price_markup??0}" /><div class="smmprov-hint">VD: 10 (%) lợi nhuận tính trên giá vốn</div></div>
+          <div class="form-group"><label class="form-label">Lợi nhuận (%)</label><input type="number" class="form-input" id="spv-markup" value="${s.price_markup??0}" /><div class="smmprov-hint">VD: 10 (%) — chỉ áp dụng khi bật "Đồng bộ Giá"</div></div>
         </div>
         <div class="form-group"><label class="form-label">Giới hạn đồng bộ đơn (Cron)</label><input type="number" class="form-input" id="spv-cron-limit" value="${s.cron_limit??50}" /><div class="smmprov-hint">Khuyến nghị: 50 - 100 đơn / lần</div></div>
       </div>
