@@ -157,6 +157,21 @@ async function renderSmmServices(view) {
           ? `<span class="svc-refill-badge svc-refill-yes">♻️ Refill</span>`
           : `<span class="svc-refill-badge svc-refill-no">🚫 No Refill</span>`;
 
+        // Group header: chèn 1 hàng khi đổi nền tảng (trên cùng cũng chèn)
+        const prevPlat = i > 0 ? pageItems[i - 1].platform_id : null;
+        if (s.platform_id !== prevPlat) {
+          const platIconHtml = s.platform_icon
+            ? `<img src="${s.platform_icon}" alt="" class="svc-group-icon">`
+            : '<i class="fa-solid fa-share-nodes svc-group-icon-fallback"></i>';
+          html += `
+            <tr class="svc-group-row">
+              <td colspan="5" class="svc-group-cell">
+                ${platIconHtml}
+                <span class="svc-group-name">${esc(s.platform_name || '—')}</span>
+              </td>
+            </tr>`;
+        }
+
         html += `
             <tr class="svc-row" onclick="navigateTo('/smm/order?service=${s.id}')">
               <td class="svc-td-id">#${s.id}</td>
