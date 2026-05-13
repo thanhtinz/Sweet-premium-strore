@@ -4550,7 +4550,7 @@ async function renderAdminSmmCategories(view) {
     const smmProviders = (providers || []).filter(p => p.provider_type === 'smm_panel' && p.is_active && (p.settings?.sync_categories !== false));
     const cats = filterPlatformId ? allCats.filter(c=>c.platform_id===parseInt(filterPlatformId)) : allCats;
     const syncBtn = smmProviders.length > 0
-      ? `<button class="btn btn-outline btn-sm" id="btn-sync-cats" title="Đồng bộ danh mục từ nguồn"><i class="fa-solid fa-arrows-rotate"></i> Đồng bộ từ nguồn</button>`
+      ? `<button class="smm-svc-sync-btn" id="btn-sync-cats" style="padding:7px 14px;font-size:13px" title="Đồng bộ danh mục từ nguồn"><i class="fa-solid fa-arrows-rotate"></i> Đồng bộ từ nguồn</button>`
       : '';
     content.innerHTML = `
       ${cuiPageHeader('Danh mục SMM', `${cats.length} danh mục`, `${syncBtn}<button class="btn btn-primary" id="btn-add-category"><i class="fa-solid fa-plus"></i> Thêm danh mục</button>`)}
