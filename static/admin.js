@@ -5355,10 +5355,13 @@ async function renderAdminSmmServices(view) {
       const ids = selectedIds.size > 0 ? [...selectedIds] : currentFilteredIds;
       if(!ids.length){ toast('Không có dịch vụ nào để làm tròn','warning'); return; }
       const scope = selectedIds.size > 0 ? `${ids.length} dịch vụ đã chọn` : `${ids.length} dịch vụ đang lọc`;
-      if(!confirm(`Làm tròn giá bán cho ${scope}?\n(<.5 → xuống, ≥.5 → lên)`)) return;
+      const unitStr = prompt(`Làm tròn theo bội số nào? (vd 100, 500, 1000)\n\nPhạm vi: ${scope}\nQuy tắc: <½ bội số → làm tròn xuống, ≥½ → làm tròn lên`, '1000');
+      if(unitStr === null) return;
+      const unit = parseInt(unitStr);
+      if(!unit || unit < 1){ toast('Bội số không hợp lệ','error'); return; }
       try {
-        const r = await apiFetch('/smm/services/round-prices',{method:'POST',body:JSON.stringify({ids})});
-        toast(`Đã làm tròn ${r.updated}/${r.total} dịch vụ`,'success');
+        const r = await apiFetch('/smm/services/round-prices',{method:'POST',body:JSON.stringify({ids, unit})});
+        toast(`Đã làm tròn ${r.updated}/${r.total} dịch vụ (bội ${r.unit})`,'success');
         refresh();
       } catch(err){ toast(err.message,'error'); }
       return;

@@ -618,11 +618,14 @@ def bulk_delete_services(body: dict, db: Session = Depends(get_db)):
 
 @router.post("/services/round-prices", dependencies=[Depends(get_current_admin)])
 def round_prices(body: dict, db: Session = Depends(get_db)):
-    """Làm tròn giá bán (rate) của danh sách dịch vụ về số nguyên.
-    Quy tắc: < .5 làm tròn xuống, >= .5 làm tròn lên (Python round half-up via Decimal).
+    """Làm tròn giá bán (rate) theo bội số `unit` (mặc định 1000).
+    Quy tắc HALF_UP: phần dư < unit/2 → làm tròn xuống, >= unit/2 → làm tròn lên.
     """
     from decimal import Decimal, ROUND_HALF_UP
     ids = body.get("ids") or []
+    unit = int(body.get("unit") or 1000)
+    if unit < 1:
+        unit = 1
     if not isinstance(ids, list) or not ids:
         raise HTTPException(400, "ids required")
     try:
@@ -631,15 +634,18 @@ def round_prices(body: dict, db: Session = Depends(get_db)):
         raise HTTPException(400, "ids must be integers")
     rows = db.query(SmmService).filter(SmmService.id.in_(ids_int)).all()
     changed = 0
+    unit_d = Decimal(unit)
     for s in rows:
         if s.rate is None:
             continue
-        new_val = int(Decimal(str(s.rate)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-        if float(s.rate) != float(new_val):
+        # round_half_up(rate / unit) * unit
+        scaled = (Decimal(str(s.rate)) / unit_d).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        new_val = float(scaled * unit_d)
+        if float(s.rate) != new_val:
             s.rate = new_val
             changed += 1
     db.commit()
-    return {"ok": True, "updated": changed, "total": len(rows)}
+    return {"ok": True, "updated": changed, "total": len(rows), "unit": unit}
 
 
 # ── Sync from API provider ───────────────────────────────────
