@@ -616,6 +616,32 @@ def bulk_delete_services(body: dict, db: Session = Depends(get_db)):
     return {"ok": True, "deleted": deleted}
 
 
+@router.post("/services/round-prices", dependencies=[Depends(get_current_admin)])
+def round_prices(body: dict, db: Session = Depends(get_db)):
+    """Làm tròn giá bán (rate) của danh sách dịch vụ về số nguyên.
+    Quy tắc: < .5 làm tròn xuống, >= .5 làm tròn lên (Python round half-up via Decimal).
+    """
+    from decimal import Decimal, ROUND_HALF_UP
+    ids = body.get("ids") or []
+    if not isinstance(ids, list) or not ids:
+        raise HTTPException(400, "ids required")
+    try:
+        ids_int = [int(x) for x in ids]
+    except Exception:
+        raise HTTPException(400, "ids must be integers")
+    rows = db.query(SmmService).filter(SmmService.id.in_(ids_int)).all()
+    changed = 0
+    for s in rows:
+        if s.rate is None:
+            continue
+        new_val = int(Decimal(str(s.rate)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        if float(s.rate) != float(new_val):
+            s.rate = new_val
+            changed += 1
+    db.commit()
+    return {"ok": True, "updated": changed, "total": len(rows)}
+
+
 # ── Sync from API provider ───────────────────────────────────
 
 @router.get("/providers/{pid}/remote-services", dependencies=[Depends(get_current_admin)])

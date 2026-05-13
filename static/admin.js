@@ -4874,6 +4874,7 @@ async function renderAdminSmmServices(view) {
         <p class="smm-svc-subtitle">Quản lý giá bán, tình trạng và nhà cung cấp cho các dịch vụ</p>
         <div class="smm-svc-header-btns">
           ${smmProviders.some(p => p.is_active && (p.settings?.sync_services !== false)) ? `<button class="smm-svc-sync-btn" id="btn-sync-services"><i class="fa-solid fa-arrows-rotate"></i> Đồng bộ từ nguồn</button>` : ''}
+          <button class="smm-svc-sync-btn" id="btn-round-prices" title="Làm tròn giá bán về số nguyên (<.5 làm tròn xuống, ≥.5 làm tròn lên)"><i class="fa-solid fa-calculator"></i> Làm tròn giá</button>
           <button class="btn btn-primary" id="btn-add-service"><i class="fa-solid fa-plus"></i> Thêm dịch vụ</button>
         </div>
       </div>
@@ -5347,6 +5348,18 @@ async function renderAdminSmmServices(view) {
         const r = await apiFetch('/smm/services/bulk-delete',{method:'POST',body:JSON.stringify({ids})});
         toast(`Đã xóa ${r.deleted||ids.length}`,'success');
         selectedIds.clear(); refresh();
+      } catch(err){ toast(err.message,'error'); }
+      return;
+    }
+    if(e.target.closest('#btn-round-prices')){
+      const ids = selectedIds.size > 0 ? [...selectedIds] : currentFilteredIds;
+      if(!ids.length){ toast('Không có dịch vụ nào để làm tròn','warning'); return; }
+      const scope = selectedIds.size > 0 ? `${ids.length} dịch vụ đã chọn` : `${ids.length} dịch vụ đang lọc`;
+      if(!confirm(`Làm tròn giá bán cho ${scope}?\n(<.5 → xuống, ≥.5 → lên)`)) return;
+      try {
+        const r = await apiFetch('/smm/services/round-prices',{method:'POST',body:JSON.stringify({ids})});
+        toast(`Đã làm tròn ${r.updated}/${r.total} dịch vụ`,'success');
+        refresh();
       } catch(err){ toast(err.message,'error'); }
       return;
     }
