@@ -64,6 +64,8 @@ async function renderSmmServices(view) {
     let searchQuery = '';
     let currentPage = 1;
     const perPage = 15;
+    // Trạng thái thu gọn/mở rộng theo platform_id (default: mở)
+    const collapsedPlatforms = new Set();
 
     view.innerHTML = '';
 
@@ -163,19 +165,22 @@ async function renderSmmServices(view) {
           const platIconHtml = s.platform_icon
             ? `<img src="${s.platform_icon}" alt="" class="svc-group-icon">`
             : '<i class="fa-solid fa-share-nodes svc-group-icon-fallback"></i>';
+          const isCollapsed = collapsedPlatforms.has(s.platform_id);
           html += `
-            <tr class="svc-group-row">
+            <tr class="svc-group-row${isCollapsed ? ' is-collapsed' : ''}" data-platform-toggle="${s.platform_id}">
               <td colspan="5" class="svc-group-cell">
                 <div class="svc-group-cell-inner">
                   ${platIconHtml}
                   <span class="svc-group-name">${esc(s.platform_name || '—')}</span>
+                  <i class="fa-solid fa-chevron-down svc-group-chevron"></i>
                 </div>
               </td>
             </tr>`;
         }
 
+        const hidden = collapsedPlatforms.has(s.platform_id) ? ' style="display:none;"' : '';
         html += `
-            <tr class="svc-row" onclick="navigateTo('/smm/order?service=${s.id}')">
+            <tr class="svc-row" data-platform-row="${s.platform_id}"${hidden} onclick="navigateTo('/smm/order?service=${s.id}')">
               <td class="svc-td-id">#${s.id}</td>
               <td class="svc-td-name">
                 <div class="svc-name-wrap">
@@ -224,6 +229,19 @@ async function renderSmmServices(view) {
         btn.addEventListener('click', () => {
           const p = parseInt(btn.dataset.svcPage);
           if (p >= 1 && p <= totalPages && p !== currentPage) { currentPage = p; render(); window.scrollTo({top:0,behavior:'smooth'}); }
+        });
+      });
+
+      // Toggle collapse theo platform
+      listWrap.querySelectorAll('[data-platform-toggle]').forEach(row => {
+        row.addEventListener('click', () => {
+          const pid = row.dataset.platformToggle;
+          if (collapsedPlatforms.has(pid)) collapsedPlatforms.delete(pid);
+          else collapsedPlatforms.add(pid);
+          row.classList.toggle('is-collapsed');
+          listWrap.querySelectorAll(`[data-platform-row="${pid}"]`).forEach(tr => {
+            tr.style.display = collapsedPlatforms.has(pid) ? 'none' : '';
+          });
         });
       });
     }

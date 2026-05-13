@@ -4545,11 +4545,18 @@ a.support-contact-value:hover {
   padding:10px 16px; background: var(--bg-page);
   font-size:14px; font-weight:700; color: var(--text);
   border-top: 2px solid var(--border); border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select:none;
 }
+.svc-group-row td.svc-group-cell:hover { background: var(--bg-hover, rgba(0,0,0,0.04)); }
 .svc-group-cell-inner {
   display:flex; align-items:center; gap:8px;
   white-space:nowrap;
 }
+.svc-group-chevron {
+  margin-left:auto; font-size:12px; color: var(--text-muted);
+  transition: transform .2s ease;
+}
+.svc-group-row.is-collapsed .svc-group-chevron { transform: rotate(-90deg); }
 .svc-group-row:first-child td.svc-group-cell { border-top: 0; }
 .svc-group-icon { width:20px; height:20px; border-radius:5px; object-fit:cover; flex-shrink:0; }
 .svc-group-icon-fallback { color: var(--primary); font-size:14px; flex-shrink:0; }
