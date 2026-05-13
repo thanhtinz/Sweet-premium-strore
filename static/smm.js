@@ -1457,9 +1457,6 @@ async function renderSmmOrderDetail(view, { id }) {
       </a>
       <div class="smm-detail-header-row">
         <h1 class="smm-detail-title">Chi tiết đơn hàng #${esc(String(o.order_code || o.id))}</h1>
-        <button id="smm-detail-refresh" type="button" class="btn btn-primary btn-sm smm-detail-refresh-btn" title="Lấy trạng thái mới nhất từ nguồn">
-          <i class="fa-solid fa-rotate"></i> <span>Cập nhật trạng thái</span>
-        </button>
       </div>
 
       <!-- Service Name Card -->
@@ -1518,8 +1515,12 @@ async function renderSmmOrderDetail(view, { id }) {
           <div class="smm-progress-bar" style="width:${pct}%"></div>
           ${isComplete ? '<i class="fa-solid fa-circle-check smm-progress-check"></i>' : ''}
         </div>
-        <div style="text-align:center;margin-top:4px;">
+        <div class="smm-detail-status-row">
           ${smmStatusBadge(o.status)}
+          ${(o.delivery_type === 'api' && o.external_order_id) ? `
+            <button id="smm-detail-refresh" type="button" class="smm-detail-refresh-inline" title="Cập nhật trạng thái từ nguồn">
+              <i class="fa-solid fa-rotate"></i> <span>Cập nhật</span>
+            </button>` : ''}
         </div>
       </div>
 
