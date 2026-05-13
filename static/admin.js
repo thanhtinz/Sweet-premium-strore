@@ -4750,7 +4750,7 @@ async function renderAdminSmmServices(view) {
         <div class="form-group"><label class="form-label">Giá bán (1,000)<span class="req">*</span></label><input type="number" step="0.01" class="form-input" id="ss-rate" value="${svc?.rate??0}" required /></div>
       </div>
       <div class="form-row form-row-2">
-        <div class="form-group"><label class="form-label">Giá gốc (lấy từ API)</label><input type="number" step="0.01" class="form-input" id="ss-cost" value="${svc?.cost_rate??0}" placeholder="0" /></div>
+        <div class="form-group"><label class="form-label">Giá gốc (lấy từ API)</label><input type="number" step="0.01" class="form-input" id="ss-cost" value="${svc?.cost_rate??0}" placeholder="0" readonly tabindex="-1" style="background:var(--bg-page,#f3f4f6);cursor:not-allowed;color:var(--text-muted);" title="Tự động lấy từ nguồn khi đồng bộ — không chỉnh sửa" /></div>
         <div class="form-group"></div>
       </div>
       <div class="form-row form-row-2">

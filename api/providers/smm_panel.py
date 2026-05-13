@@ -26,7 +26,11 @@ class SmmPanelProvider(BaseProvider):
     """SMM Panel API adapter (v2)."""
 
     def _url(self) -> str:
-        return f"{self.base_url}/api/v2"
+        base = self.base_url.rstrip("/")
+        # Allow admin to enter either "https://host" or "https://host/api/v2"
+        if base.endswith("/api/v2"):
+            return base
+        return f"{base}/api/v2"
 
     async def _post(self, action: str, **params) -> dict | list:
         payload = {"key": self.api_key, "action": action, **params}

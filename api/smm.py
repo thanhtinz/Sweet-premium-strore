@@ -562,7 +562,13 @@ async def remote_services(pid: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Provider not found")
     from api.providers import get_provider
     adapter = get_provider(p)
-    raw = await adapter.get_services()
+    try:
+        raw = await adapter.get_services()
+    except Exception as e:
+        logger.exception("SMM remote_services: get_services failed")
+        raise HTTPException(502, f"Lỗi gọi nguồn: {e!r}")
+    if not isinstance(raw, list):
+        raise HTTPException(502, f"Nguồn trả về định dạng không hợp lệ: {type(raw).__name__}")
     settings = p.settings or {}
     exchange_rate = float(settings.get("exchange_rate", 1) or 1)
     price_markup = float(settings.get("price_markup", 0) or 0)
@@ -629,7 +635,13 @@ async def sync_selected_services(body: SyncSelectedRequest, db: Session = Depend
 
     from api.providers import get_provider
     adapter = get_provider(provider)
-    raw = await adapter.get_services()
+    try:
+        raw = await adapter.get_services()
+    except Exception as e:
+        logger.exception("SMM sync_selected_services: get_services failed")
+        raise HTTPException(502, f"Lỗi gọi nguồn: {e!r}")
+    if not isinstance(raw, list):
+        raise HTTPException(502, f"Nguồn trả về định dạng không hợp lệ: {type(raw).__name__}")
 
     settings = provider.settings or {}
     exchange_rate = float(settings.get("exchange_rate", 1) or 1)
@@ -655,7 +667,7 @@ async def sync_selected_services(body: SyncSelectedRequest, db: Session = Depend
 
     created, updated = 0, 0
     for svc in selected:
-        ext_id = int(svc.get("service", 0))
+        ext_id = str(int(svc.get("service", 0)))
         raw_name = svc.get("name", f"Service {ext_id}")
         name = strip_html(raw_name) if filter_html else raw_name
         cv = conv(svc.get("rate", 0))
@@ -712,7 +724,13 @@ async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
 
     from api.providers import get_provider
     adapter = get_provider(provider)
-    raw_services = await adapter.get_services()
+    try:
+        raw_services = await adapter.get_services()
+    except Exception as e:
+        logger.exception("SMM sync_services: get_services failed")
+        raise HTTPException(502, f"Lỗi gọi nguồn: {e!r}")
+    if not isinstance(raw_services, list):
+        raise HTTPException(502, f"Nguồn trả về định dạng không hợp lệ: {type(raw_services).__name__}")
 
     # Exchange rate & markup from provider settings
     settings = provider.settings or {}
@@ -763,7 +781,7 @@ async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
             db.flush()
 
         for svc in svcs:
-            ext_id = int(svc.get("service", 0))
+            ext_id = str(int(svc.get("service", 0)))
             existing = db.query(SmmService).filter(
                 SmmService.category_id == cat.id,
                 SmmService.api_provider_id == provider.id,

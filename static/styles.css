@@ -9357,7 +9357,10 @@ body.admin-mode {
 .smm-admin-modal-form-group .form-select,
 .smm-admin-modal-form-group textarea { width:100%; }
 .smm-admin-modal-form-group textarea { min-height:70px; resize:vertical; }
-.smm-admin-modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
+.smm-admin-modal-actions { display:flex; justify-content:flex-end; gap:14px; margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
+/* Admin modal footer button spacing — tách các nút Hủy / Lưu cho rõ ràng */
+#modal-overlay .flex.gap-8 { gap: 14px !important; }
+#modal-overlay .flex.gap-8 > .btn + .btn { margin-left: 4px; }
 
 @media (max-width:640px) {
   .smm-admin-stats { grid-template-columns:1fr 1fr; }
@@ -9534,7 +9537,7 @@ body.admin-mode {
 }
 .smmprov-sync-row span { font-size: 15px; color: #1f2937; flex: 1; }
 
-.smmprov-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+.smmprov-modal-actions { display: flex; gap: 14px; justify-content: flex-end; margin-top: 8px; }
 .smmprov-btn-cancel,
 .smmprov-btn-ok {
   padding: 10px 22px; border-radius: 8px;
@@ -9789,7 +9792,7 @@ body.admin-mode {
 .smmao-input:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.15); }
 .smmao-readonly { background:#f9fafb; color:#6b7280; }
 
-.smmao-modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
+.smmao-modal-actions { display:flex; justify-content:flex-end; gap:14px; margin-top:18px; }
 .smmao-btn-cancel { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 22px; font-size:14px; font-weight:600; color:var(--text-heading); cursor:pointer; }
 .smmao-btn-cancel:hover { background:#f9fafb; }
 .smmao-btn-ok { background:#2563eb; color:#fff; border:0; border-radius:10px; padding:10px 28px; font-size:14px; font-weight:700; cursor:pointer; }
@@ -10057,7 +10060,7 @@ body.admin-mode {
 .smmao-input { padding: 9px 12px; font-size: 13px; border-radius: 8px; }
 .smmao-input:focus { box-shadow: 0 0 0 2px rgba(37,99,235,.15); }
 
-.smmao-modal-actions { margin-top: 14px; gap: 8px; }
+.smmao-modal-actions { margin-top: 14px; gap: 12px; }
 .smmao-btn-cancel, .smmao-btn-ok { font-size: 13px; padding: 8px 18px; border-radius: 8px; }
 
 .smmao-modal-copy { font-size: 12px; padding: 4px 6px; }
@@ -10073,31 +10076,31 @@ body.admin-mode {
 .smm-home-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  gap: 14px;
   margin-bottom: 24px;
 }
 .smm-home-card {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 10px 14px;
+  border-radius: 16px;
+  padding: 16px 18px;
   text-decoration: none;
   color: var(--text-heading);
   transition: transform .15s, box-shadow .15s, border-color .15s;
   cursor: pointer;
-  min-height: 68px;
+  min-height: 92px;
 }
 .smm-home-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0,0,0,.08);
+  box-shadow: 0 8px 22px rgba(0,0,0,.10);
   border-color: #3b82f6;
 }
 .smm-home-card-icon {
-  width: 48px; height: 48px;
-  border-radius: 12px;
+  width: 64px; height: 64px;
+  border-radius: 14px;
   overflow: hidden;
   flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -10109,16 +10112,16 @@ body.admin-mode {
   display: block;
 }
 .smm-home-card-icon i {
-  font-size: 22px;
+  font-size: 28px;
   color: #2563eb;
 }
 .smm-home-card-body {
   flex: 1; min-width: 0;
   display: flex; flex-direction: column; justify-content: center;
-  gap: 2px;
+  gap: 4px;
 }
 .smm-home-card-name {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--text-heading);
   line-height: 1.25;
@@ -10127,7 +10130,7 @@ body.admin-mode {
   text-overflow: ellipsis;
 }
 .smm-home-card-meta {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
   font-weight: 500;
 }
