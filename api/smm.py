@@ -30,11 +30,11 @@ _TERMINAL_REFUND = {"canceled", "cancelled", "failed"}
 _REFUND_MARKER = "[REFUNDED]"
 
 
-def _maybe_refund_on_terminal(db: Session, order: SmmOrder, prev_status: str | None) -> bool:
+def _maybe_refund_on_terminal(db: Session, order: SmmOrder, prev_status: str | None = None) -> bool:
     """
-    Hoàn tiền user nếu đơn API chuyển sang trạng thái canceled/cancelled/failed
-    từ trạng thái chưa terminal. Tránh hoàn trùng bằng marker trong admin_notes.
-    Trả về True nếu vừa hoàn tiền lần này.
+    Hoàn tiền nếu đơn API hiện đang canceled/cancelled/failed và chưa có marker
+    [REFUNDED] trong admin_notes. Idempotent — gọi nhiều lần cũng chỉ hoàn 1 lần.
+    prev_status giữ lại cho tương thích, không dùng nữa.
     """
     from decimal import Decimal
     try:
@@ -43,15 +43,12 @@ def _maybe_refund_on_terminal(db: Session, order: SmmOrder, prev_status: str | N
         new_status = (order.status or "").lower()
         if new_status not in _TERMINAL_REFUND:
             return False
-        prev = (prev_status or "").lower()
-        # Nếu trạng thái trước đã là terminal thì không hoàn (đã xử lý trước đó)
-        if prev in _TERMINAL_REFUND or prev in ("completed", "partial"):
-            return False
-        # Đã hoàn rồi thì thôi
         if order.admin_notes and _REFUND_MARKER in order.admin_notes:
             return False
         charge = Decimal(str(order.charge or 0))
         if charge <= 0:
+            note = f"{_REFUND_MARKER} +0 ({new_status})"
+            order.admin_notes = (order.admin_notes + " | " + note) if order.admin_notes else note
             return False
         user = db.query(User).filter(User.id == order.user_id).with_for_update().first()
         if not user:
@@ -1316,12 +1313,12 @@ def user_place_order(
                 if result.status == "failed":
                     # Refund on failure
                     user.balance = Decimal(str(user.balance or 0)) + charge
-                    order.admin_notes = f"API error: {result.message}"
+                    order.admin_notes = f"{_REFUND_MARKER} +{charge:,.0f} (failed at create) | API error: {result.message}"
         except Exception as e:
             logger.error(f"SMM API order failed: {e}")
             order.status = "failed"
             user.balance = Decimal(str(user.balance or 0)) + charge
-            order.admin_notes = f"API error: {str(e)}"
+            order.admin_notes = f"{_REFUND_MARKER} +{charge:,.0f} (failed at create) | API error: {str(e)}"
 
     db.commit()
     # Notify user (create + initial status)

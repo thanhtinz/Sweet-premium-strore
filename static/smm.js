@@ -1275,39 +1275,12 @@ async function renderSmmHistoryPage(view, page, statusFilter, searchFilter) {
   });
   view.appendChild(tabsWrap);
 
-  // ── Search Bar + Refresh ──
-  const headerRow = el('div', 'smm-history-header-row');
+  // ── Search Bar ──
   const searchWrap = el('div', 'smm-search-wrap');
   searchWrap.innerHTML = `
     <input type="text" class="smm-search-input" placeholder="Tìm ID hoặc liên kết..." value="${esc(searchFilter)}">
     <i class="fa-solid fa-magnifying-glass smm-search-icon"></i>`;
-  const refreshAllBtn = el('button', 'btn btn-outline btn-sm smm-history-refresh-btn');
-  refreshAllBtn.type = 'button';
-  refreshAllBtn.title = 'Đồng bộ trạng thái mới nhất từ nguồn';
-  refreshAllBtn.innerHTML = '<i class="fa-solid fa-rotate"></i> <span>Cập nhật</span>';
-  refreshAllBtn.addEventListener('click', async () => {
-    if (refreshAllBtn.disabled) return;
-    refreshAllBtn.disabled = true;
-    refreshAllBtn.classList.add('is-loading');
-    const icon = refreshAllBtn.querySelector('i');
-    if (icon) icon.classList.add('fa-spin');
-    try {
-      const r = await apiFetch('/smm/orders/refresh-all', { method: 'POST' });
-      let msg = `Đã đồng bộ ${r.checked || 0} đơn`;
-      if (r.refunded) msg += ` · Hoàn tiền ${r.refunded}`;
-      toast(msg, 'success');
-      await renderSmmHistoryPage(view, page, statusFilter, searchFilter);
-    } catch (err) {
-      toast(err.message || 'Đồng bộ thất bại', 'error');
-    } finally {
-      refreshAllBtn.disabled = false;
-      refreshAllBtn.classList.remove('is-loading');
-      if (icon) icon.classList.remove('fa-spin');
-    }
-  });
-  headerRow.appendChild(searchWrap);
-  headerRow.appendChild(refreshAllBtn);
-  view.appendChild(headerRow);
+  view.appendChild(searchWrap);
 
   let debounceTimer;
   const searchInput = searchWrap.querySelector('input');
@@ -1342,13 +1315,17 @@ async function renderSmmHistoryPage(view, page, statusFilter, searchFilter) {
     const isUrl = o.link && (o.link.startsWith('http://') || o.link.startsWith('https://'));
 
     const card = el('div', 'smm-order-card');
+    const canRefresh = (o.delivery_type === 'api') && o.external_order_id;
     card.innerHTML = `
       <div class="smm-order-card-header">
         <div class="smm-order-id">
           <span class="smm-order-code">#${esc(String(o.order_code || o.id))}</span>
           <button class="smm-copy-btn" title="Sao chép" data-copy="${esc(String(o.order_code || o.id))}"><i class="fa-regular fa-clipboard"></i></button>
         </div>
-        ${smmStatusBadge(o.status)}
+        <div class="smm-order-card-header-right">
+          ${smmStatusBadge(o.status)}
+          ${canRefresh ? `<button class="smm-order-refresh-btn" data-id="${o.id}" title="Cập nhật trạng thái"><i class="fa-solid fa-rotate"></i></button>` : ''}
+        </div>
       </div>
       <div class="smm-order-card-body" onclick="navigateTo('/smm/history/${o.id}')">
         <div class="smm-order-service-name">${esc(o.service_name || '—')}</div>
@@ -1373,6 +1350,28 @@ async function renderSmmHistoryPage(view, page, statusFilter, searchFilter) {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       navigator.clipboard.writeText(btn.dataset.copy).then(() => toast('Đã sao chép', 'success'));
+    });
+  });
+
+  // Per-card refresh buttons
+  cardsWrap.querySelectorAll('.smm-order-refresh-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (btn.disabled) return;
+      btn.disabled = true;
+      const icon = btn.querySelector('i');
+      if (icon) icon.classList.add('fa-spin');
+      try {
+        // GET /smm/orders/{id} sẽ tự fetch trạng thái live + hoàn tiền nếu cần
+        await apiFetch('/smm/orders/' + btn.dataset.id);
+        toast('Đã cập nhật trạng thái', 'success');
+        await renderSmmHistoryPage(view, page, statusFilter, searchFilter);
+      } catch (err) {
+        toast(err.message || 'Cập nhật thất bại', 'error');
+      } finally {
+        btn.disabled = false;
+        if (icon) icon.classList.remove('fa-spin');
+      }
     });
   });
 
