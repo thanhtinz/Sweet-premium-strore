@@ -746,7 +746,7 @@ async def sync_selected_services(body: SyncSelectedRequest, db: Session = Depend
         ext_id = str(int(svc.get("service", 0)))
         raw_name = svc.get("name", f"Service {ext_id}")
         name = strip_html(raw_name) if filter_html else raw_name
-        raw_desc = svc.get("description") or svc.get("desc") or raw_name
+        raw_desc = svc.get("description") or svc.get("desc") or ""
         desc = strip_html(raw_desc) if filter_html else raw_desc
         cost = conv(svc.get("rate", 0))
         price = apply_markup(cost)
@@ -976,7 +976,7 @@ async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
                     raw_name_u = svc.get("name")
                     if raw_name_u:
                         existing.name = strip_html(raw_name_u) if filter_html else raw_name_u
-                    raw_desc_u = svc.get("description") or svc.get("desc") or svc.get("name", "")
+                    raw_desc_u = svc.get("description") or svc.get("desc") or ""
                     if raw_desc_u:
                         existing.description = strip_html(raw_desc_u) if filter_html else raw_desc_u
                 if sync_prices:
@@ -1001,7 +1001,7 @@ async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
                 raw_name = svc.get("name", f"Service {ext_id}")
                 name = strip_html(raw_name) if filter_html else raw_name
                 if sync_descriptions:
-                    raw_desc = svc.get("description") or svc.get("desc") or raw_name
+                    raw_desc = svc.get("description") or svc.get("desc") or ""
                     desc = strip_html(raw_desc) if filter_html else raw_desc
                 else:
                     desc = None
