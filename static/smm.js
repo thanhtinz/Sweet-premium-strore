@@ -467,6 +467,75 @@ async function renderSmmOrder(view) {
 
     let selectedService = null;
 
+    // ── Custom dropdown enhancer (popup full-width của card, bỏ native picker iOS) ──
+    function enhanceSelect(sel, placeholder) {
+      if (!sel || sel.dataset.cddEnhanced === '1') return;
+      sel.dataset.cddEnhanced = '1';
+      const wrap = document.createElement('div');
+      wrap.className = 'smm-cdd-wrap';
+      sel.parentNode.insertBefore(wrap, sel);
+      wrap.appendChild(sel);
+      sel.classList.add('smm-cdd-native');
+      const trigger = document.createElement('button');
+      trigger.type = 'button';
+      trigger.className = 'smm-cdd-trigger form-select';
+      trigger.innerHTML = `<span class="smm-cdd-label"></span><i class="fa-solid fa-chevron-down smm-cdd-caret"></i>`;
+      const popup = document.createElement('div');
+      popup.className = 'smm-cdd-popup';
+      wrap.appendChild(trigger);
+      wrap.appendChild(popup);
+      const labelEl = trigger.querySelector('.smm-cdd-label');
+      function syncLabel() {
+        const opt = sel.options[sel.selectedIndex];
+        const txt = opt ? opt.textContent : '';
+        labelEl.textContent = txt || placeholder || '';
+        labelEl.classList.toggle('is-placeholder', !sel.value);
+        trigger.disabled = sel.disabled;
+        trigger.classList.toggle('is-disabled', sel.disabled);
+      }
+      function renderItems() {
+        popup.innerHTML = '';
+        Array.from(sel.options).forEach((opt, idx) => {
+          const item = document.createElement('div');
+          item.className = 'smm-cdd-item' + (idx === sel.selectedIndex ? ' is-selected' : '') + (opt.value === '' ? ' is-placeholder' : '');
+          item.textContent = opt.textContent;
+          item.dataset.value = opt.value;
+          item.addEventListener('click', () => {
+            sel.value = opt.value;
+            sel.dispatchEvent(new Event('change', { bubbles: true }));
+            close();
+          });
+          popup.appendChild(item);
+        });
+      }
+      function open() {
+        if (sel.disabled) return;
+        renderItems();
+        popup.classList.add('is-open');
+        trigger.classList.add('is-open');
+        setTimeout(() => document.addEventListener('click', onDocClick), 0);
+      }
+      function close() {
+        popup.classList.remove('is-open');
+        trigger.classList.remove('is-open');
+        document.removeEventListener('click', onDocClick);
+      }
+      function onDocClick(e) {
+        if (!wrap.contains(e.target)) close();
+      }
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (popup.classList.contains('is-open')) close(); else open();
+      });
+      sel.addEventListener('change', () => { syncLabel(); if (popup.classList.contains('is-open')) renderItems(); });
+      // Watch for options/disabled changes
+      const mo = new MutationObserver(() => { syncLabel(); if (popup.classList.contains('is-open')) renderItems(); });
+      mo.observe(sel, { childList: true, attributes: true, attributeFilter: ['disabled'] });
+      syncLabel();
+    }
+    enhanceSelect(categorySel, '— Chọn phân loại —');
+    enhanceSelect(serviceSel, '— Chọn dịch vụ —');
+
     // ── Populate platform dropdown with icons ──
     catalog.forEach(p => {
       const iconHtml = p.icon_url
