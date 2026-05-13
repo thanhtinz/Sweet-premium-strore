@@ -12,6 +12,8 @@ from api.orders import auto_deliver
 
 router = APIRouter(prefix="/payment", tags=["payment"])
 
+from api.rate_limit import rate_limit as _rate_limit
+
 PAYOS_CLIENT_ID = os.environ.get("PAYOS_CLIENT_ID", "")
 PAYOS_API_KEY = os.environ.get("PAYOS_API_KEY", "")
 PAYOS_CHECKSUM_KEY = os.environ.get("PAYOS_CHECKSUM_KEY", "")
@@ -247,7 +249,7 @@ class PayOSTestRequest(BaseModel):
     payos_api_key: str
     payos_checksum_key: str
 
-@router.post("/test")
+@router.post("/test", dependencies=[Depends(_rate_limit('payment_test', 10, 60))])
 def test_payos_connection(
     data: PayOSTestRequest,
     current_admin: dict = Depends(get_current_admin)
@@ -325,12 +327,18 @@ async def payos_webhook(request: Request, db: Session = Depends(get_db)):
         auto_deliver(order, db)
         db.commit()
     elif status in ("CANCELLED", "EXPIRED"):
+        previous_status = order.status
         order.status = "cancelled"
         order.updated_at = now
         for item in order.items or []:
             item.status = "cancelled"
             item.updated_at = now
         db.commit()
+        try:
+            from api.order_notifications import notify_order_status_change
+            notify_order_status_change(db, order, previous_status=previous_status)
+        except Exception:
+            pass
 
     return {"ok": True}
 
@@ -407,12 +415,18 @@ def check_payment_status(
                 auto_deliver(order, db)
                 db.commit()
             elif payos_status in ("CANCELLED", "EXPIRED"):
+                previous_status = order.status
                 order.status = "cancelled"
                 order.updated_at = now
                 for item in order.items or []:
                     item.status = "cancelled"
                     item.updated_at = now
                 db.commit()
+                try:
+                    from api.order_notifications import notify_order_status_change
+                    notify_order_status_change(db, order, previous_status=previous_status)
+                except Exception:
+                    pass
         except Exception:
             pass
 

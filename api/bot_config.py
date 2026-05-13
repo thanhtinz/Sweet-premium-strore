@@ -8,6 +8,42 @@ import os
 
 router = APIRouter(prefix="/admin/bot-config", tags=["admin-bot"])
 
+# M4: mask sensitive token/password fields when returning to admin UI.
+# The client sends the same string back to indicate "no change".
+MASKED_FIELDS = (
+    "telegram_token", "telegram_user_token", "discord_token",
+    "smtp_pass",
+)
+MASK_SENTINEL = "********"
+
+
+def _mask_value(v: str | None) -> str:
+    s = (v or "").strip()
+    if not s:
+        return ""
+    return MASK_SENTINEL
+
+
+def _mask_secrets(data: dict) -> dict:
+    out = dict(data or {})
+    for k in MASKED_FIELDS:
+        if out.get(k):
+            out[k] = _mask_value(out[k])
+    return out
+
+
+def _merge_secrets(new_data: dict, existing: dict) -> dict:
+    """Restore original secret if client sent the mask sentinel back unchanged."""
+    out = dict(new_data or {})
+    for k in MASKED_FIELDS:
+        incoming = out.get(k)
+        if incoming == MASK_SENTINEL or incoming == "":
+            # treat empty string as "no change" too, unless explicit clear marker
+            if incoming == MASK_SENTINEL:
+                out[k] = existing.get(k, "")
+    return out
+
+
 def _telegram_user_bot_username(data: dict) -> str:
     user_username = (data.get("telegram_user_bot_username") or "").strip()
     if user_username:
@@ -38,7 +74,7 @@ def get_bot_config(db: Session = Depends(get_db)):
     data["discord_mode"] = "single_user_dm_bot"
     data["discord_link_methods"] = ["dm_code", "oauth_auto_link", "manual_uid"]
     data["telegram_mode"] = "split_admin_user"
-    return data
+    return _mask_secrets(data)
 
 @router.get("/public")
 def get_bot_public_info(db: Session = Depends(get_db)):
@@ -61,6 +97,8 @@ def get_bot_public_info(db: Session = Depends(get_db)):
 @router.put("/settings", dependencies=[Depends(get_current_admin)])
 def update_bot_config(data: dict, db: Session = Depends(get_db)):
     repo = SiteConfigRepository(db)
+    existing = repo.get_json("bot_smtp_config", default={}) or {}
+    data = _merge_secrets(data, existing)
     repo.set_json("bot_smtp_config", data)
     db.commit()
     

@@ -68,6 +68,7 @@ def create_order(data: OrderCreate, current_user: dict = Depends(get_current_use
         normalized_items,
         data.coupon_code,
         db,
+        user_id=current_user["user_id"],
     )
     payment_method = data.payment_method if data.payment_method in ("payos", "balance") else "payos"
     primary_item = normalized_items[0]
@@ -93,7 +94,7 @@ def create_order(data: OrderCreate, current_user: dict = Depends(get_current_use
     db.add_all(order_items)
     db.flush()
     if discount_code:
-        consume_coupon(discount_code, db)
+        consume_coupon(discount_code, db, user_id=current_user["user_id"])
     if payment_method == "balance":
         from api.balance import deduct_balance
         deduct_balance(db, int(current_user["user_id"]), Decimal(total), order.order_code)
@@ -102,6 +103,14 @@ def create_order(data: OrderCreate, current_user: dict = Depends(get_current_use
         auto_deliver(order, db)
     db.commit()
     db.refresh(order)
+
+    # Notify user that the order was created (across all product types)
+    try:
+        from api.order_notifications import notify_order_created
+        notify_order_created(db, order)
+    except Exception:
+        pass
+
     return order_to_dict(order)
 
 

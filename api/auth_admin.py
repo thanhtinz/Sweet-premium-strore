@@ -1,6 +1,7 @@
+import logging
 import os
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from api.auth_shared import (
@@ -10,14 +11,19 @@ from api.auth_shared import (
     _send_password_email,
     get_current_admin,
 )
+from api.rate_limit import rate_limit
 from db import get_db
 from db.models import AdminUser, User
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["auth"])
 
 
-@router.post("/make-admin")
-def make_admin(data: dict, db: Session = Depends(get_db)):
+@router.post("/make-admin", dependencies=[Depends(rate_limit("make_admin", 5, 3600))])
+def make_admin(data: dict, request: Request, db: Session = Depends(get_db)):
+    # Production gate: refuse unless explicitly allowed via env flag
+    if os.environ.get("ENV", "").lower() == "production" and os.environ.get("ALLOW_MAKE_ADMIN") != "1":
+        raise HTTPException(status_code=404, detail="Not found")
     secret = os.environ.get("ADMIN_SECRET")
     if not secret:
         raise HTTPException(status_code=503, detail="ADMIN_SECRET not configured. Set it as an environment variable.")
@@ -30,13 +36,16 @@ def make_admin(data: dict, db: Session = Depends(get_db)):
     if not user_id or not email:
         raise HTTPException(status_code=400, detail="user_id and email required")
     existing = db.query(AdminUser).filter(AdminUser.user_id == str(user_id)).first()
+    client_host = (request.client.host if request.client else "?")
     if existing:
         existing.role = "admin"
         db.commit()
+        logger.warning("make-admin granted to existing user_id=%s email=%s from %s", user_id, email, client_host)
         return {"message": "Already admin", "email": email}
     admin = AdminUser(user_id=str(user_id), email=email, role="admin")
     db.add(admin)
     db.commit()
+    logger.warning("make-admin created new admin user_id=%s email=%s from %s", user_id, email, client_host)
     return {"message": "Admin created", "email": email}
 
 

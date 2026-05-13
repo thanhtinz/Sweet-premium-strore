@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import datetime, timezone
 from db import get_db
-from db.models import GiftCode
+from db.models import GiftCode, GiftCodeUsage
 from api.auth import get_current_admin
 
 router = APIRouter(prefix="/gift-codes", tags=["gift-codes"])
@@ -70,8 +70,12 @@ class GiftCodeQuote(BaseModel):
     amount: float
 
 
-def quote_gift_code(code: str, order_amount: float, db: Session, consume: bool = False) -> dict:
-    gc = db.query(GiftCode).filter(GiftCode.code == code.upper().strip()).first()
+def quote_gift_code(code: str, order_amount: float, db: Session, consume: bool = False, user_id: Optional[str] = None) -> dict:
+    # Lock the gift code row when we may mutate it
+    q = db.query(GiftCode).filter(GiftCode.code == code.upper().strip())
+    if consume:
+        q = q.with_for_update()
+    gc = q.first()
     if not gc or not gc.is_active:
         raise HTTPException(404, "Mã không hợp lệ")
     now = datetime.now(timezone.utc)
@@ -84,6 +88,16 @@ def quote_gift_code(code: str, order_amount: float, db: Session, consume: bool =
     if gc.min_order and order_amount < float(gc.min_order):
         raise HTTPException(400, f"Đơn tối thiểu {int(gc.min_order)}đ")
 
+    # Per-user limit
+    per_user_limit = getattr(gc, "per_user_limit", 1) or 0
+    if user_id and per_user_limit > 0:
+        used = db.query(GiftCodeUsage).filter(
+            GiftCodeUsage.code_id == gc.id,
+            GiftCodeUsage.user_id == str(user_id),
+        ).count()
+        if used >= per_user_limit:
+            raise HTTPException(400, "Bạn đã dùng mã này đủ số lần cho phép")
+
     if gc.discount_type == "percent":
         discount = order_amount * float(gc.discount_value) / 100
         if gc.max_discount:
@@ -94,6 +108,8 @@ def quote_gift_code(code: str, order_amount: float, db: Session, consume: bool =
     discount = min(max(discount, 0), order_amount)
     if consume:
         gc.usage_count += 1
+        if user_id:
+            db.add(GiftCodeUsage(code_id=gc.id, user_id=str(user_id)))
         db.flush()
     return {
         "code": gc.code,

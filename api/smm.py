@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, joinedload
 from db import get_db
 from db.models import (
     ApiProvider,
+    SiteConfig,
     SmmCategory,
     SmmOrder,
     SmmPlatform,
@@ -20,6 +21,7 @@ from db.models import (
     User,
 )
 from api.auth_shared import get_current_admin, get_current_user
+from api.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/smm", tags=["smm"])
@@ -57,6 +59,7 @@ class ServiceCreate(BaseModel):
     name: str
     description: str | None = None
     rate: float = 0
+    cost_rate: float = 0
     min_quantity: int = 1
     max_quantity: int = 10000
     delivery_type: str = "manual"
@@ -64,6 +67,9 @@ class ServiceCreate(BaseModel):
     external_service_id: int | None = None
     can_refill: bool = False
     can_cancel: bool = False
+    drip_feed: bool = False
+    service_type: str = "Default"
+    avg_time_minutes: int | None = None  # None = Auto
     is_active: bool = True
     sort_order: int = 0
 
@@ -71,13 +77,149 @@ class OrderPlace(BaseModel):
     service_id: int
     link: str
     quantity: int
+    scheduled_at: str | None = None       # ISO datetime string, None = immediate
+    repeat_count: int = 0                  # 0 = no repeat
+    repeat_interval: int = 0              # minutes between repeats
+    extras: dict | None = None            # service-type specific: comments, hashtags, keywords, ...
 
 class OrderStatusUpdate(BaseModel):
     status: str
+    start_count: int | None = None
+    remains: int | None = None
     admin_notes: str | None = None
 
 class SyncRequest(BaseModel):
     provider_id: int
+    platform_id: int = 0  # 0 = auto-create/match by category
+
+class SyncSelectedRequest(BaseModel):
+    provider_id: int
+    target_category_id: int
+    external_service_ids: list[int]
+
+
+# ══════════════════════════════════════════════════════════════
+#  ADMIN — SMM Providers (separate from general API providers)
+# ══════════════════════════════════════════════════════════════
+
+@router.get("/providers", dependencies=[Depends(get_current_admin)])
+def list_smm_providers(db: Session = Depends(get_db)):
+    """List all SMM-type API providers with stats."""
+    providers = (
+        db.query(ApiProvider)
+        .filter(ApiProvider.provider_type == "smm_panel")
+        .order_by(ApiProvider.id)
+        .all()
+    )
+    result = []
+    for p in providers:
+        svc_count = db.query(func.count(SmmService.id)).filter(SmmService.api_provider_id == p.id).scalar() or 0
+        cat_ids = db.query(SmmService.category_id).filter(SmmService.api_provider_id == p.id).distinct().all()
+        cat_count = len(cat_ids)
+        order_count = db.query(func.count(SmmOrder.id)).filter(SmmOrder.api_provider_id == p.id).scalar() or 0
+        total_revenue = db.query(func.coalesce(func.sum(SmmOrder.charge), 0)).filter(SmmOrder.api_provider_id == p.id).scalar() or 0
+        # Cost = sum(service.cost_rate * order.quantity / 1000) — converted via exchange_rate
+        settings = p.settings or {}
+        ex_rate = float(settings.get("exchange_rate") or 1)
+        cost_query = (
+            db.query(func.coalesce(func.sum(SmmService.cost_rate * SmmOrder.quantity / 1000.0), 0))
+            .select_from(SmmOrder)
+            .join(SmmService, SmmService.id == SmmOrder.smm_service_id)
+            .filter(SmmOrder.api_provider_id == p.id)
+        ).scalar() or 0
+        total_cost = float(cost_query) * ex_rate
+        total_profit = float(total_revenue) - total_cost
+        result.append({
+            "id": p.id,
+            "name": p.name,
+            "base_url": p.base_url,
+            "is_active": p.is_active,
+            "settings": settings,
+            "stats": {
+                "services": svc_count,
+                "categories": cat_count,
+                "orders": order_count,
+                "revenue": float(total_revenue),
+                "cost": total_cost,
+                "profit": total_profit,
+            },
+        })
+    return result
+
+
+@router.post("/providers", dependencies=[Depends(get_current_admin)])
+def create_smm_provider(body: dict, db: Session = Depends(get_db)):
+    """Create a new SMM panel provider."""
+    prov = ApiProvider(
+        name=body["name"],
+        provider_type="smm_panel",
+        base_url=body["base_url"],
+        api_key=body["api_key"],
+        is_active=body.get("is_active", True),
+        settings=body.get("settings", {}),
+    )
+    db.add(prov)
+    db.commit()
+    db.refresh(prov)
+    return {"id": prov.id, "name": prov.name}
+
+
+@router.put("/providers/{pid}", dependencies=[Depends(get_current_admin)])
+def update_smm_provider(pid: int, body: dict, db: Session = Depends(get_db)):
+    """Update SMM provider."""
+    prov = db.query(ApiProvider).filter(ApiProvider.id == pid, ApiProvider.provider_type == "smm_panel").first()
+    if not prov:
+        raise HTTPException(404, "Provider not found")
+    if "name" in body:
+        prov.name = body["name"]
+    if "base_url" in body:
+        prov.base_url = body["base_url"]
+    if "api_key" in body and body["api_key"]:
+        prov.api_key = body["api_key"]
+    if "is_active" in body:
+        prov.is_active = body["is_active"]
+    if "settings" in body:
+        prov.settings = body["settings"]
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/providers/{pid}", dependencies=[Depends(get_current_admin)])
+def delete_smm_provider(pid: int, db: Session = Depends(get_db)):
+    prov = db.query(ApiProvider).filter(ApiProvider.id == pid, ApiProvider.provider_type == "smm_panel").first()
+    if not prov:
+        raise HTTPException(404, "Provider not found")
+    db.delete(prov)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/providers/{pid}/balance", dependencies=[Depends(get_current_admin)])
+async def get_smm_provider_balance(pid: int, db: Session = Depends(get_db)):
+    """Get balance from SMM provider, converted to VND."""
+    prov = db.query(ApiProvider).filter(ApiProvider.id == pid, ApiProvider.provider_type == "smm_panel").first()
+    if not prov:
+        raise HTTPException(404, "Provider not found")
+    from api.providers import get_provider
+    adapter = get_provider(prov)
+    try:
+        raw = await adapter.get_balance()
+        # raw is a ProviderBalance dataclass
+        balance_usd = float(getattr(raw, "amount", 0) or 0)
+        raw_currency = getattr(raw, "currency", "USD") or "USD"
+        settings = prov.settings or {}
+        exchange_rate = float(settings.get("exchange_rate") or 1)
+        currency = settings.get("currency", raw_currency)
+        balance_vnd = balance_usd * exchange_rate
+        return {
+            "ok": True,
+            "balance_raw": balance_usd,
+            "currency": currency,
+            "exchange_rate": exchange_rate,
+            "balance_vnd": balance_vnd,
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
     platform_id: int
 
 
@@ -146,6 +288,31 @@ def delete_platform(pid: int, db: Session = Depends(get_db)):
 # ══════════════════════════════════════════════════════════════
 #  ADMIN — Categories
 # ══════════════════════════════════════════════════════════════
+
+@router.get("/categories/all", dependencies=[Depends(get_current_admin)])
+def list_all_categories(platform_id: int | None = None, db: Session = Depends(get_db)):
+    """All categories with platform info for admin, optional platform filter."""
+    q = (
+        db.query(SmmCategory)
+        .join(SmmPlatform, SmmCategory.platform_id == SmmPlatform.id)
+    )
+    if platform_id:
+        q = q.filter(SmmCategory.platform_id == platform_id)
+    cats = q.order_by(SmmPlatform.sort_order, SmmCategory.sort_order, SmmCategory.id).all()
+    result = []
+    for c in cats:
+        plat = c.platform
+        svc_count = db.query(func.count(SmmService.id)).filter(SmmService.category_id == c.id).scalar()
+        result.append({
+            "id": c.id, "platform_id": c.platform_id,
+            "name": c.name, "slug": c.slug,
+            "sort_order": c.sort_order, "is_active": c.is_active,
+            "service_count": svc_count,
+            "platform_name": plat.name if plat else "",
+            "platform_icon": plat.icon_url if plat else "",
+        })
+    return result
+
 
 @router.get("/platforms/{pid}/categories", dependencies=[Depends(get_current_admin)])
 def list_categories(pid: int, db: Session = Depends(get_db)):
@@ -235,41 +402,107 @@ def list_services(cid: int, db: Session = Depends(get_db)):
 
 
 @router.get("/services/all", dependencies=[Depends(get_current_admin)])
-def list_all_services(db: Session = Depends(get_db)):
-    """All services with platform/category info for admin."""
-    svcs = (
+def list_all_services(platform_id: int | None = None, category_id: int | None = None, db: Session = Depends(get_db)):
+    """All services with platform/category info for admin, optional filters."""
+    q = (
         db.query(SmmService)
         .join(SmmCategory, SmmService.category_id == SmmCategory.id)
         .join(SmmPlatform, SmmCategory.platform_id == SmmPlatform.id)
-        .order_by(SmmPlatform.sort_order, SmmCategory.sort_order, SmmService.sort_order)
-        .all()
     )
+    if platform_id:
+        q = q.filter(SmmCategory.platform_id == platform_id)
+    if category_id:
+        q = q.filter(SmmService.category_id == category_id)
+    svcs = q.order_by(SmmPlatform.sort_order, SmmCategory.sort_order, SmmService.sort_order).all()
+    # Map providers for name lookup
+    provider_map = {p.id: p for p in db.query(ApiProvider).all()}
     result = []
     for s in svcs:
         cat = s.category
         plat = cat.platform if cat else None
+        prov = provider_map.get(s.api_provider_id) if s.api_provider_id else None
         result.append({
             "id": s.id, "name": s.name, "rate": s.rate,
+            "cost_rate": getattr(s, "cost_rate", 0) or 0,
             "min_quantity": s.min_quantity, "max_quantity": s.max_quantity,
             "delivery_type": s.delivery_type,
-            "can_refill": s.can_refill, "is_active": s.is_active,
+            "can_refill": s.can_refill, "can_cancel": s.can_cancel,
+            "drip_feed": getattr(s, "drip_feed", False),
+            "service_type": s.service_type or "Default",
+            "avg_time_minutes": getattr(s, "avg_time_minutes", None),
+            "computed_avg_time_minutes": compute_avg_time_per_1000(db, s.id),
+            "is_active": s.is_active, "sort_order": s.sort_order,
+            "category_id": s.category_id,
             "category_name": cat.name if cat else "",
+            "platform_id": cat.platform_id if cat else None,
             "platform_name": plat.name if plat else "",
             "platform_icon": plat.icon_url if plat else "",
+            "api_provider_id": s.api_provider_id,
+            "api_provider_name": prov.name if prov else "",
+            "external_service_id": s.external_service_id,
+            "description": s.description,
         })
     return result
+
+
+def _validate_service_body(body: "ServiceCreate"):
+    """Validate min/max/rate so user-side checks can rely on backend invariants (M3)."""
+    if body.min_quantity is None or body.min_quantity < 1:
+        raise HTTPException(400, "min_quantity phải >= 1")
+    if body.max_quantity is None or body.max_quantity < body.min_quantity:
+        raise HTTPException(400, "max_quantity phải >= min_quantity")
+    if body.max_quantity > 10_000_000:
+        raise HTTPException(400, "max_quantity quá lớn")
+    if body.rate is None or body.rate < 0:
+        raise HTTPException(400, "rate không hợp lệ")
+
+
+def compute_avg_time_per_1000(db: Session, smm_service_id: int) -> float | None:
+    """
+    Avg completion time (minutes) normalized to a quantity of 1000,
+    based on the 10 most recently completed orders of this service.
+    Returns None if there are no completed orders.
+    """
+    rows = (
+        db.query(SmmOrder.created_at, SmmOrder.updated_at, SmmOrder.quantity)
+        .filter(
+            SmmOrder.smm_service_id == smm_service_id,
+            SmmOrder.status == "completed",
+            SmmOrder.quantity > 0,
+            SmmOrder.created_at.isnot(None),
+            SmmOrder.updated_at.isnot(None),
+        )
+        .order_by(SmmOrder.updated_at.desc())
+        .limit(10)
+        .all()
+    )
+    if not rows:
+        return None
+    samples = []
+    for created, updated, qty in rows:
+        try:
+            elapsed_min = max(0.0, (updated - created).total_seconds() / 60.0)
+            samples.append(elapsed_min * 1000.0 / float(qty))
+        except Exception:
+            continue
+    if not samples:
+        return None
+    return round(sum(samples) / len(samples), 1)
 
 
 @router.post("/categories/{cid}/services", dependencies=[Depends(get_current_admin)])
 def create_service(cid: int, body: ServiceCreate, db: Session = Depends(get_db)):
     if not db.query(SmmCategory).get(cid):
         raise HTTPException(404, "Category not found")
+    _validate_service_body(body)
     s = SmmService(
         category_id=cid, name=body.name, description=body.description,
-        rate=body.rate, min_quantity=body.min_quantity, max_quantity=body.max_quantity,
+        rate=body.rate, cost_rate=body.cost_rate, min_quantity=body.min_quantity, max_quantity=body.max_quantity,
         delivery_type=body.delivery_type,
         api_provider_id=body.api_provider_id, external_service_id=body.external_service_id,
         can_refill=body.can_refill, can_cancel=body.can_cancel,
+        drip_feed=body.drip_feed, service_type=body.service_type,
+        avg_time_minutes=body.avg_time_minutes,
         is_active=body.is_active, sort_order=body.sort_order,
     )
     db.add(s)
@@ -283,12 +516,24 @@ def update_service(sid: int, body: ServiceCreate, db: Session = Depends(get_db))
     s = db.query(SmmService).get(sid)
     if not s:
         raise HTTPException(404, "Service not found")
-    for field in ["name", "description", "rate", "min_quantity", "max_quantity",
+    _validate_service_body(body)
+    for field in ["name", "description", "rate", "cost_rate", "min_quantity", "max_quantity",
                   "delivery_type", "api_provider_id", "external_service_id",
-                  "can_refill", "can_cancel", "is_active", "sort_order"]:
+                  "can_refill", "can_cancel", "drip_feed", "service_type",
+                  "avg_time_minutes", "is_active", "sort_order"]:
         setattr(s, field, getattr(body, field))
     db.commit()
     return {"ok": True}
+
+
+@router.patch("/services/{sid}/active", dependencies=[Depends(get_current_admin)])
+def toggle_service_active(sid: int, body: dict, db: Session = Depends(get_db)):
+    s = db.query(SmmService).get(sid)
+    if not s:
+        raise HTTPException(404, "Service not found")
+    s.is_active = bool(body.get("is_active"))
+    db.commit()
+    return {"ok": True, "is_active": s.is_active}
 
 
 @router.delete("/services/{sid}", dependencies=[Depends(get_current_admin)])
@@ -302,6 +547,153 @@ def delete_service(sid: int, db: Session = Depends(get_db)):
 
 
 # ── Sync from API provider ───────────────────────────────────
+
+@router.get("/providers/{pid}/remote-services", dependencies=[Depends(get_current_admin)])
+async def remote_services(pid: int, db: Session = Depends(get_db)):
+    """Fetch raw services from an SMM provider for the sync stepper UI.
+    Returns provider's categories + flat services list with previewed local price.
+    """
+    p = db.query(ApiProvider).filter(
+        ApiProvider.id == pid,
+        ApiProvider.provider_type == "smm_panel",
+        ApiProvider.is_active == True,
+    ).first()
+    if not p:
+        raise HTTPException(404, "Provider not found")
+    from api.providers import get_provider
+    adapter = get_provider(p)
+    raw = await adapter.get_services()
+    settings = p.settings or {}
+    exchange_rate = float(settings.get("exchange_rate", 1) or 1)
+    price_markup = float(settings.get("price_markup", 0) or 0)
+
+    def conv(r):
+        try:
+            v = float(r) * exchange_rate
+            if price_markup > 0:
+                v *= (1 + price_markup / 100)
+            return round(v, 2)
+        except Exception:
+            return 0.0
+
+    services = []
+    cat_counts: dict[str, int] = {}
+    for s in raw:
+        cat = s.get("category", "Other") or "Other"
+        cat_counts[cat] = cat_counts.get(cat, 0) + 1
+        try:
+            sid = int(s.get("service", 0))
+        except Exception:
+            sid = 0
+        services.append({
+            "service": sid,
+            "name": s.get("name", ""),
+            "category": cat,
+            "type": s.get("type", "Default"),
+            "rate_raw": float(s.get("rate", 0) or 0),
+            "rate_local": conv(s.get("rate", 0)),
+            "min": int(s.get("min", 1) or 1),
+            "max": int(s.get("max", 10000) or 10000),
+            "refill": bool(s.get("refill", False)),
+            "cancel": bool(s.get("cancel", False)),
+        })
+    categories = sorted(
+        [{"name": k, "count": v} for k, v in cat_counts.items()],
+        key=lambda x: x["name"].lower(),
+    )
+    return {
+        "provider_id": p.id,
+        "provider_name": p.name,
+        "exchange_rate": exchange_rate,
+        "price_markup": price_markup,
+        "categories": categories,
+        "services": services,
+    }
+
+
+@router.post("/services/sync-selected", dependencies=[Depends(get_current_admin)])
+async def sync_selected_services(body: SyncSelectedRequest, db: Session = Depends(get_db)):
+    """Import only the explicitly selected external services into a chosen local category."""
+    provider = db.query(ApiProvider).filter(
+        ApiProvider.id == body.provider_id,
+        ApiProvider.provider_type == "smm_panel",
+        ApiProvider.is_active == True,
+    ).first()
+    if not provider:
+        raise HTTPException(404, "SMM provider not found or inactive")
+    target = db.query(SmmCategory).get(body.target_category_id)
+    if not target:
+        raise HTTPException(404, "Danh mục đích không tồn tại")
+    if not body.external_service_ids:
+        raise HTTPException(400, "Chưa chọn dịch vụ nào")
+
+    from api.providers import get_provider
+    adapter = get_provider(provider)
+    raw = await adapter.get_services()
+
+    settings = provider.settings or {}
+    exchange_rate = float(settings.get("exchange_rate", 1) or 1)
+    price_markup = float(settings.get("price_markup", 0) or 0)
+    filter_html = settings.get("filter_html", True)
+
+    import re
+    def strip_html(t: str) -> str:
+        if not t:
+            return t
+        return re.sub(r"<[^>]+>", "", t).strip()
+    def conv(r):
+        try:
+            v = float(r) * exchange_rate
+            if price_markup > 0:
+                v *= (1 + price_markup / 100)
+            return round(v, 2)
+        except Exception:
+            return 0.0
+
+    wanted = {int(x) for x in body.external_service_ids}
+    selected = [s for s in raw if int(s.get("service", 0) or 0) in wanted]
+
+    created, updated = 0, 0
+    for svc in selected:
+        ext_id = int(svc.get("service", 0))
+        raw_name = svc.get("name", f"Service {ext_id}")
+        name = strip_html(raw_name) if filter_html else raw_name
+        cv = conv(svc.get("rate", 0))
+        existing = db.query(SmmService).filter(
+            SmmService.api_provider_id == provider.id,
+            SmmService.external_service_id == ext_id,
+        ).first()
+        if existing:
+            existing.category_id = target.id
+            existing.name = name
+            existing.rate = cv
+            existing.cost_rate = cv
+            existing.min_quantity = int(svc.get("min", existing.min_quantity) or existing.min_quantity)
+            existing.max_quantity = int(svc.get("max", existing.max_quantity) or existing.max_quantity)
+            existing.service_type = svc.get("type", existing.service_type or "Default")
+            existing.can_refill = bool(svc.get("refill", False))
+            existing.can_cancel = bool(svc.get("cancel", False))
+            existing.delivery_type = "api"
+            updated += 1
+        else:
+            db.add(SmmService(
+                category_id=target.id,
+                name=name,
+                rate=cv,
+                cost_rate=cv,
+                min_quantity=int(svc.get("min", 1) or 1),
+                max_quantity=int(svc.get("max", 10000) or 10000),
+                delivery_type="api",
+                api_provider_id=provider.id,
+                external_service_id=ext_id,
+                can_refill=bool(svc.get("refill", False)),
+                can_cancel=bool(svc.get("cancel", False)),
+                service_type=svc.get("type", "Default"),
+            ))
+            created += 1
+    db.commit()
+    return {"ok": True, "created": created, "updated": updated, "selected": len(selected)}
+
 
 @router.post("/services/sync", dependencies=[Depends(get_current_admin)])
 async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
@@ -322,7 +714,32 @@ async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
     adapter = get_provider(provider)
     raw_services = await adapter.get_services_raw()
 
-    created, updated = 0, 0
+    # Exchange rate & markup from provider settings
+    settings = provider.settings or {}
+    exchange_rate = float(settings.get("exchange_rate", 1))
+    price_markup = float(settings.get("price_markup", 0))
+    sync_categories = settings.get("sync_categories", True)
+    sync_services_flag = settings.get("sync_services", True)
+    sync_prices = settings.get("sync_prices", True)
+    sync_descriptions = settings.get("sync_descriptions", False)
+    sync_advanced = settings.get("sync_advanced", False)
+    filter_html = settings.get("filter_html", True)
+
+    import re
+    def strip_html(text: str) -> str:
+        """Remove HTML tags from text."""
+        if not text:
+            return text
+        return re.sub(r'<[^>]+>', '', text).strip()
+
+    def convert_rate(raw_rate):
+        """Convert API rate to VND with markup."""
+        r = float(raw_rate) * exchange_rate
+        if price_markup > 0:
+            r = r * (1 + price_markup / 100)
+        return round(r, 2)
+
+    created, updated, skipped = 0, 0, 0
     # Group by category
     by_cat: dict[str, list] = {}
     for svc in raw_services:
@@ -335,7 +752,12 @@ async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
             SmmCategory.platform_id == platform.id,
             SmmCategory.slug == slug,
         ).first()
+
         if not cat:
+            # sync_categories=False → skip creating new categories
+            if not sync_categories:
+                skipped += len(svcs)
+                continue
             cat = SmmCategory(platform_id=platform.id, name=cat_name, slug=slug)
             db.add(cat)
             db.flush()
@@ -348,33 +770,51 @@ async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
                 SmmService.external_service_id == ext_id,
             ).first()
 
-            svc_type = svc.get("type", "Default")
             if existing:
-                existing.name = svc.get("name", existing.name)
-                existing.rate = float(svc.get("rate", existing.rate))
+                # Update existing service
+                if sync_descriptions:
+                    name = svc.get("name", existing.name)
+                    existing.name = strip_html(name) if filter_html else name
+                if sync_prices:
+                    _converted = convert_rate(svc.get("rate", existing.rate / exchange_rate if exchange_rate else existing.rate))
+                    existing.cost_rate = _converted  # always track provider cost
+                    existing.rate = _converted
                 existing.min_quantity = int(svc.get("min", existing.min_quantity))
                 existing.max_quantity = int(svc.get("max", existing.max_quantity))
-                existing.can_refill = bool(svc.get("refill", False))
-                existing.can_cancel = bool(svc.get("cancel", False))
+                if sync_advanced:
+                    existing.can_refill = bool(svc.get("refill", False))
+                    existing.can_cancel = bool(svc.get("cancel", False))
+                existing.service_type = svc.get("type", existing.service_type or "Default")
                 updated += 1
             else:
+                # sync_services=False → skip creating new services
+                if not sync_services_flag:
+                    skipped += 1
+                    continue
+                raw_name = svc.get("name", f"Service {ext_id}")
+                name = strip_html(raw_name) if filter_html else raw_name
+                desc = name if sync_descriptions else None
+                _converted = convert_rate(svc.get("rate", 0))
                 new_svc = SmmService(
                     category_id=cat.id,
-                    name=svc.get("name", f"Service {ext_id}"),
-                    rate=float(svc.get("rate", 0)),
+                    name=name,
+                    description=desc,
+                    rate=_converted,
+                    cost_rate=_converted,
                     min_quantity=int(svc.get("min", 1)),
                     max_quantity=int(svc.get("max", 10000)),
                     delivery_type="api",
                     api_provider_id=provider.id,
                     external_service_id=ext_id,
-                    can_refill=bool(svc.get("refill", False)),
-                    can_cancel=bool(svc.get("cancel", False)),
+                    can_refill=bool(svc.get("refill", False)) if sync_advanced else False,
+                    can_cancel=bool(svc.get("cancel", False)) if sync_advanced else False,
+                    service_type=svc.get("type", "Default"),
                 )
                 db.add(new_svc)
                 created += 1
 
     db.commit()
-    return {"ok": True, "created": created, "updated": updated, "total_raw": len(raw_services)}
+    return {"ok": True, "created": created, "updated": updated, "skipped": skipped, "total_raw": len(raw_services)}
 
 
 # ══════════════════════════════════════════════════════════════
@@ -384,6 +824,7 @@ async def sync_services(body: SyncRequest, db: Session = Depends(get_db)):
 @router.get("/admin/orders", dependencies=[Depends(get_current_admin)])
 def admin_list_orders(
     status: str = Query(None),
+    search: str = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -391,23 +832,67 @@ def admin_list_orders(
     q = db.query(SmmOrder).order_by(SmmOrder.id.desc())
     if status:
         q = q.filter(SmmOrder.status == status)
+    if search:
+        term = f"%{search}%"
+        q = q.filter(
+            (SmmOrder.order_code.ilike(term))
+            | (SmmOrder.link.ilike(term))
+            | (SmmOrder.service_name.ilike(term))
+        )
     total = q.count()
     orders = q.offset((page - 1) * limit).limit(limit).all()
+
+    # Stats (unfiltered)
+    from sqlalchemy import func as sqf
+    stats_q = db.query(SmmOrder)
+    total_all = stats_q.count()
+    pending_count = stats_q.filter(SmmOrder.status.in_(["pending", "processing"])).count()
+    in_progress_count = stats_q.filter(SmmOrder.status == "in_progress").count()
+    completed_count = stats_q.filter(SmmOrder.status == "completed").count()
+    partial_count = stats_q.filter(SmmOrder.status == "partial").count()
+    canceled_count = stats_q.filter(SmmOrder.status.in_(["canceled", "cancelled"])).count()
+    scheduled_count = stats_q.filter(SmmOrder.status == "scheduled").count()
+    revenue = db.query(sqf.coalesce(sqf.sum(SmmOrder.charge), 0)).scalar() or 0
+
     return {
         "total": total,
         "page": page,
+        "stats": {
+            "total": total_all,
+            "pending": pending_count,
+            "in_progress": in_progress_count,
+            "completed": completed_count,
+            "partial": partial_count,
+            "canceled": canceled_count,
+            "scheduled": scheduled_count,
+            "revenue": revenue,
+        },
         "orders": [
             {
-                "id": o.id, "order_code": o.order_code,
+                "id": o.id, "code": o.order_code,
                 "user_id": o.user_id,
+                "user_name": o.user.display_name if o.user else None,
                 "user_email": o.user.email if o.user else None,
                 "platform_name": o.platform_name,
                 "category_name": o.category_name,
+                "service_id": o.smm_service_id,
                 "service_name": o.service_name,
+                "service_type": o.service_type or "Default",
                 "link": o.link, "quantity": o.quantity, "charge": o.charge,
                 "status": o.status, "delivery_type": o.delivery_type,
+                "start_count": o.start_count,
+                "remains": o.remains,
                 "external_order_id": o.external_order_id,
+                "api_provider_id": o.api_provider_id,
+                "provider_name": o.api_provider.name if o.api_provider else None,
+                "provider_url": o.api_provider.base_url if o.api_provider else None,
                 "admin_notes": o.admin_notes,
+                "user_comment": (o.extras or "").strip() if o.extras else "",
+                "scheduled_at": o.scheduled_at.isoformat() if o.scheduled_at else None,
+                "repeat_count": o.repeat_count or 0,
+                "repeat_remaining": o.repeat_remaining or 0,
+                "repeat_interval": o.repeat_interval or 0,
+                "parent_order_id": o.parent_order_id,
                 "created_at": o.created_at.isoformat() if o.created_at else None,
             }
             for o in orders
@@ -423,6 +908,20 @@ def admin_update_order_status(oid: int, body: OrderStatusUpdate, db: Session = D
     o.status = body.status
     if body.admin_notes is not None:
         o.admin_notes = body.admin_notes
+    if body.start_count is not None:
+        o.start_count = body.start_count
+    if body.remains is not None:
+        o.remains = body.remains
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/admin/orders/{oid}", dependencies=[Depends(get_current_admin)])
+def admin_delete_order(oid: int, db: Session = Depends(get_db)):
+    o = db.query(SmmOrder).get(oid)
+    if not o:
+        raise HTTPException(404, "Order not found")
+    db.delete(o)
     db.commit()
     return {"ok": True}
 
@@ -466,6 +965,7 @@ async def admin_check_all_orders(db: Session = Depends(get_db)):
             by_provider.setdefault(o.api_provider_id, []).append(o)
 
     checked = 0
+    prev_status_map: dict[int, str] = {o.id: o.status for o in orders}
     from api.providers import get_provider
     for pid, provider_orders in by_provider.items():
         provider = db.query(ApiProvider).get(pid)
@@ -500,6 +1000,23 @@ async def admin_check_all_orders(db: Session = Depends(get_db)):
                     logger.error(f"Status check failed for order {o.id}: {e}")
 
     db.commit()
+
+    # Notify users on terminal status transitions
+    try:
+        from api.order_notifications import notify_smm_order_event
+        terminal = {"completed", "partial", "canceled", "cancelled", "failed"}
+        for _pid, plist in by_provider.items():
+            for o in plist:
+                prev = prev_status_map.get(o.id)
+                if o.status != prev and o.status in terminal:
+                    event = "completed" if o.status in ("completed", "partial") else "failed"
+                    try:
+                        notify_smm_order_event(db, o, event=event, previous_status=prev)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
     return {"ok": True, "checked": checked}
 
 
@@ -542,6 +1059,10 @@ def user_catalog(db: Session = Depends(get_db)):
                         "rate": s.rate, "min_quantity": s.min_quantity,
                         "max_quantity": s.max_quantity,
                         "can_refill": s.can_refill,
+                        "can_cancel": s.can_cancel,
+                        "service_type": s.service_type or "Default",
+                        "avg_time_minutes": getattr(s, "avg_time_minutes", None),
+                        "computed_avg_time_minutes": compute_avg_time_per_1000(db, s.id),
                     }
                     for s in svcs
                 ],
@@ -556,7 +1077,25 @@ def user_catalog(db: Session = Depends(get_db)):
     return result
 
 
-@router.post("/orders")
+@router.get("/service/{sid}")
+def user_service_detail(sid: int, db: Session = Depends(get_db)):
+    """Public single-service detail for the order page."""
+    svc = db.query(SmmService).filter(SmmService.id == sid, SmmService.is_active == True).first()
+    if not svc:
+        raise HTTPException(404, "Service not found")
+    cat = db.query(SmmCategory).filter(SmmCategory.id == svc.category_id).first()
+    plat = db.query(SmmPlatform).filter(SmmPlatform.id == cat.platform_id).first() if cat else None
+    return {
+        "id": svc.id, "name": svc.name, "description": svc.description,
+        "rate": svc.rate, "min_quantity": svc.min_quantity,
+        "max_quantity": svc.max_quantity,
+        "can_refill": svc.can_refill, "can_cancel": svc.can_cancel,
+        "category": {"id": cat.id, "name": cat.name, "slug": cat.slug} if cat else None,
+        "platform": {"id": plat.id, "name": plat.name, "slug": plat.slug, "icon_url": plat.icon_url} if plat else None,
+    }
+
+
+@router.post("/orders", dependencies=[Depends(rate_limit("smm_order", 30, 60))])
 def user_place_order(
     body: OrderPlace,
     current_user: dict = Depends(get_current_user),
@@ -565,26 +1104,93 @@ def user_place_order(
     svc = db.query(SmmService).get(body.service_id)
     if not svc or not svc.is_active:
         raise HTTPException(404, "Service not found or inactive")
+
+    # Service-type specific handling — adjust quantity / validate extras
+    stype = (svc.service_type or "Default").strip()
+    extras = body.extras or {}
+    # Normalize and apply per-type rules
+    if stype == "Package":
+        # Quantity always 1 (1 package per order)
+        body.quantity = 1
+    elif stype == "Custom Comments":
+        # Quantity = number of non-empty lines in comments
+        raw_c = (extras.get("comments") or "").strip()
+        lines = [ln.strip() for ln in raw_c.splitlines() if ln.strip()]
+        if not lines:
+            raise HTTPException(400, "Vui lòng nhập danh sách bình luận (mỗi dòng 1 bình luận)")
+        body.quantity = len(lines)
+        extras["comments"] = "\n".join(lines)
+    elif stype == "Custom Comments Package":
+        raw_c = (extras.get("comments") or "").strip()
+        lines = [ln.strip() for ln in raw_c.splitlines() if ln.strip()]
+        if not lines:
+            raise HTTPException(400, "Vui lòng nhập danh sách bình luận")
+        extras["comments"] = "\n".join(lines)
+    elif stype == "Mentions Hashtag":
+        if not (extras.get("hashtags") or "").strip():
+            raise HTTPException(400, "Vui lòng nhập hashtag")
+    elif stype == "SEO":
+        if not (extras.get("keywords") or "").strip():
+            raise HTTPException(400, "Vui lòng nhập từ khoá SEO")
+    elif stype == "Subscriptions":
+        # username is the typical subscription identifier; quantity is min posts target
+        if not (extras.get("username") or extras.get("link") or body.link or "").strip():
+            raise HTTPException(400, "Vui lòng nhập username/link kênh")
+
     if body.quantity < svc.min_quantity or body.quantity > svc.max_quantity:
         raise HTTPException(400, f"Quantity must be between {svc.min_quantity} and {svc.max_quantity}")
+
+    # Validate link (M1): must be http(s) URL with a host
+    from urllib.parse import urlparse
+    _link_raw = (body.link or "").strip()
+    if len(_link_raw) < 4 or len(_link_raw) > 2048:
+        raise HTTPException(400, "Link không hợp lệ")
+    try:
+        _u = urlparse(_link_raw)
+    except Exception:
+        raise HTTPException(400, "Link không hợp lệ")
+    if _u.scheme not in ("http", "https") or not _u.netloc or "." not in _u.netloc:
+        raise HTTPException(400, "Link phải là URL http(s) hợp lệ")
+    body.link = _link_raw
 
     cat = svc.category
     plat = cat.platform if cat else None
 
-    # Calculate charge
-    charge = round(svc.rate * body.quantity / 1000, 2)
+    # Calculate charge (subtotal + VAT from SiteConfig) — Decimal to avoid float drift
+    from decimal import Decimal, ROUND_HALF_UP
+    def _q2(v: Decimal) -> Decimal:
+        return v.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    subtotal = _q2(Decimal(str(svc.rate)) * Decimal(body.quantity) / Decimal(1000))
+    try:
+        tax_cfg = db.query(SiteConfig).filter(SiteConfig.key == "tax_rate").first()
+        tax_rate = Decimal(str(tax_cfg.value)) if tax_cfg and tax_cfg.value else Decimal("0")
+    except Exception:
+        tax_rate = Decimal("0")
+    tax_amount = _q2(subtotal * tax_rate / Decimal(100))
+    charge = _q2(subtotal + tax_amount)
 
-    # Check user balance
-    user = db.query(User).get(int(current_user["user_id"]))
+    # Check user balance (lock row to prevent race on concurrent orders)
+    user = db.query(User).filter(User.id == int(current_user["user_id"])).with_for_update().first()
     if not user:
         raise HTTPException(404, "User not found")
-    if (user.balance or 0) < charge:
-        raise HTTPException(400, f"Số dư không đủ. Cần {charge:,.0f}, hiện có {(user.balance or 0):,.0f}")
+    user_balance = Decimal(str(user.balance or 0))
+    if user_balance < charge:
+        raise HTTPException(400, f"Số dư không đủ. Cần {charge:,.0f}, hiện có {user_balance:,.0f}")
 
     # Deduct balance
-    user.balance = (user.balance or 0) - charge
+    user.balance = user_balance - charge
 
     # Create order
+    # Parse schedule
+    sched_dt = None
+    if body.scheduled_at:
+        from datetime import datetime, timezone
+        try:
+            sched_dt = datetime.fromisoformat(body.scheduled_at.replace('Z', '+00:00'))
+        except ValueError:
+            raise HTTPException(400, "Invalid scheduled_at format")
+
+    import json as _json
     order = SmmOrder(
         order_code=_gen_order_code(),
         user_id=user.id,
@@ -595,14 +1201,24 @@ def user_place_order(
         link=body.link,
         quantity=body.quantity,
         charge=charge,
+        service_type=svc.service_type or "Default",
+        extras=_json.dumps(extras, ensure_ascii=False) if extras else None,
         delivery_type=svc.delivery_type,
         api_provider_id=svc.api_provider_id,
+        scheduled_at=sched_dt,
+        repeat_count=body.repeat_count,
+        repeat_interval=body.repeat_interval,
+        repeat_remaining=body.repeat_count,
     )
+    # If scheduled, set status to 'scheduled' and skip immediate API call
+    if sched_dt:
+        order.status = "scheduled"
+
     db.add(order)
     db.flush()
 
-    # If API delivery, try to place order with provider
-    if svc.delivery_type == "api" and svc.api_provider_id and svc.external_service_id:
+    # If API delivery and NOT scheduled, try to place order with provider now
+    if not sched_dt and svc.delivery_type == "api" and svc.api_provider_id and svc.external_service_id:
         try:
             from api.providers import get_provider
             provider = db.query(ApiProvider).get(svc.api_provider_id)
@@ -615,26 +1231,35 @@ def user_place_order(
                         product_id="",
                         plan_id=str(svc.external_service_id),
                         quantity=body.quantity,
-                        fields_data={"link": body.link, "quantity": body.quantity},
+                        fields_data={"link": body.link, "quantity": body.quantity, **(extras or {})},
                     )
                 )
                 order.external_order_id = result.order_id
                 order.status = result.status if result.order_id else "failed"
                 if result.status == "failed":
                     # Refund on failure
-                    user.balance = (user.balance or 0) + charge
+                    user.balance = Decimal(str(user.balance or 0)) + charge
                     order.admin_notes = f"API error: {result.message}"
         except Exception as e:
             logger.error(f"SMM API order failed: {e}")
             order.status = "failed"
-            user.balance = (user.balance or 0) + charge
+            user.balance = Decimal(str(user.balance or 0)) + charge
             order.admin_notes = f"API error: {str(e)}"
 
     db.commit()
+    # Notify user (create + initial status)
+    try:
+        from api.order_notifications import notify_smm_order_event
+        notify_smm_order_event(db, order, event="failed" if order.status == "failed" else "created")
+    except Exception:
+        pass
     return {
         "id": order.id, "order_code": order.order_code,
         "status": order.status, "charge": order.charge,
         "external_order_id": order.external_order_id,
+        "scheduled_at": order.scheduled_at.isoformat() if order.scheduled_at else None,
+        "repeat_count": order.repeat_count,
+        "repeat_remaining": order.repeat_remaining,
     }
 
 
@@ -642,11 +1267,23 @@ def user_place_order(
 def user_list_orders(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    status: str | None = Query(None),
+    search: str | None = Query(None),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     uid = int(current_user["user_id"])
-    q = db.query(SmmOrder).filter(SmmOrder.user_id == uid).order_by(SmmOrder.id.desc())
+    q = db.query(SmmOrder).filter(SmmOrder.user_id == uid)
+    if status:
+        q = q.filter(SmmOrder.status == status)
+    if search:
+        term = f"%{search}%"
+        q = q.filter(
+            (SmmOrder.order_code.ilike(term))
+            | (SmmOrder.link.ilike(term))
+            | (SmmOrder.service_name.ilike(term))
+        )
+    q = q.order_by(SmmOrder.id.desc())
     total = q.count()
     orders = q.offset((page - 1) * limit).limit(limit).all()
     return {
@@ -660,14 +1297,89 @@ def user_list_orders(
                 "service_name": o.service_name,
                 "link": o.link, "quantity": o.quantity, "charge": o.charge,
                 "status": o.status, "delivery_type": o.delivery_type,
+                "service_type": o.service_type or "Default",
                 "external_order_id": o.external_order_id,
+                "start_count": o.start_count,
+                "remains": o.remains,
                 "can_refill": o.smm_service.can_refill if o.smm_service else False,
                 "refill_id": o.refill_id,
                 "refill_status": o.refill_status,
+                "scheduled_at": o.scheduled_at.isoformat() if o.scheduled_at else None,
+                "repeat_count": o.repeat_count or 0,
+                "repeat_remaining": o.repeat_remaining or 0,
                 "created_at": o.created_at.isoformat() if o.created_at else None,
             }
             for o in orders
         ],
+    }
+
+
+@router.get("/orders/{oid}")
+async def user_get_order(
+    oid: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    uid = int(current_user["user_id"])
+    o = db.query(SmmOrder).options(joinedload(SmmOrder.smm_service)).filter(
+        SmmOrder.id == oid, SmmOrder.user_id == uid
+    ).first()
+    if not o:
+        raise HTTPException(404, "Order not found")
+
+    # Try to fetch live status from provider if API order
+    if o.delivery_type == "api" and o.external_order_id and o.api_provider_id:
+        try:
+            provider = db.query(ApiProvider).get(o.api_provider_id)
+            if provider:
+                from api.providers import get_provider
+                adapter = get_provider(provider)
+                result = await adapter.get_order_status(o.external_order_id)
+                prev_status = o.status
+                o.status = result.status
+                # Parse start_count / remains from message if available
+                msg = result.message or ""
+                import re
+                sc = re.search(r"start_count[:\s]*(\d+)", msg, re.I)
+                rm = re.search(r"remains[:\s]*(\d+)", msg, re.I)
+                if sc:
+                    o.start_count = int(sc.group(1))
+                if rm:
+                    o.remains = int(rm.group(1))
+                db.commit()
+                # Notify on terminal transitions
+                if o.status != prev_status and o.status in ("completed", "partial", "canceled", "cancelled", "failed"):
+                    try:
+                        from api.order_notifications import notify_smm_order_event
+                        event = "completed" if o.status in ("completed", "partial") else "failed"
+                        notify_smm_order_event(db, o, event=event, previous_status=prev_status)
+                    except Exception:
+                        pass
+        except Exception:
+            pass  # fallback to cached data
+
+    svc = o.smm_service
+    return {
+        "id": o.id, "order_code": o.order_code,
+        "platform_name": o.platform_name,
+        "category_name": o.category_name,
+        "service_name": o.service_name,
+        "link": o.link, "quantity": o.quantity, "charge": o.charge,
+        "status": o.status, "delivery_type": o.delivery_type,
+        "service_type": o.service_type or "Default",
+        "external_order_id": o.external_order_id,
+        "start_count": o.start_count,
+        "remains": o.remains,
+        "can_refill": svc.can_refill if svc else False,
+        "refill_id": o.refill_id,
+        "refill_status": o.refill_status,
+        "service_description": svc.description if svc else None,
+        "scheduled_at": o.scheduled_at.isoformat() if o.scheduled_at else None,
+        "repeat_count": o.repeat_count or 0,
+        "repeat_remaining": o.repeat_remaining or 0,
+        "repeat_interval": o.repeat_interval or 0,
+        "parent_order_id": o.parent_order_id,
+        "created_at": o.created_at.isoformat() if o.created_at else None,
     }
 
 
@@ -736,3 +1448,53 @@ async def user_refill_status(
                 logger.error(f"Refill status check failed: {e}")
 
     return {"refill_id": o.refill_id, "refill_status": o.refill_status}
+
+
+@router.get("/warranty")
+async def user_warranty_list(
+    status: str = Query("", description="filter refill status"),
+    search: str = Query("", description="search keyword"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List warranty/refill requests for the current user (view-only)."""
+    uid = int(current_user["user_id"])
+    q = db.query(SmmOrder).filter(
+        SmmOrder.user_id == uid,
+        SmmOrder.refill_status.isnot(None),
+    )
+    if status:
+        q = q.filter(SmmOrder.refill_status == status)
+    if search:
+        s = f"%{search.strip()}%"
+        q = q.filter(
+            (SmmOrder.order_code.ilike(s))
+            | (SmmOrder.refill_id.ilike(s))
+            | (SmmOrder.service_name.ilike(s))
+            | (SmmOrder.link.ilike(s))
+        )
+    total = q.count()
+    rows = (
+        q.order_by(SmmOrder.updated_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+    items = []
+    for o in rows:
+        items.append(
+            {
+                "id": o.id,
+                "warranty_code": o.refill_id or f"BH{o.id:06d}",
+                "order_code": o.order_code,
+                "order_id": o.id,
+                "service_name": o.service_name,
+                "refill_status": o.refill_status,
+                "created_at": (o.updated_at or o.created_at).isoformat()
+                if (o.updated_at or o.created_at)
+                else None,
+            }
+        )
+    return {"items": items, "total": total, "page": page, "limit": limit}

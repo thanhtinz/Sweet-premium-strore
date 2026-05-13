@@ -42,7 +42,6 @@ from api.announcements import router as announcements_router
 from api.balance import router as balance_router
 from api.wishlist import router as wishlist_router
 from api.ai_generate import router as ai_router
-from api.api_keys import router as apikeys_router
 from api.api_providers import router as api_providers_router
 from api.card_charge import router as card_charge_router
 from api.smm import router as smm_router
@@ -311,8 +310,20 @@ async def _lifespan(app: FastAPI):
 
     bot_task = asyncio.create_task(_bot_wrapper())
 
+    # SMM scheduler for scheduled & repeat orders
+    from api.smm_scheduler import smm_scheduler_loop
+
+    async def _scheduler_wrapper():
+        try:
+            await smm_scheduler_loop()
+        except Exception as exc:
+            logger.error("SMM scheduler crashed: %s", exc, exc_info=True)
+
+    scheduler_task = asyncio.create_task(_scheduler_wrapper())
+
     yield
 
+    scheduler_task.cancel()
     bot_task.cancel()
     try:
         await bot_task
@@ -326,6 +337,19 @@ def create_app(static_dir: str) -> FastAPI:
     # CORS — restrict in production via ALLOWED_ORIGINS env var
     allowed_origins = os.environ.get("ALLOWED_ORIGINS", "").strip()
     origins = [o.strip() for o in allowed_origins.split(",") if o.strip()] if allowed_origins else []
+    env_mode = os.environ.get("ENV", "").lower()
+    if not origins:
+        if env_mode == "production":
+            raise RuntimeError(
+                "ALLOWED_ORIGINS must be set in production (comma-separated origin list). "
+                "Refusing to start with wildcard CORS."
+            )
+        import warnings
+        warnings.warn(
+            "ALLOWED_ORIGINS empty — CORS will allow any origin. "
+            "Set ALLOWED_ORIGINS env var for production.",
+            stacklevel=1,
+        )
 
     app.add_middleware(
         CORSMiddleware,
@@ -362,7 +386,6 @@ def create_app(static_dir: str) -> FastAPI:
     api.include_router(balance_router)
     api.include_router(wishlist_router)
     api.include_router(ai_router)
-    api.include_router(apikeys_router)
     api.include_router(api_providers_router)
     api.include_router(card_charge_router)
     api.include_router(smm_router)

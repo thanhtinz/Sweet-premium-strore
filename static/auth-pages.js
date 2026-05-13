@@ -123,7 +123,7 @@ function renderLogin(view) {
       <h3 class="modal-title mb-16">Quên mật khẩu</h3>
       <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="forgot-email" placeholder="email@example.com" /></div>
       <div id="forgot-err" class="form-error mb-12" style="display:none"></div>
-      <button class="btn btn-primary btn-full" id="forgot-submit">Gửi mật khẩu mới</button>
+      <button class="btn btn-primary btn-full" id="forgot-submit">Gửi link đặt lại</button>
     `);
     qs('#forgot-submit').onclick = async () => {
       try {
@@ -132,13 +132,58 @@ function renderLogin(view) {
           body: JSON.stringify({ email: qs('#forgot-email').value.trim() })
         });
         closeModal();
-        toast('Nếu email tồn tại, mật khẩu mới sẽ được gửi qua email.', 'success');
+        toast('Nếu email tồn tại, link đặt lại mật khẩu đã được gửi.', 'success');
       } catch (err) {
         const elErr = qs('#forgot-err');
         elErr.textContent = err.message;
         elErr.style.display = 'block';
       }
     };
+  };
+}
+
+// ─── RESET PASSWORD PAGE ──────────────────────────────────
+
+function renderResetPassword(view) {
+  view.innerHTML = '';
+  const page = el('div', 'auth-page');
+  const token = new URLSearchParams(location.search || '').get('token') || '';
+  page.innerHTML = `
+    <div class="auth-card">
+      <div class="auth-card-header">
+        <h2 class="auth-title">Đặt lại mật khẩu</h2>
+        <p class="auth-subtitle">Nhập mật khẩu mới cho tài khoản của bạn.</p>
+      </div>
+      <div class="auth-card-body">
+        ${token ? `
+          <div class="form-group"><label class="form-label">Mật khẩu mới</label><input type="password" class="form-input" id="rp-pwd" placeholder="Tối thiểu 8 ký tự" /></div>
+          <div class="form-group"><label class="form-label">Nhập lại mật khẩu</label><input type="password" class="form-input" id="rp-pwd2" /></div>
+          <div id="rp-err" class="form-error mb-12" style="display:none"></div>
+          <button class="btn btn-primary btn-full" id="rp-submit">Cập nhật mật khẩu</button>
+        ` : `<div class="form-error">Liên kết không hợp lệ. Vui lòng yêu cầu lại từ trang đăng nhập.</div>`}
+      </div>
+    </div>
+  `;
+  view.appendChild(page);
+  if (!token) return;
+  qs('#rp-submit', page).onclick = async () => {
+    const p1 = qs('#rp-pwd', page).value;
+    const p2 = qs('#rp-pwd2', page).value;
+    const elErr = qs('#rp-err', page);
+    elErr.style.display = 'none';
+    if (p1.length < 8) { elErr.textContent = 'Mật khẩu tối thiểu 8 ký tự'; elErr.style.display = 'block'; return; }
+    if (p1 !== p2) { elErr.textContent = 'Mật khẩu nhập lại không khớp'; elErr.style.display = 'block'; return; }
+    try {
+      await apiFetch('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ token, new_password: p1 })
+      });
+      toast('Mật khẩu đã được cập nhật. Vui lòng đăng nhập.', 'success');
+      navigateTo('/login', { replace: true });
+    } catch (err) {
+      elErr.textContent = err.message;
+      elErr.style.display = 'block';
+    }
   };
 }
 

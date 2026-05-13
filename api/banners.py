@@ -131,6 +131,22 @@ async def upload_image(file: UploadFile = File(...), db: Session = Depends(get_d
     if len(contents) > MAX_UPLOAD_BYTES:
         raise HTTPException(413, "Ảnh quá lớn, tối đa 5MB")
     mime = _normalize_image_mime(file.content_type or "")
+    # M2: verify magic bytes — make sure content is a real image, not just renamed
+    try:
+        from PIL import Image
+        import io
+        with Image.open(io.BytesIO(contents)) as im:
+            im.verify()
+            real_fmt = (im.format or "").lower()
+    except Exception:
+        raise HTTPException(400, "File không phải ảnh hợp lệ")
+    fmt_to_mime = {"jpeg": "image/jpeg", "jpg": "image/jpeg", "png": "image/png",
+                   "gif": "image/gif", "webp": "image/webp"}
+    real_mime = fmt_to_mime.get(real_fmt)
+    if not real_mime:
+        raise HTTPException(400, "Định dạng ảnh không được hỗ trợ")
+    # trust the magic-bytes mime over the client-provided header
+    mime = real_mime
     ext = IMAGE_EXTENSIONS.get(mime, ".img")
     filename = (file.filename or f"image{ext}")[:240]
     img = UploadedImage(filename=filename, data=contents, mime_type=mime)

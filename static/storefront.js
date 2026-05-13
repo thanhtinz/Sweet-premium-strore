@@ -495,6 +495,48 @@ function paymentMethodLabel(method) {
     frag.appendChild(gcSection);
   }
 
+  // ── SMM Panel: "Tăng tương tác" (above wishlist) ──────────
+  if (appSettings.features?.smm !== false) {
+    try {
+      const smmCatalog = await apiFetch('/smm/catalog');
+      const platforms = Array.isArray(smmCatalog) ? smmCatalog : [];
+      if (platforms.length) {
+        const smmHead = el('div', 'section-head mt-32');
+        smmHead.innerHTML = `
+          <div class="section-title mb-0">
+            <i class="fa-solid fa-share-nodes" style="color:#3b82f6"></i> Tăng tương tác
+          </div>
+          <a href="/smm/order" class="btn btn-primary btn-sm" style="font-weight:600;">
+            Đặt đơn <i class="fa-solid fa-arrow-right"></i>
+          </a>`;
+        frag.appendChild(smmHead);
+
+        const smmDesc = el('div', 'smm-home-desc');
+        smmDesc.textContent = 'Tăng like, follow, view, comment cho mọi nền tảng mạng xã hội — giá rẻ, giao nhanh.';
+        frag.appendChild(smmDesc);
+
+        const smmGrid = el('div', 'smm-home-grid');
+        platforms.forEach(p => {
+          const totalServices = (p.categories || []).reduce((n, c) => n + (c.services?.length || 0), 0);
+          const card = el('a', 'smm-home-card');
+          card.href = `/smm/order?platform=${encodeURIComponent(p.slug || '')}`;
+          card.onclick = (e) => {
+            e.preventDefault();
+            navigateTo(`/smm/order?platform=${encodeURIComponent(p.slug || '')}`);
+          };
+          card.title = `${p.name} — ${totalServices} dịch vụ`;
+          card.setAttribute('aria-label', p.name);
+          const iconHTML = p.icon_url
+            ? `<img src="${esc(p.icon_url)}" alt="${esc(p.name)}" />`
+            : `<i class="fa-solid fa-share-nodes"></i>`;
+          card.innerHTML = `<div class="smm-home-card-media">${iconHTML}</div>`;
+          smmGrid.appendChild(card);
+        });
+        frag.appendChild(smmGrid);
+      }
+    } catch (_) {}
+  }
+
   // ── Wishlist / Favorites on Home ──────────────────────────
   if (currentUser && appSettings.features?.wishlist !== false) {
     try {

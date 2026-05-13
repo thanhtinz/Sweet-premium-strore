@@ -59,11 +59,11 @@ def build_order_items(order: Order, normalized_items: list[NormalizedOrderItem])
     return order_items
 
 
-def apply_coupon(coupon_code: Optional[str], subtotal: Decimal, db: Session) -> tuple[Optional[str], Decimal, Optional[str]]:
+def apply_coupon(coupon_code: Optional[str], subtotal: Decimal, db: Session, user_id: Optional[str] = None) -> tuple[Optional[str], Decimal, Optional[str]]:
     if not coupon_code:
         return None, money(0), None
     from api.gift_codes import quote_gift_code
-    quoted = quote_gift_code(coupon_code, float(subtotal), db, consume=False)
+    quoted = quote_gift_code(coupon_code, float(subtotal), db, consume=False, user_id=user_id)
     discount = money(quoted.get("discount", 0))
     note = None
     if discount > 0:
@@ -71,9 +71,12 @@ def apply_coupon(coupon_code: Optional[str], subtotal: Decimal, db: Session) -> 
     return quoted["code"], discount, note
 
 
-def consume_coupon(coupon_code: Optional[str], db: Session):
+def consume_coupon(coupon_code: Optional[str], db: Session, user_id: Optional[str] = None):
     if not coupon_code:
         return
+    from api.gift_codes import quote_gift_code
+    # Consume = lock row, increment usage_count, record GiftCodeUsage(user_id)
+    quote_gift_code(coupon_code, 1, db, consume=True, user_id=user_id)
 
 
 def refund_order_to_balance(order: Order, db: Session, reason: str = "Hoàn tiền do lỗi hệ thống") -> Decimal:
@@ -105,6 +108,7 @@ def refund_order_to_balance(order: Order, db: Session, reason: str = "Hoàn ti�
 
 
 def fail_order_with_refund(order: Order, db: Session, reason: str = "Lỗi hệ thống") -> Decimal:
+    previous_status = order.status
     refund_amount = Decimal("0")
     if order.status in {"paid", "processing", "completed"}:
         refund_amount = refund_order_to_balance(order, db, reason)
@@ -112,10 +116,12 @@ def fail_order_with_refund(order: Order, db: Session, reason: str = "Lỗi hệ 
     order.notes = f"{order.notes or ''}\n{reason}".strip()
     order.updated_at = datetime.now(timezone.utc)
     set_order_items_status(order, "failed")
+    try:
+        from api.order_notifications import notify_order_status_change
+        notify_order_status_change(db, order, previous_status=previous_status, note=reason, refund_amount=refund_amount if refund_amount else None)
+    except Exception:
+        pass
     return refund_amount
-
-    from api.gift_codes import quote_gift_code
-    quote_gift_code(coupon_code, 1, db, consume=True)
 
 
 def set_order_items_status(order: Order, status: str):
@@ -125,6 +131,7 @@ def set_order_items_status(order: Order, status: str):
 
 
 def deliver_manual_order(order: Order, delivery_data: str, notes: Optional[str]):
+    previous_status = order.status
     now = datetime.now(timezone.utc)
     order.delivery_data = delivery_data
     order.notes = notes
@@ -134,13 +141,21 @@ def deliver_manual_order(order: Order, delivery_data: str, notes: Optional[str])
     if order.items:
         first_item = order.items[0]
         first_item.delivery_data = delivery_data
+    try:
+        from sqlalchemy.orm import object_session
+        sess = object_session(order)
+        if sess is not None:
+            from api.order_notifications import notify_order_status_change
+            notify_order_status_change(sess, order, previous_status=previous_status, note=notes)
+    except Exception:
+        pass
 
 
-def calculate_order_totals(normalized_items: list[NormalizedOrderItem], coupon_code: Optional[str], db: Session):
+def calculate_order_totals(normalized_items: list[NormalizedOrderItem], coupon_code: Optional[str], db: Session, user_id: Optional[str] = None):
     subtotal = money(sum(item.line_total for item in normalized_items))
     tax_rate_raw = SiteConfigRepository(db).get_value("tax_rate")
     tax_rate = Decimal(str(tax_rate_raw or 0)) if tax_rate_raw else Decimal("0")
-    discount_code, discount_amount, coupon_note = apply_coupon(coupon_code, subtotal, db)
+    discount_code, discount_amount, coupon_note = apply_coupon(coupon_code, subtotal, db, user_id=user_id)
     taxable_amount = max(subtotal - discount_amount, money(0))
     tax_amount = money((taxable_amount * tax_rate) / Decimal("100")) if tax_rate > 0 else money(0)
     total = money(taxable_amount + tax_amount)
@@ -148,6 +163,7 @@ def calculate_order_totals(normalized_items: list[NormalizedOrderItem], coupon_c
 
 
 def auto_deliver(order: Order, db: Session):
+    previous_status = order.status
     now = datetime.now(timezone.utc)
     order_items = order.items or []
     if not order_items and order.package_id:
@@ -221,6 +237,14 @@ def auto_deliver(order: Order, db: Session):
     order.status = "completed" if all_completed else "processing"
     order.updated_at = now
 
+    # Notify on status transition (auto delivery completed or moved to processing)
+    if order.status != previous_status:
+        try:
+            from api.order_notifications import notify_order_status_change
+            notify_order_status_change(db, order, previous_status=previous_status)
+        except Exception:
+            pass
+
     # If there are API items, trigger async fulfillment in background
     if has_api_items:
         import asyncio
@@ -245,6 +269,7 @@ async def _fulfill_api_items(order_id: int):
         order = db.query(Order).filter(Order.id == order_id).first()
         if not order:
             return
+        previous_status = order.status
         for item in order.items or []:
             if item.status != "processing" or item.api_status != "pending":
                 continue
@@ -303,6 +328,14 @@ async def _fulfill_api_items(order_id: int):
             order.status = "completed"
         order.updated_at = datetime.now(timezone.utc)
         db.commit()
+
+        # Notify if status moved (typically pending/processing → completed)
+        if order.status != previous_status:
+            try:
+                from api.order_notifications import notify_order_status_change
+                notify_order_status_change(db, order, previous_status=previous_status)
+            except Exception:
+                pass
     except Exception as e:
         logger.error(f"_fulfill_api_items error: {e}")
         db.rollback()

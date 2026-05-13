@@ -4263,71 +4263,6 @@ async function renderAdminBalance(view) {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  ADMIN API KEYS
-// ═══════════════════════════════════════════════════════════════
-async function renderAdminApiKeys(view) {
-  if (!view) return; const content = view;
-  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
-
-  try {
-    const keys = await apiFetch('/api-keys/admin/all');
-
-    content.innerHTML = `
-      ${cuiPageHeader('Quản lý API Keys', `${keys.length} key đã tạo`)}
-      <div class="table-wrap">
-        <table class="table" style="min-width: 800px;">
-          <thead><tr>
-            <th>User</th><th>Tên key</th><th>Prefix</th><th>Domain</th><th>Callback</th><th>Trạng thái</th><th>Tạo lúc</th><th>Dùng lần cuối</th><th></th>
-          </tr></thead>
-          <tbody id="admin-apikeys-body">
-            ${keys.length ? keys.map(k => `<tr data-kid="${k.id}">
-              <td><span style="font-size:12px;">${esc(k.user_email)}</span><br><span class="text-muted" style="font-size:11px;">ID: ${esc(k.user_id)}</span></td>
-              <td style="font-weight:600;">${esc(k.name)}</td>
-              <td><code style="font-size:12px;">${esc(k.key_prefix)}</code></td>
-              <td style="font-size:12px;">${k.allowed_domains.length ? esc(k.allowed_domains.join(', ')) : '<em class="text-muted">Không giới hạn</em>'}</td>
-              <td style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${k.callback_url ? esc(k.callback_url) : '—'}</td>
-              <td>${k.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-gray">Revoked</span>'}</td>
-              <td style="font-size:12px;">${k.created_at ? new Date(k.created_at).toLocaleDateString('vi') : '—'}</td>
-              <td style="font-size:12px;">${k.last_used_at ? new Date(k.last_used_at).toLocaleDateString('vi') : '—'}</td>
-              <td>
-                <button class="btn btn-ghost btn-sm" data-toggle-key="${k.id}" style="font-size:12px;">${k.is_active ? 'Tắt' : 'Bật'}</button>
-                <button class="btn btn-ghost btn-sm" data-del-key="${k.id}" style="color:var(--danger);font-size:12px;">Xoá</button>
-              </td>
-            </tr>`).join('') : '<tr><td colspan="9" class="text-center text-muted py-16">Chưa có API key nào</td></tr>'}
-          </tbody>
-        </table>
-      </div>
-    `;
-
-    // Toggle active
-    qsa('[data-toggle-key]', content).forEach(btn => {
-      btn.onclick = async () => {
-        try {
-          await apiFetch('/api-keys/admin/' + btn.dataset.toggleKey + '/toggle', { method: 'PUT' });
-          toast('Đã cập nhật', 'success');
-          renderAdminApiKeys(view);
-        } catch (err) { toast(err.message, 'error'); }
-      };
-    });
-
-    // Delete
-    qsa('[data-del-key]', content).forEach(btn => {
-      btn.onclick = async () => {
-        if (!confirm('Xoá vĩnh viễn key này?')) return;
-        try {
-          await apiFetch('/api-keys/admin/' + btn.dataset.delKey, { method: 'DELETE' });
-          toast('Đã xoá', 'success');
-          renderAdminApiKeys(view);
-        } catch (err) { toast(err.message, 'error'); }
-      };
-    });
-  } catch (err) {
-    content.innerHTML = `<div class="empty-state"><h3>Lỗi</h3><p class="text-muted">${err.message}</p></div>`;
-  }
-}
-
-
 // ── API PROVIDERS ──────────────────────────────────
 async function renderAdminApiProviders(view) {
   if (!view) return;
@@ -4537,563 +4472,1238 @@ function showProviderModal(prov, refresh) {
 }
 
 // ── SMM PANEL ──────────────────────────────────────────────────
-async function renderAdminSmm(view) {
+
+// ═══════════════ 1. PLATFORMS ═══════════════
+async function renderAdminSmmPlatforms(view) {
   if (!view) return;
   const content = view;
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
-
-  let activeTab = 'platforms'; // platforms | orders
-  let currentView = { level: 'platforms' }; // {level, platformId, platformName, categoryId, categoryName}
-  let orderStatus = '';
-  let orderPage = 1;
-  const ORDER_LIMIT = 20;
-
-  const smmStatusBadge = (s) => {
-    const map = {
-      pending: ['badge-yellow', 'Chờ xử lý'],
-      processing: ['badge-blue', 'Đang xử lý'],
-      in_progress: ['badge-blue', 'Đang chạy'],
-      completed: ['badge-green', 'Hoàn thành'],
-      partial: ['badge-orange', 'Hoàn một phần'],
-      canceled: ['badge-red', 'Đã hủy'],
-    };
-    const [cls, label] = map[s] || ['badge-gray', s];
-    return `<span class="badge ${cls}">${label}</span>`;
-  };
-
-  const deliveryBadge = (d) => {
-    return d === 'api'
-      ? '<span class="badge badge-green">API</span>'
-      : '<span class="badge badge-gray">Thủ công</span>';
-  };
-
-  const renderBreadcrumb = () => {
-    const parts = ['<span class="smm-bc-item" data-bc-level="platforms">Nền tảng</span>'];
-    if (currentView.level === 'categories' || currentView.level === 'services') {
-      parts.push(`<span class="smm-bc-sep">›</span><span class="smm-bc-item" data-bc-level="categories" data-bc-platform-id="${currentView.platformId}">${esc(currentView.platformName)}</span>`);
-    }
-    if (currentView.level === 'services') {
-      parts.push(`<span class="smm-bc-sep">›</span><span class="smm-bc-item" data-bc-level="services" data-bc-category-id="${currentView.categoryId}">${esc(currentView.categoryName)}</span>`);
-    }
-    return `<div class="smm-breadcrumb">${parts.join('')}</div>`;
-  };
-
-  const renderPlatforms = async () => {
+  const refresh = async () => {
     const platforms = await apiFetch('/smm/platforms');
     content.innerHTML = `
-      ${cuiPageHeader('SMM Panel', 'Quản lý nền tảng, dịch vụ và đơn hàng SMM', '<button class="btn btn-primary" id="btn-add-platform"><i class="fa-solid fa-plus"></i> Thêm nền tảng</button>')}
-      <div class="admin-tabs mb-16">
-        <button class="admin-tab ${activeTab === 'platforms' ? 'active' : ''}" data-smm-tab="platforms"><i class="fa-solid fa-layer-group"></i> Nền tảng</button>
-        <button class="admin-tab ${activeTab === 'orders' ? 'active' : ''}" data-smm-tab="orders"><i class="fa-solid fa-receipt"></i> Đơn hàng</button>
-      </div>
-      ${platforms.length === 0 ? '<div class="empty-state"><i class="fa-solid fa-hashtag"></i><p>Chưa có nền tảng SMM nào</p></div>' : `
+      ${cuiPageHeader('Nền tảng SMM', 'Quản lý nền tảng mạng xã hội', '<button class="btn btn-primary" id="btn-add-platform"><i class="fa-solid fa-plus"></i> Thêm nền tảng</button>')}
+      ${platforms.length === 0 ? '<div class="empty-state"><i class="fa-solid fa-share-nodes"></i><p>Chưa có nền tảng nào</p></div>' : `
       <div class="table-wrap"><table>
         <thead><tr><th>Icon</th><th>Tên</th><th>Slug</th><th>Danh mục</th><th>Dịch vụ</th><th>Trạng thái</th><th>Thứ tự</th><th></th></tr></thead>
-        <tbody>${platforms.map(p => `
-          <tr class="smm-row-clickable" data-platform-id="${p.id}" data-platform-name="${esc(p.name)}">
-            <td>${p.icon_url ? `<img src="${p.icon_url}" style="width:24px;height:24px;border-radius:4px;object-fit:cover;" alt="" />` : '<span class="text-muted">—</span>'}</td>
-            <td class="td-bold">${esc(p.name)}</td>
-            <td class="td-mono text-sm">${esc(p.slug)}</td>
-            <td>${p.category_count ?? 0}</td>
-            <td>${p.service_count ?? 0}</td>
-            <td>${p.is_active ? '<span class="badge badge-green">Hoạt động</span>' : '<span class="badge badge-gray">Tắt</span>'}</td>
-            <td>${p.sort_order ?? 0}</td>
-            <td><div class="tbl-actions">
-              <button class="tbl-btn tbl-edit" data-edit-platform="${p.id}">Sửa</button>
-              <button class="tbl-btn tbl-delete" data-del-platform="${p.id}">Xóa</button>
-            </div></td>
-          </tr>
-        `).join('')}</tbody>
-      </table></div>`}
-    `;
+        <tbody>${platforms.map(p => `<tr>
+          <td>${p.icon_url ? `<img src="${p.icon_url}" style="width:24px;height:24px;border-radius:4px;object-fit:cover;" />` : '<span class="text-muted">—</span>'}</td>
+          <td class="td-bold">${esc(p.name)}</td><td class="td-mono text-sm">${esc(p.slug)}</td>
+          <td>${p.category_count??0}</td><td>${p.service_count??0}</td>
+          <td>${p.is_active?'<span class="badge badge-green">Hoạt động</span>':'<span class="badge badge-gray">Tắt</span>'}</td>
+          <td>${p.sort_order??0}</td>
+          <td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit-platform="${p.id}">Sửa</button><button class="tbl-btn tbl-delete" data-del-platform="${p.id}">Xóa</button></div></td>
+        </tr>`).join('')}</tbody></table></div>`}`;
   };
-
-  const renderCategories = async () => {
-    const categories = await apiFetch(`/smm/platforms/${currentView.platformId}/categories`);
-    content.innerHTML = `
-      ${cuiPageHeader(currentView.platformName, 'Danh mục SMM', '<button class="btn btn-primary" id="btn-add-category"><i class="fa-solid fa-plus"></i> Thêm danh mục</button>')}
-      <div class="admin-tabs mb-16">
-        <button class="admin-tab ${activeTab === 'platforms' ? 'active' : ''}" data-smm-tab="platforms"><i class="fa-solid fa-layer-group"></i> Nền tảng</button>
-        <button class="admin-tab ${activeTab === 'orders' ? 'active' : ''}" data-smm-tab="orders"><i class="fa-solid fa-receipt"></i> Đơn hàng</button>
-      </div>
-      ${renderBreadcrumb()}
-      ${categories.length === 0 ? '<div class="empty-state"><i class="fa-solid fa-folder"></i><p>Chưa có danh mục nào</p></div>' : `
-      <div class="table-wrap"><table>
-        <thead><tr><th>ID</th><th>Tên</th><th>Thứ tự</th><th>Trạng thái</th><th></th></tr></thead>
-        <tbody>${categories.map(c => `
-          <tr class="smm-row-clickable" data-category-id="${c.id}" data-category-name="${esc(c.name)}">
-            <td class="text-muted">#${c.id}</td>
-            <td class="td-bold">${esc(c.name)}</td>
-            <td>${c.sort_order ?? 0}</td>
-            <td>${c.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td>
-            <td><div class="tbl-actions">
-              <button class="tbl-btn tbl-edit" data-edit-category="${c.id}">Sửa</button>
-              <button class="tbl-btn tbl-delete" data-del-category="${c.id}">Xóa</button>
-            </div></td>
-          </tr>
-        `).join('')}</tbody>
-      </table></div>`}
-    `;
-  };
-
-  const renderServices = async () => {
-    const [services, allProviders] = await Promise.all([
-      apiFetch(`/smm/categories/${currentView.categoryId}/services`),
-      apiFetch('/api-providers/').catch(() => [])
-    ]);
-    const smmProviders = allProviders.filter(p => p.provider_type === 'smm_panel');
-
-    content.innerHTML = `
-      ${cuiPageHeader(currentView.categoryName, 'Dịch vụ SMM', `
-        <button class="btn btn-outline" id="btn-sync-services"><i class="fa-solid fa-arrows-rotate"></i> Sync từ API</button>
-        <button class="btn btn-primary" id="btn-add-service"><i class="fa-solid fa-plus"></i> Thêm dịch vụ</button>
-      `)}
-      <div class="admin-tabs mb-16">
-        <button class="admin-tab ${activeTab === 'platforms' ? 'active' : ''}" data-smm-tab="platforms"><i class="fa-solid fa-layer-group"></i> Nền tảng</button>
-        <button class="admin-tab ${activeTab === 'orders' ? 'active' : ''}" data-smm-tab="orders"><i class="fa-solid fa-receipt"></i> Đơn hàng</button>
-      </div>
-      ${renderBreadcrumb()}
-      ${services.length === 0 ? '<div class="empty-state"><i class="fa-solid fa-list"></i><p>Chưa có dịch vụ nào</p></div>' : `
-      <div class="table-wrap"><table>
-        <thead><tr><th>ID</th><th>Tên</th><th>Giá/1000</th><th>Min</th><th>Max</th><th>Giao hàng</th><th>Refill</th><th>Trạng thái</th><th></th></tr></thead>
-        <tbody>${services.map(s => `
-          <tr>
-            <td class="text-muted">#${s.id}</td>
-            <td class="td-bold">${esc(s.name)}</td>
-            <td class="text-primary">${fmt(s.rate)}</td>
-            <td>${s.min_quantity ?? '—'}</td>
-            <td>${s.max_quantity ?? '—'}</td>
-            <td>${deliveryBadge(s.delivery_type)}</td>
-            <td>${s.can_refill ? '<span class="badge badge-green">✓</span>' : '<span class="text-muted">—</span>'}</td>
-            <td>${s.is_active ? '<span class="badge badge-green">Hiện</span>' : '<span class="badge badge-gray">Ẩn</span>'}</td>
-            <td><div class="tbl-actions">
-              <button class="tbl-btn tbl-edit" data-edit-service="${s.id}">Sửa</button>
-              <button class="tbl-btn tbl-delete" data-del-service="${s.id}">Xóa</button>
-            </div></td>
-          </tr>
-        `).join('')}</tbody>
-      </table></div>`}
-    `;
-    // Store smmProviders for sync modal
-    content._smmProviders = smmProviders;
-  };
-
-  const renderOrders = async () => {
-    const data = await apiFetch(`/smm/admin/orders?limit=${ORDER_LIMIT}&page=${orderPage}${orderStatus ? '&status=' + orderStatus : ''}`);
-    const orders = data.orders || [];
-    const total = data.total || 0;
-    const totalPages = Math.ceil(total / ORDER_LIMIT) || 1;
-    const statusOptions = ['', 'pending', 'processing', 'in_progress', 'completed', 'partial', 'canceled'];
-    const statusLabels = { pending: 'Chờ xử lý', processing: 'Đang xử lý', in_progress: 'Đang chạy', completed: 'Hoàn thành', partial: 'Hoàn một phần', canceled: 'Đã hủy' };
-
-    content.innerHTML = `
-      ${cuiPageHeader('Đơn hàng SMM', `${total} đơn hàng`, '<button class="btn btn-outline" id="btn-check-all-orders"><i class="fa-solid fa-arrows-rotate"></i> Check tất cả</button>')}
-      <div class="admin-tabs mb-16">
-        <button class="admin-tab ${activeTab === 'platforms' ? 'active' : ''}" data-smm-tab="platforms"><i class="fa-solid fa-layer-group"></i> Nền tảng</button>
-        <button class="admin-tab ${activeTab === 'orders' ? 'active' : ''}" data-smm-tab="orders"><i class="fa-solid fa-receipt"></i> Đơn hàng</button>
-      </div>
-      <div class="d-flex align-center gap-8 mb-12">
-        <select class="form-select" id="smm-order-status-filter" style="width:auto;">
-          ${statusOptions.map(s => `<option value="${s}" ${orderStatus === s ? 'selected' : ''}>${s ? statusLabels[s] : 'Tất cả trạng thái'}</option>`).join('')}
-        </select>
-      </div>
-      ${orders.length === 0 ? '<div class="empty-state"><i class="fa-solid fa-receipt"></i><p>Chưa có đơn hàng nào</p></div>' : `
-      <div class="table-wrap"><table>
-        <thead><tr><th>Mã</th><th>Khách</th><th>Nền tảng</th><th>Dịch vụ</th><th>Link</th><th>SL</th><th>Phí</th><th>Trạng thái</th><th>Giao hàng</th><th>Ngày tạo</th><th></th></tr></thead>
-        <tbody>${orders.map(o => `
-          <tr>
-            <td class="td-mono text-sm">${esc(o.code || o.id)}</td>
-            <td class="text-sm">${esc(o.user_email || '—')}</td>
-            <td class="text-sm">${esc(o.platform_name || '—')}</td>
-            <td class="text-sm" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(o.service_name || '—')}</td>
-            <td class="text-sm" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(o.link || '')}">${esc(o.link || '—')}</td>
-            <td>${o.quantity ?? '—'}</td>
-            <td class="text-primary">${fmt(o.charge ?? 0)}</td>
-            <td>${smmStatusBadge(o.status)}</td>
-            <td>${deliveryBadge(o.delivery_type)}</td>
-            <td class="text-sm text-muted">${fmtDate(o.created_at)}</td>
-            <td><div class="tbl-actions">
-              ${o.delivery_type === 'api' ? `<button class="tbl-btn" data-check-order="${o.id}"><i class="fa-solid fa-arrows-rotate"></i> Check</button>` : ''}
-              ${o.delivery_type !== 'api' ? `<select class="form-select form-select-sm" data-change-order-status="${o.id}" style="width:auto;font-size:12px;">
-                <option value="">Đổi trạng thái</option>
-                ${statusOptions.filter(s => s).map(s => `<option value="${s}" ${o.status === s ? 'selected' : ''}>${statusLabels[s]}</option>`).join('')}
-              </select>` : ''}
-            </div></td>
-          </tr>
-        `).join('')}</tbody>
-      </table></div>
-      ${totalPages > 1 ? `
-      <div class="d-flex align-center justify-center gap-8 mt-16">
-        <button class="btn btn-sm btn-ghost" data-order-page="${orderPage - 1}" ${orderPage <= 1 ? 'disabled' : ''}>Trước</button>
-        <span class="text-muted text-sm">Trang ${orderPage} / ${totalPages}</span>
-        <button class="btn btn-sm btn-ghost" data-order-page="${orderPage + 1}" ${orderPage >= totalPages ? 'disabled' : ''}>Sau</button>
-      </div>` : ''}`}
-    `;
-  };
-
-  const refresh = async () => {
-    try {
-      if (activeTab === 'orders') {
-        await renderOrders();
-      } else {
-        if (currentView.level === 'platforms') await renderPlatforms();
-        else if (currentView.level === 'categories') await renderCategories();
-        else if (currentView.level === 'services') await renderServices();
-      }
-    } catch (err) {
-      content.innerHTML = `<div class="empty-state"><h3>Lỗi</h3><p class="text-muted">${esc(err.message)}</p></div>`;
-    }
-  };
-
-  // ── Modals ──
-
-  const showPlatformModal = async (platform) => {
+  const showModal = (platform) => {
     const isEdit = !!platform;
-    openModal(`
-      <form id="smm-platform-form">
-        <div class="form-group"><label class="form-label">Tên nền tảng<span class="req">*</span></label><input class="form-input" id="sp-name" value="${platform?.name || ''}" required placeholder="Ví dụ: Instagram" /></div>
-        <div class="form-group"><label class="form-label">Icon URL</label><input class="form-input" id="sp-icon" value="${platform?.icon_url || ''}" placeholder="https://..." /></div>
-        <div class="form-row form-row-2">
-          <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="sp-order" value="${platform?.sort_order ?? 0}" /></div>
-          <div class="form-group"><label class="form-label">Trạng thái</label><select class="form-select" id="sp-active"><option value="true" ${platform?.is_active !== false ? 'selected' : ''}>Hoạt động</option><option value="false" ${platform?.is_active === false ? 'selected' : ''}>Tắt</option></select></div>
+    openModal(`<form id="smm-platform-form">
+      <div class="form-group"><label class="form-label">Tên nền tảng<span class="req">*</span></label><input class="form-input" id="sp-name" value="${platform?.name||''}" required placeholder="Ví dụ: Instagram" /></div>
+      <div class="form-group">
+        <label class="form-label">Icon</label>
+        <div class="flex gap-8 items-center">
+          <input class="form-input flex-1" id="sp-icon" value="${platform?.icon_url||''}" placeholder="https://... hoặc dùng nút Upload" />
+          ${imageUploadControl('sp-icon', 'sp-icon-upload', 'Upload', 'sp-icon-preview')}
         </div>
-        <div id="sp-form-err" class="form-error mb-12" style="display:none"></div>
-        <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">${isEdit ? 'Cập nhật' : 'Tạo mới'}</button><button type="button" class="btn btn-ghost" id="sp-cancel">Hủy</button></div>
-      </form>
-    `, isEdit ? `Sửa nền tảng: ${platform.name}` : 'Thêm nền tảng');
+        <div class="admin-upload-preview admin-upload-preview-sm" id="sp-icon-preview">${platform?.icon_url ? `<img src="${platform.icon_url}" alt="Icon preview" />` : '<span>Chưa có icon</span>'}</div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="sp-order" value="${platform?.sort_order??0}" /></div>
+        <div class="form-group"><label class="form-label">Trạng thái</label><select class="form-select" id="sp-active"><option value="true" ${platform?.is_active!==false?'selected':''}>Hoạt động</option><option value="false" ${platform?.is_active===false?'selected':''}>Tắt</option></select></div>
+      </div>
+      <div id="sp-err" class="form-error mb-12" style="display:none"></div>
+      <div class="flex gap-8 justify-end"><button type="button" class="btn btn-ghost" id="sp-cancel">Hủy</button><button type="submit" class="btn btn-primary">${isEdit?'Cập nhật':'Tạo mới'}</button></div>
+    </form>`, isEdit ? `Sửa: ${platform.name}` : 'Thêm nền tảng');
     qs('#sp-cancel').onclick = closeModal;
+    bindImageUploads(qs('#modal-content'));
     qs('#smm-platform-form').onsubmit = async (e) => {
       e.preventDefault();
-      const body = {
-        name: qs('#sp-name').value,
-        icon_url: qs('#sp-icon').value || null,
-        sort_order: parseInt(qs('#sp-order').value) || 0,
-        is_active: qs('#sp-active').value === 'true',
-      };
+      const body = { name: qs('#sp-name').value, icon_url: qs('#sp-icon').value||null, sort_order: parseInt(qs('#sp-order').value)||0, is_active: qs('#sp-active').value==='true' };
       try {
-        if (isEdit) await apiFetch(`/smm/platforms/${platform.id}`, { method: 'PUT', body: JSON.stringify(body) });
-        else await apiFetch('/smm/platforms', { method: 'POST', body: JSON.stringify(body) });
-        closeModal();
-        toast(isEdit ? 'Đã cập nhật' : 'Đã tạo nền tảng', 'success');
-        refresh();
-      } catch (err) {
-        const el = qs('#sp-form-err');
-        el.textContent = err.message;
-        el.style.display = 'block';
-      }
+        if (isEdit) await apiFetch(`/smm/platforms/${platform.id}`,{method:'PUT',body:JSON.stringify(body)});
+        else await apiFetch('/smm/platforms',{method:'POST',body:JSON.stringify(body)});
+        closeModal(); toast(isEdit?'Đã cập nhật':'Đã tạo','success'); refresh();
+      } catch(err){ qs('#sp-err').textContent=err.message; qs('#sp-err').style.display='block'; }
     };
   };
+  content.onclick = async (e) => {
+    if (e.target.closest('#btn-add-platform')) { showModal(null); return; }
+    const eb = e.target.closest('[data-edit-platform]');
+    if (eb) { const ps = await apiFetch('/smm/platforms'); const p = ps.find(x=>x.id===parseInt(eb.dataset.editPlatform)); if(p) showModal(p); return; }
+    const db = e.target.closest('[data-del-platform]');
+    if (db) { if(!confirm('Xóa nền tảng này?')) return; try{ await apiFetch(`/smm/platforms/${db.dataset.delPlatform}`,{method:'DELETE'}); toast('Đã xóa','success'); refresh(); }catch(err){toast(err.message,'error');} }
+  };
+  await refresh();
+}
 
-  const showCategoryModal = async (category) => {
-    const isEdit = !!category;
-    openModal(`
-      <form id="smm-category-form">
-        <div class="form-group"><label class="form-label">Tên danh mục<span class="req">*</span></label><input class="form-input" id="sc-name" value="${category?.name || ''}" required /></div>
-        <div class="form-row form-row-2">
-          <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="sc-order" value="${category?.sort_order ?? 0}" /></div>
-          <div class="form-group"><label class="form-label">Trạng thái</label><select class="form-select" id="sc-active"><option value="true" ${category?.is_active !== false ? 'selected' : ''}>Hiện</option><option value="false" ${category?.is_active === false ? 'selected' : ''}>Ẩn</option></select></div>
-        </div>
-        <div id="sc-form-err" class="form-error mb-12" style="display:none"></div>
-        <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">${isEdit ? 'Cập nhật' : 'Tạo mới'}</button><button type="button" class="btn btn-ghost" id="sc-cancel">Hủy</button></div>
-      </form>
-    `, isEdit ? `Sửa danh mục: ${category.name}` : 'Thêm danh mục');
+// ═══════════════ 2. CATEGORIES ═══════════════
+async function renderAdminSmmCategories(view) {
+  if (!view) return;
+  const content = view;
+  let filterPlatformId = '';
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  const refresh = async () => {
+    const [platforms, allCats] = await Promise.all([apiFetch('/smm/platforms'), apiFetch('/smm/categories/all')]);
+    const cats = filterPlatformId ? allCats.filter(c=>c.platform_id===parseInt(filterPlatformId)) : allCats;
+    content.innerHTML = `
+      ${cuiPageHeader('Danh mục SMM', `${cats.length} danh mục`, '<button class="btn btn-primary" id="btn-add-category"><i class="fa-solid fa-plus"></i> Thêm danh mục</button>')}
+      <div class="d-flex align-center gap-8 mb-16 p-16" style="background:var(--bg-surface);border:1px solid var(--border-color);border-radius:8px;">
+        <label class="form-label mb-0">Lọc nền tảng:</label>
+        <select class="form-select" id="smm-filter-plat-cat" style="width:200px;"><option value="">Tất cả</option>${platforms.map(p=>`<option value="${p.id}" ${filterPlatformId==p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select>
+      </div>
+      ${cats.length===0?'<div class="empty-state"><i class="fa-solid fa-folder"></i><p>Chưa có danh mục</p></div>':`
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Nền tảng</th><th>Tên</th><th>Dịch vụ</th><th>Thứ tự</th><th>Trạng thái</th><th></th></tr></thead>
+        <tbody>${cats.map(c=>`<tr>
+          <td class="text-muted">#${c.id}</td>
+          <td class="text-sm">${c.platform_icon?`<img src="${c.platform_icon}" style="width:16px;height:16px;border-radius:2px;vertical-align:middle;margin-right:4px;" />`:''}${esc(c.platform_name)}</td>
+          <td class="td-bold">${esc(c.name)}</td><td>${c.service_count??0}</td><td>${c.sort_order??0}</td>
+          <td>${c.is_active?'<span class="badge badge-green">Hiện</span>':'<span class="badge badge-gray">Ẩn</span>'}</td>
+          <td><div class="tbl-actions"><button class="tbl-btn tbl-edit" data-edit-category="${c.id}">Sửa</button><button class="tbl-btn tbl-delete" data-del-category="${c.id}">Xóa</button></div></td>
+        </tr>`).join('')}</tbody></table></div>`}`;
+  };
+  const showModal = async (cat) => {
+    const isEdit = !!cat;
+    const platforms = await apiFetch('/smm/platforms');
+    const selPlat = isEdit ? cat.platform_id : filterPlatformId;
+    openModal(`<form id="smm-cat-form">
+      <div class="form-group"><label class="form-label">Nền tảng<span class="req">*</span></label><select class="form-select" id="sc-platform" required ${isEdit?'disabled':''}><option value="">Chọn nền tảng</option>${platforms.map(p=>`<option value="${p.id}" ${selPlat==p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div>
+      <div class="form-group"><label class="form-label">Tên danh mục<span class="req">*</span></label><input class="form-input" id="sc-name" value="${cat?.name||''}" required /></div>
+      <div class="form-row form-row-2">
+        <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="sc-order" value="${cat?.sort_order??0}" /></div>
+        <div class="form-group"><label class="form-label">Trạng thái</label><select class="form-select" id="sc-active"><option value="true" ${cat?.is_active!==false?'selected':''}>Hiện</option><option value="false" ${cat?.is_active===false?'selected':''}>Ẩn</option></select></div>
+      </div>
+      <div id="sc-err" class="form-error mb-12" style="display:none"></div>
+      <div class="flex gap-8 justify-end"><button type="button" class="btn btn-ghost" id="sc-cancel">Hủy</button><button type="submit" class="btn btn-primary">${isEdit?'Cập nhật':'Tạo mới'}</button></div>
+    </form>`, isEdit ? `Sửa: ${cat.name}` : 'Thêm danh mục');
     qs('#sc-cancel').onclick = closeModal;
-    qs('#smm-category-form').onsubmit = async (e) => {
+    qs('#smm-cat-form').onsubmit = async (e) => {
       e.preventDefault();
-      const body = {
-        name: qs('#sc-name').value,
-        sort_order: parseInt(qs('#sc-order').value) || 0,
-        is_active: qs('#sc-active').value === 'true',
-      };
+      const platId = isEdit ? cat.platform_id : qs('#sc-platform').value;
+      if (!platId) { qs('#sc-err').textContent='Chọn nền tảng'; qs('#sc-err').style.display='block'; return; }
+      const body = { name: qs('#sc-name').value, sort_order: parseInt(qs('#sc-order').value)||0, is_active: qs('#sc-active').value==='true' };
       try {
-        if (isEdit) await apiFetch(`/smm/categories/${category.id}`, { method: 'PUT', body: JSON.stringify(body) });
-        else await apiFetch(`/smm/platforms/${currentView.platformId}/categories`, { method: 'POST', body: JSON.stringify(body) });
-        closeModal();
-        toast(isEdit ? 'Đã cập nhật' : 'Đã tạo danh mục', 'success');
-        refresh();
-      } catch (err) {
-        const el = qs('#sc-form-err');
-        el.textContent = err.message;
-        el.style.display = 'block';
-      }
+        if (isEdit) await apiFetch(`/smm/categories/${cat.id}`,{method:'PUT',body:JSON.stringify(body)});
+        else await apiFetch(`/smm/platforms/${platId}/categories`,{method:'POST',body:JSON.stringify(body)});
+        closeModal(); toast(isEdit?'Đã cập nhật':'Đã tạo','success'); refresh();
+      } catch(err){ qs('#sc-err').textContent=err.message; qs('#sc-err').style.display='block'; }
     };
   };
+  content.onclick = async (e) => {
+    if (e.target.closest('#btn-add-category')) { showModal(null); return; }
+    const eb = e.target.closest('[data-edit-category]');
+    if (eb) { const cs = await apiFetch('/smm/categories/all'); const c = cs.find(x=>x.id===parseInt(eb.dataset.editCategory)); if(c) showModal(c); return; }
+    const db = e.target.closest('[data-del-category]');
+    if (db) { if(!confirm('Xóa danh mục này?')) return; try{ await apiFetch(`/smm/categories/${db.dataset.delCategory}`,{method:'DELETE'}); toast('Đã xóa','success'); refresh(); }catch(err){toast(err.message,'error');} }
+  };
+  content.onchange = async (e) => { if (e.target.id==='smm-filter-plat-cat') { filterPlatformId=e.target.value; await refresh(); } };
+  await refresh();
+}
 
-  const showServiceModal = async (service) => {
-    const isEdit = !!service;
-    const providers = await apiFetch('/api-providers/').catch(() => []);
+// ═══════════════ 3. SERVICES ═══════════════
+async function renderAdminSmmServices(view) {
+  if (!view) return;
+  const content = view;
+  let filterPlatformId = '', filterCategoryId = '', filterProviderId = '', searchQuery = '';
+  let currentPage = 1;
+  const PAGE_SIZE = 10;
+  const selectedIds = new Set();
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  const refresh = async () => {
+    const [platforms, allCats, allSvcs, providers] = await Promise.all([
+      apiFetch('/smm/platforms'),
+      apiFetch('/smm/categories/all'),
+      apiFetch('/smm/services/all'),
+      apiFetch('/api-providers/').catch(()=>[]),
+    ]);
     const smmProviders = providers.filter(p => p.provider_type === 'smm_panel');
-    const providerOptions = smmProviders.map(p => `<option value="${p.id}" ${service?.api_provider_id === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+    const filtCats = filterPlatformId ? allCats.filter(c=>c.platform_id===parseInt(filterPlatformId)) : allCats;
+    let svcs = allSvcs;
+    if (filterPlatformId) svcs = svcs.filter(s=>s.platform_id===parseInt(filterPlatformId));
+    if (filterCategoryId) svcs = svcs.filter(s=>s.category_id===parseInt(filterCategoryId));
+    if (filterProviderId) svcs = svcs.filter(s=>String(s.api_provider_id||'')===String(filterProviderId));
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      svcs = svcs.filter(s => (s.name||'').toLowerCase().includes(q) || String(s.id).includes(q));
+    }
+    const totalCount = svcs.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+    const pageSvcs = svcs.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+    const allSelectedOnPage = pageSvcs.length > 0 && pageSvcs.every(s => selectedIds.has(s.id));
 
-    openModal(`
-      <form id="smm-service-form">
-        <div class="form-group"><label class="form-label">Tên dịch vụ<span class="req">*</span></label><input class="form-input" id="ss-name" value="${service?.name || ''}" required /></div>
-        <div class="form-group"><label class="form-label">Mô tả</label><textarea class="form-input" id="ss-desc" rows="2" placeholder="Mô tả ngắn">${service?.description || ''}</textarea></div>
-        <div class="form-row form-row-2">
-          <div class="form-group"><label class="form-label">Giá / 1000<span class="req">*</span></label><input type="number" step="0.01" class="form-input" id="ss-rate" value="${service?.rate ?? ''}" required /></div>
-          <div class="form-group"><label class="form-label">Giao hàng</label><select class="form-select" id="ss-delivery"><option value="api" ${service?.delivery_type === 'api' ? 'selected' : ''}>API</option><option value="manual" ${service?.delivery_type === 'manual' || !service ? 'selected' : ''}>Thủ công</option></select></div>
+    const buildPager = () => {
+      if (totalPages <= 1) return '';
+      const btns = [];
+      btns.push(`<button class="smm-pg-btn" data-page="prev" ${currentPage===1?'disabled':''}>‹</button>`);
+      const maxBtns = 7;
+      let start = Math.max(1, currentPage - 3), end = Math.min(totalPages, start + maxBtns - 1);
+      start = Math.max(1, end - maxBtns + 1);
+      if (start > 1) { btns.push(`<button class="smm-pg-btn" data-page="1">1</button>`); if (start > 2) btns.push(`<span class="smm-pg-ellipsis">…</span>`); }
+      for (let p = start; p <= end; p++) btns.push(`<button class="smm-pg-btn${p===currentPage?' is-active':''}" data-page="${p}">${p}</button>`);
+      if (end < totalPages) { if (end < totalPages-1) btns.push(`<span class="smm-pg-ellipsis">…</span>`); btns.push(`<button class="smm-pg-btn" data-page="${totalPages}">${totalPages}</button>`); }
+      btns.push(`<button class="smm-pg-btn" data-page="next" ${currentPage===totalPages?'disabled':''}>›</button>`);
+      const from = (currentPage-1)*PAGE_SIZE + 1, to = Math.min(currentPage*PAGE_SIZE, totalCount);
+      return `<div class="smm-svc-pagination"><div class="smm-pg-info">Hiển thị ${from}-${to} / ${totalCount}</div><div class="smm-pg-btns">${btns.join('')}</div></div>`;
+    };
+
+    const cardsHtml = svcs.length === 0
+      ? '<div class="empty-state"><i class="fa-solid fa-list"></i><p>Chưa có dịch vụ phù hợp</p></div>'
+      : `<div class="smm-svc-list">${pageSvcs.map((s, i) => `
+          <div class="smm-svc-card${selectedIds.has(s.id)?' is-selected':''}" data-svc-id="${s.id}">
+            <div class="smm-svc-card-top">
+              <label class="smm-svc-cb"><input type="checkbox" data-svc-select="${s.id}" ${selectedIds.has(s.id)?'checked':''}/><span></span></label>
+              <label class="smm-switch sm" title="Bật/Tắt"><input type="checkbox" data-svc-toggle="${s.id}" ${s.is_active?'checked':''}/><span class="smm-switch-slider"></span></label>
+            </div>
+            <div class="smm-svc-num">#${s.sort_order || (i+1)}</div>
+            <div class="smm-svc-name" title="${esc(s.name)}">${esc(s.name)}${s.can_refill?'':' <span class="smm-svc-norefill">🚫 No Refill</span>'}</div>
+            <div class="smm-svc-tags">
+              ${s.category_name?`<span class="smm-tag smm-tag-cat">${esc(s.category_name)}</span>`:''}
+              ${s.api_provider_name?`<span class="smm-tag smm-tag-prov">${esc(s.api_provider_name)}${s.external_service_id?` (SID: ${esc(String(s.external_service_id))})`:''}</span>`:''}
+            </div>
+            <div class="smm-svc-price-box">
+              <div class="smm-svc-price-row"><span>Giá bán:</span><span class="smm-svc-price-sale">${fmt(s.rate)} <u>đ</u></span></div>
+              <div class="smm-svc-price-row"><span>Giá gốc:</span><span class="smm-svc-price-cost">${s.cost_rate>0?fmt(s.cost_rate):'—'}${s.cost_rate>0?' <u>đ</u>':''}</span></div>
+            </div>
+            <div class="smm-svc-minmax">Min: <b>${Number(s.min_quantity||0).toLocaleString()}</b> | Max: <b>${Number(s.max_quantity||0).toLocaleString()}</b></div>
+            <div class="smm-svc-actions">
+              <button class="btn btn-outline btn-sm" data-edit-service="${s.id}"><i class="fa-solid fa-pen"></i> Chỉnh sửa</button>
+              <button class="btn btn-outline btn-sm smm-svc-del" data-del-service="${s.id}"><i class="fa-regular fa-trash-can"></i> Xóa bỏ</button>
+            </div>
+          </div>`).join('')}</div>`;
+
+    content.innerHTML = `
+      <div class="smm-svc-header">
+        <h1 class="smm-svc-title">Quản lý Dịch vụ SMM</h1>
+        <p class="smm-svc-subtitle">Quản lý giá bán, tình trạng và nhà cung cấp cho các dịch vụ</p>
+        <div class="smm-svc-header-btns">
+          <button class="smm-svc-sync-btn" id="btn-sync-services"><i class="fa-solid fa-arrows-rotate"></i> Đồng bộ từ nguồn</button>
+          <button class="btn btn-primary" id="btn-add-service"><i class="fa-solid fa-plus"></i> Thêm dịch vụ</button>
         </div>
-        <div class="form-row form-row-2">
-          <div class="form-group"><label class="form-label">Số lượng tối thiểu</label><input type="number" class="form-input" id="ss-min" value="${service?.min_quantity ?? 10}" /></div>
-          <div class="form-group"><label class="form-label">Số lượng tối đa</label><input type="number" class="form-input" id="ss-max" value="${service?.max_quantity ?? 10000}" /></div>
+      </div>
+      <div class="smm-svc-toolbar">
+        <div class="smm-svc-filters">
+          <select class="form-select" id="smm-filter-cat-svc">
+            <option value="">Lọc theo danh mục</option>
+            ${filtCats.map(c=>`<option value="${c.id}" ${filterCategoryId==c.id?'selected':''}>${esc(c.name)}</option>`).join('')}
+          </select>
+          <select class="form-select" id="smm-filter-prov-svc">
+            <option value="">Lọc theo nhà cung cấp</option>
+            ${smmProviders.map(p=>`<option value="${p.id}" ${filterProviderId==p.id?'selected':''}>${esc(p.name)}</option>`).join('')}
+          </select>
+          <div class="smm-svc-search">
+            <input type="text" id="smm-svc-search" class="form-input" placeholder="Tìm theo tên dịch vụ..." value="${esc(searchQuery)}" />
+            <button class="smm-svc-search-btn" type="button"><i class="fa-solid fa-magnifying-glass"></i></button>
+          </div>
         </div>
-        <div class="form-row form-row-2">
-          <div class="form-group"><label class="form-label">Nguồn API</label><select class="form-select" id="ss-provider"><option value="">Không</option>${providerOptions}</select></div>
-          <div class="form-group"><label class="form-label">External Service ID</label><input class="form-input" id="ss-ext-id" value="${service?.external_service_id || ''}" placeholder="ID từ API bên ngoài" /></div>
+        <label class="smm-svc-select-all">
+          <input type="checkbox" id="smm-select-all" ${allSelectedOnPage?'checked':''}/>
+          <span></span>
+          Chọn tất cả (${totalCount})
+        </label>
+        ${selectedIds.size>0?`<div class="smm-svc-bulk-bar">
+          <span>Đã chọn ${selectedIds.size}</span>
+          <button class="btn btn-outline btn-sm" id="smm-bulk-on">Bật</button>
+          <button class="btn btn-outline btn-sm" id="smm-bulk-off">Tắt</button>
+          <button class="btn btn-outline btn-sm smm-svc-del" id="smm-bulk-del">Xóa</button>
+        </div>`:''}
+        ${cardsHtml}
+        ${buildPager()}
+      </div>`;
+  };
+  const showServiceModal = async (svc) => {
+    const isEdit = !!svc;
+    const [platforms, allCats, providers] = await Promise.all([apiFetch('/smm/platforms'), apiFetch('/smm/categories/all'), apiFetch('/api-providers/').catch(()=>[])]);
+    const smmP = providers.filter(p=>p.provider_type==='smm_panel');
+    const selCatId = isEdit?svc.category_id:filterCategoryId;
+    const selCat = allCats.find(c=>c.id===parseInt(selCatId));
+    const selPlatId = isEdit?(svc.platform_id||selCat?.platform_id):(filterPlatformId||selCat?.platform_id||'');
+    const avgIsAuto = svc?.avg_time_minutes == null;
+    const serviceTypeMeta = [
+      { v: 'Default', label: 'Default (Mặc định)', desc: 'Phù hợp cho dịch vụ truyền thống' },
+      { v: 'Package', label: 'Package', desc: 'Dùng cho dịch vụ theo gói, đặt hàng mỗi lần 1 gói, không hiển thị ô số lượng khi order' },
+      { v: 'Custom Comments', label: 'Custom Comments', desc: 'Phù hợp cho dịch vụ tăng bình luận, mỗi dòng bình luận tương ứng với số lượng 1, không hiển thị ô nhập số lượng' },
+      { v: 'Custom Comments Package', label: 'Custom Comments Package', desc: 'Phù hợp cho dịch vụ tăng bình luận theo gói, có ô nhập số lượng' },
+      { v: 'Mentions Hashtag', label: 'Mentions Hashtag', desc: 'Có ô nhập hashtag' },
+      { v: 'Subscriptions', label: 'Subscriptions', desc: 'Phù hợp cho dịch vụ đăng ký gói' },
+      { v: 'SEO', label: 'SEO', desc: 'Phù hợp cho dịch vụ SEO' },
+    ];
+    const currentType = svc?.service_type || 'Default';
+    const platOptions = platforms.map(p=>`<option value="${p.id}" ${selPlatId==p.id?'selected':''}>${esc(p.name)}</option>`).join('');
+    const catOptionsFor = (pid) => allCats.filter(c=>!pid||c.platform_id===parseInt(pid))
+      .map(c=>`<option value="${c.id}" ${selCatId==c.id?'selected':''}>${esc(c.name)}</option>`).join('');
+    openModal(`<form id="smm-svc-form" class="smm-svc-form">
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Danh mục <span class="form-hint-inline">(Yêu cầu chọn danh mục con)</span><span class="req">*</span></label>
+          <select class="form-select" id="ss-platform"><option value="">— Chọn nền tảng —</option>${platOptions}</select>
+          <select class="form-select mt-8" id="ss-category" required ${selPlatId?'':'disabled'}><option value="">— Chọn danh mục con —</option>${catOptionsFor(selPlatId)}</select>
         </div>
-        <div class="form-row form-row-3">
-          <div class="form-group"><label class="form-label">Refill</label><select class="form-select" id="ss-refill"><option value="true" ${service?.can_refill ? 'selected' : ''}>Có</option><option value="false" ${!service?.can_refill ? 'selected' : ''}>Không</option></select></div>
-          <div class="form-group"><label class="form-label">Cancel</label><select class="form-select" id="ss-cancel"><option value="true" ${service?.can_cancel ? 'selected' : ''}>Có</option><option value="false" ${!service?.can_cancel ? 'selected' : ''}>Không</option></select></div>
-          <div class="form-group"><label class="form-label">Thứ tự</label><input type="number" class="form-input" id="ss-order" value="${service?.sort_order ?? 0}" /></div>
+        <div class="form-group">
+          <label class="form-label">Nhà cung cấp (API)</label>
+          <select class="form-select" id="ss-provider"><option value="">Không (thủ công)</option>${smmP.map(p=>`<option value="${p.id}" ${svc?.api_provider_id===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select>
         </div>
-        <div class="form-group"><label class="form-label">Trạng thái</label><select class="form-select" id="ss-active"><option value="true" ${service?.is_active !== false ? 'selected' : ''}>Hiện</option><option value="false" ${service?.is_active === false ? 'selected' : ''}>Ẩn</option></select></div>
-        <div id="ss-form-err" class="form-error mb-12" style="display:none"></div>
-        <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1">${isEdit ? 'Cập nhật' : 'Tạo mới'}</button><button type="button" class="btn btn-ghost" id="ss-cancel-btn">Hủy</button></div>
-      </form>
-    `, isEdit ? `Sửa dịch vụ: ${service.name}` : 'Thêm dịch vụ');
+      </div>
+      <div class="form-group"><label class="form-label">Tên dịch vụ<span class="req">*</span></label><input class="form-input" id="ss-name" value="${esc(svc?.name||'')}" required placeholder="VD: FB Like Giá Rẻ" /></div>
+      <div class="form-row form-row-2">
+        <div class="form-group"><label class="form-label">ID dịch vụ từ Provider</label><input class="form-input" id="ss-ext-id" value="${esc(svc?.external_service_id||'')}" placeholder="VD: 145" /></div>
+        <div class="form-group"><label class="form-label">Giá bán (1,000)<span class="req">*</span></label><input type="number" step="0.01" class="form-input" id="ss-rate" value="${svc?.rate??0}" required /></div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group"><label class="form-label">Giá gốc (lấy từ API)</label><input type="number" step="0.01" class="form-input" id="ss-cost" value="${svc?.cost_rate??0}" placeholder="0" /></div>
+        <div class="form-group"></div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group"><label class="form-label">Số lượng Min</label><input type="number" class="form-input" id="ss-min" value="${svc?.min_quantity??100}" /></div>
+        <div class="form-group"><label class="form-label">Số lượng Max</label><input type="number" class="form-input" id="ss-max" value="${svc?.max_quantity??100000}" /></div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group"><label class="form-label">Loại dịch vụ (Type)</label>
+          <select class="form-select" id="ss-stype">${serviceTypeMeta.map(t=>`<option value="${t.v}" ${currentType===t.v?'selected':''}>${t.label}</option>`).join('')}</select>
+          <div class="smm-type-hint" id="ss-stype-hint">
+            <i class="fa-regular fa-circle-info"></i>
+            <div><b>Mô tả loại dịch vụ:</b><br/><span id="ss-stype-hint-text"></span></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Thời gian hoàn thành TB (Phút)</label>
+          <div class="flex gap-8 items-center">
+            <input type="number" class="form-input flex-1" id="ss-avg" value="${svc?.avg_time_minutes??0}" ${avgIsAuto?'disabled':''} placeholder="0" />
+            <label class="flex items-center gap-6" style="white-space:nowrap;cursor:pointer;font-size:13px;"><input type="checkbox" id="ss-avg-auto" ${avgIsAuto?'checked':''} /> Auto</label>
+          </div>
+          <div class="form-hint" id="ss-avg-hint" style="${avgIsAuto?'':'display:none'}">
+            ${svc?.computed_avg_time_minutes != null
+              ? `Auto: <b>${svc.computed_avg_time_minutes}</b> phút / 1.000 (TB 10 đơn gần nhất)`
+              : 'Auto: chưa đủ dữ liệu — tính từ 10 đơn hoàn thành gần nhất, chuẩn hoá về số lượng 1.000'}
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Trạng thái</label>
+        <label class="smm-switch"><input type="checkbox" id="ss-active" ${svc?.is_active!==false?'checked':''} /><span class="smm-switch-slider"></span><span class="smm-switch-label">Bật</span></label>
+      </div>
+      <div class="smm-feature-card">
+        <div class="smm-feature-card-title">Tính năng bổ sung</div>
+        <div class="smm-feature-grid">
+          <label class="smm-feature-item"><span>Drip-feed</span><span class="smm-switch sm"><input type="checkbox" id="ss-drip" ${svc?.drip_feed?'checked':''} /><span class="smm-switch-slider"></span></span></label>
+          <label class="smm-feature-item"><span>Refill</span><span class="smm-switch sm"><input type="checkbox" id="ss-refill" ${svc?.can_refill?'checked':''} /><span class="smm-switch-slider"></span></span></label>
+          <label class="smm-feature-item"><span>Cho phép Hủy</span><span class="smm-switch sm"><input type="checkbox" id="ss-cancel" ${svc?.can_cancel?'checked':''} /><span class="smm-switch-slider"></span></span></label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mô tả dịch vụ</label>
+        <div class="editor-toolbar" id="ss-desc-toolbar">
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="bold"><b>B</b></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="italic"><i>I</i></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="underline"><u>U</u></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="link"><i class="fa-solid fa-link"></i> Link</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="ul"><i class="fa-solid fa-list-ul"></i></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="ol"><i class="fa-solid fa-list-ol"></i></button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="h2">H2</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-editor-action="html"><i class="fa-solid fa-code"></i> HTML</button>
+        </div>
+        <textarea class="form-textarea rich-textarea" id="ss-desc" rows="6" placeholder="Nhập mô tả chi tiết dịch vụ...">${svc?.description||''}</textarea>
+      </div>
+      <input type="hidden" id="ss-order" value="${svc?.sort_order??0}" />
+      <div id="ss-err" class="form-error mb-12" style="display:none"></div>
+      <div class="flex gap-8 justify-end"><button type="button" class="btn btn-ghost" id="ss-cancel-btn">Cancel</button><button type="submit" class="btn btn-primary">OK</button></div>
+    </form>`, isEdit ? `Sửa: ${svc.name}` : 'Thêm dịch vụ mới');
+    // Cascade: platform → category
+    const platSel = qs('#ss-platform'), catSel = qs('#ss-category');
+    platSel.onchange = () => {
+      const pid = platSel.value;
+      const kids = allCats.filter(c=>!pid||c.platform_id===parseInt(pid));
+      catSel.disabled = !pid;
+      catSel.innerHTML = '<option value="">— Chọn danh mục con —</option>' + kids.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+    };
+    // Avg time auto checkbox
+    const avgInput = qs('#ss-avg'), avgAuto = qs('#ss-avg-auto'), avgHint = qs('#ss-avg-hint');
+    avgAuto.onchange = () => { avgInput.disabled = avgAuto.checked; avgHint.style.display = avgAuto.checked?'':'none'; };
+    // Service type hint
+    const stypeSel = qs('#ss-stype'), stypeHintTxt = qs('#ss-stype-hint-text');
+    const _updateStypeHint = () => {
+      const meta = serviceTypeMeta.find(m => m.v === stypeSel.value) || serviceTypeMeta[0];
+      stypeHintTxt.textContent = meta.desc;
+    };
+    stypeSel.onchange = _updateStypeHint;
+    _updateStypeHint();
     qs('#ss-cancel-btn').onclick = closeModal;
-    qs('#smm-service-form').onsubmit = async (e) => {
+    createRichTextEditor({ textarea: qs('#ss-desc'), toolbarId: 'ss-desc-toolbar', placeholder: 'Nhập mô tả chi tiết dịch vụ...', minHeight: 220 });
+    qs('#smm-svc-form').onsubmit = async (e) => {
       e.preventDefault();
+      if (window.syncRichTextEditors) window.syncRichTextEditors();
+      const catId = catSel.value;
+      if (!catId) { qs('#ss-err').textContent='Vui lòng chọn danh mục con'; qs('#ss-err').style.display='block'; return; }
+      const providerId = qs('#ss-provider').value;
       const body = {
         name: qs('#ss-name').value,
         description: qs('#ss-desc').value || null,
-        rate: parseFloat(qs('#ss-rate').value),
-        min_quantity: parseInt(qs('#ss-min').value) || 10,
-        max_quantity: parseInt(qs('#ss-max').value) || 10000,
-        delivery_type: qs('#ss-delivery').value,
-        api_provider_id: qs('#ss-provider').value ? parseInt(qs('#ss-provider').value) : null,
+        rate: parseFloat(qs('#ss-rate').value)||0,
+        cost_rate: parseFloat(qs('#ss-cost').value)||0,
+        min_quantity: parseInt(qs('#ss-min').value)||1,
+        max_quantity: parseInt(qs('#ss-max').value)||10000,
+        delivery_type: providerId ? 'api' : 'manual',
+        api_provider_id: providerId ? parseInt(providerId) : null,
         external_service_id: qs('#ss-ext-id').value || null,
-        can_refill: qs('#ss-refill').value === 'true',
-        can_cancel: qs('#ss-cancel').value === 'true',
-        sort_order: parseInt(qs('#ss-order').value) || 0,
-        is_active: qs('#ss-active').value === 'true',
+        can_refill: qs('#ss-refill').checked,
+        can_cancel: qs('#ss-cancel').checked,
+        drip_feed: qs('#ss-drip').checked,
+        service_type: qs('#ss-stype').value || 'Default',
+        avg_time_minutes: avgAuto.checked ? null : (parseInt(avgInput.value)||0),
+        sort_order: parseInt(qs('#ss-order').value)||0,
+        is_active: qs('#ss-active').checked,
       };
       try {
-        if (isEdit) await apiFetch(`/smm/services/${service.id}`, { method: 'PUT', body: JSON.stringify(body) });
-        else await apiFetch(`/smm/categories/${currentView.categoryId}/services`, { method: 'POST', body: JSON.stringify(body) });
-        closeModal();
-        toast(isEdit ? 'Đã cập nhật' : 'Đã tạo dịch vụ', 'success');
-        refresh();
-      } catch (err) {
-        const el = qs('#ss-form-err');
-        el.textContent = err.message;
-        el.style.display = 'block';
-      }
+        if (isEdit) await apiFetch(`/smm/services/${svc.id}`,{method:'PUT',body:JSON.stringify(body)});
+        else await apiFetch(`/smm/categories/${catId}/services`,{method:'POST',body:JSON.stringify(body)});
+        closeModal(); toast(isEdit?'Đã cập nhật':'Đã tạo','success'); refresh();
+      } catch(err){ qs('#ss-err').textContent=err.message; qs('#ss-err').style.display='block'; }
     };
   };
-
   const showSyncModal = async () => {
-    const smmProviders = content._smmProviders || [];
-    if (!smmProviders.length) {
-      toast('Chưa có nguồn API SMM Panel nào. Thêm ở Đấu nối API trước.', 'warning');
+    const [smmProviders, platforms, allCats] = await Promise.all([
+      apiFetch('/smm/providers').catch(()=>[]),
+      apiFetch('/smm/platforms'),
+      apiFetch('/smm/categories/all'),
+    ]);
+    if(!smmProviders.length){toast('Chưa có nguồn SMM. Tạo nguồn ở mục Nhà cung cấp API trước.','warning');return;}
+    if(!allCats.length){toast('Chưa có danh mục SMM nội bộ. Tạo danh mục trước.','warning');return;}
+
+    // Wizard state
+    const state = {
+      step: 1,
+      providerId: '',
+      remoteCats: [],         // [{name, count}]
+      remoteServices: [],     // full list
+      selectedCat: '',        // remote category name
+      searchQ: '',
+      selectedSids: new Set(),
+      targetCatId: '',
+      targetPlatId: filterPlatformId || '',
+    };
+
+    openModal(`
+      <div class="smm-sync-wizard">
+        <div class="smm-sync-stepper">
+          <div class="smm-sync-step is-active" data-step="1"><span>1</span>Nguồn</div>
+          <div class="smm-sync-step" data-step="2"><span>2</span>Danh mục</div>
+          <div class="smm-sync-step" data-step="3"><span>3</span>Chọn dịch vụ</div>
+          <div class="smm-sync-step" data-step="4"><span>4</span>Đồng bộ</div>
+        </div>
+        <div id="smm-sync-body"></div>
+        <div id="smm-sync-err" class="form-error mb-12" style="display:none"></div>
+        <div class="smm-sync-footer">
+          <button type="button" class="btn btn-ghost" id="sync-cancel">Hủy</button>
+          <button type="button" class="btn btn-outline" id="sync-back" style="display:none">← Quay lại</button>
+          <button type="button" class="btn btn-primary" id="sync-next">Tiếp tục →</button>
+        </div>
+      </div>
+    `, 'Đồng bộ dịch vụ từ nguồn');
+
+    const $body = qs('#smm-sync-body');
+    const $err = qs('#smm-sync-err');
+    const $next = qs('#sync-next');
+    const $back = qs('#sync-back');
+    const showErr = (m) => { $err.textContent = m || ''; $err.style.display = m ? 'block' : 'none'; };
+
+    const updateStepper = () => {
+      qsa('.smm-sync-step', qs('.smm-sync-wizard')).forEach(el => {
+        const s = parseInt(el.dataset.step);
+        el.classList.toggle('is-active', s === state.step);
+        el.classList.toggle('is-done', s < state.step);
+      });
+      $back.style.display = state.step > 1 ? '' : 'none';
+      $next.textContent = state.step === 4 ? '✓ Đồng bộ' : (state.step === 3 ? 'Tiếp tục →' : 'Tiếp tục →');
+    };
+
+    const renderStep1 = () => {
+      $body.innerHTML = `
+        <div class="form-group">
+          <label class="form-label">Chọn nguồn API (SMM)<span class="req">*</span></label>
+          <select class="form-select" id="sw-prov">
+            <option value="">— Chọn nguồn —</option>
+            ${smmProviders.map(p=>`<option value="${p.id}" ${state.providerId==p.id?'selected':''}>${esc(p.name)}</option>`).join('')}
+          </select>
+          <div class="form-hint">Nguồn sẽ cung cấp danh sách danh mục và dịch vụ để chọn.</div>
+        </div>
+      `;
+      qs('#sw-prov', $body).onchange = (e) => { state.providerId = e.target.value; showErr(''); };
+    };
+
+    const renderStep2 = () => {
+      const list = state.remoteCats.length === 0
+        ? '<div class="empty-state"><i class="fa-solid fa-folder-open"></i><p>Nguồn không trả về danh mục.</p></div>'
+        : `<div class="smm-sync-cats">${state.remoteCats.map(c => `
+            <label class="smm-sync-cat${state.selectedCat===c.name?' is-active':''}">
+              <input type="radio" name="sw-cat" value="${esc(c.name)}" ${state.selectedCat===c.name?'checked':''}/>
+              <div class="smm-sync-cat-name">${esc(c.name)}</div>
+              <div class="smm-sync-cat-count">${c.count} dịch vụ</div>
+            </label>
+          `).join('')}</div>`;
+      $body.innerHTML = `
+        <div class="form-group">
+          <label class="form-label">Tìm danh mục</label>
+          <input type="text" id="sw-cat-search" class="form-input" placeholder="Lọc theo tên danh mục..." />
+        </div>
+        <div id="sw-cat-list">${list}</div>
+      `;
+      const renderList = (q='') => {
+        const ql = q.toLowerCase();
+        const filtered = state.remoteCats.filter(c => !ql || c.name.toLowerCase().includes(ql));
+        qs('#sw-cat-list', $body).innerHTML = filtered.length === 0
+          ? '<div class="empty-state"><p>Không có danh mục phù hợp</p></div>'
+          : `<div class="smm-sync-cats">${filtered.map(c => `
+              <label class="smm-sync-cat${state.selectedCat===c.name?' is-active':''}">
+                <input type="radio" name="sw-cat" value="${esc(c.name)}" ${state.selectedCat===c.name?'checked':''}/>
+                <div class="smm-sync-cat-name">${esc(c.name)}</div>
+                <div class="smm-sync-cat-count">${c.count} dịch vụ</div>
+              </label>
+            `).join('')}</div>`;
+      };
+      qs('#sw-cat-search', $body).oninput = (e) => renderList(e.target.value);
+      $body.addEventListener('change', (e) => {
+        if (e.target.name === 'sw-cat') {
+          state.selectedCat = e.target.value;
+          qsa('.smm-sync-cat', $body).forEach(el => el.classList.toggle('is-active', el.querySelector('input').checked));
+          showErr('');
+        }
+      });
+    };
+
+    const renderStep3 = () => {
+      const inCat = state.remoteServices.filter(s => s.category === state.selectedCat);
+      const renderTable = (q='') => {
+        const ql = (q||'').toLowerCase().trim();
+        const filtered = ql
+          ? inCat.filter(s => String(s.service).includes(ql) || (s.name||'').toLowerCase().includes(ql))
+          : inCat;
+        const allOnPageChecked = filtered.length > 0 && filtered.every(s => state.selectedSids.has(s.service));
+        qs('#sw-svc-list', $body).innerHTML = `
+          <div class="smm-sync-svc-head">
+            <label class="smm-sync-svc-check-all">
+              <input type="checkbox" id="sw-all" ${allOnPageChecked?'checked':''}/>
+              <span>Chọn tất cả (${filtered.length})</span>
+            </label>
+            <div class="smm-sync-svc-selected">Đã chọn: <b>${state.selectedSids.size}</b></div>
+          </div>
+          <div class="smm-sync-svc-list">
+            ${filtered.length === 0
+              ? '<div class="empty-state"><p>Không có dịch vụ phù hợp</p></div>'
+              : filtered.map(s => `
+                <label class="smm-sync-svc${state.selectedSids.has(s.service)?' is-selected':''}">
+                  <input type="checkbox" data-sid="${s.service}" ${state.selectedSids.has(s.service)?'checked':''}/>
+                  <div class="smm-sync-svc-main">
+                    <div class="smm-sync-svc-id">#${s.service}</div>
+                    <div class="smm-sync-svc-name">${esc(s.name)}</div>
+                  </div>
+                  <div class="smm-sync-svc-meta">
+                    <span class="smm-sync-svc-price">${fmt(s.rate_local)} đ/1000</span>
+                    <span class="smm-sync-svc-mm">Min ${Number(s.min).toLocaleString()} · Max ${Number(s.max).toLocaleString()}</span>
+                    <span class="smm-sync-svc-type">${esc(s.type)}</span>
+                  </div>
+                </label>
+              `).join('')}
+          </div>`;
+        qs('#sw-all', $body).onchange = (e) => {
+          if (e.target.checked) filtered.forEach(s => state.selectedSids.add(s.service));
+          else filtered.forEach(s => state.selectedSids.delete(s.service));
+          renderTable(qs('#sw-svc-search', $body).value);
+        };
+        qsa('[data-sid]', $body).forEach(cb => {
+          cb.onchange = (e) => {
+            const sid = parseInt(e.target.dataset.sid);
+            if (e.target.checked) state.selectedSids.add(sid);
+            else state.selectedSids.delete(sid);
+            e.target.closest('.smm-sync-svc').classList.toggle('is-selected', e.target.checked);
+            qs('.smm-sync-svc-selected', $body).innerHTML = `Đã chọn: <b>${state.selectedSids.size}</b>`;
+          };
+        });
+      };
+      $body.innerHTML = `
+        <div class="smm-sync-cat-pill">Danh mục provider: <b>${esc(state.selectedCat)}</b> (${inCat.length} dịch vụ)</div>
+        <div class="form-group">
+          <input type="text" id="sw-svc-search" class="form-input" placeholder="Tìm theo ID hoặc tên dịch vụ..." value="${esc(state.searchQ)}"/>
+        </div>
+        <div id="sw-svc-list"></div>
+      `;
+      renderTable(state.searchQ);
+      qs('#sw-svc-search', $body).oninput = (e) => {
+        state.searchQ = e.target.value;
+        renderTable(state.searchQ);
+      };
+    };
+
+    const renderStep4 = () => {
+      const platOptions = platforms.map(p=>`<option value="${p.id}" ${state.targetPlatId==p.id?'selected':''}>${esc(p.name)}</option>`).join('');
+      const catFor = (pid) => allCats.filter(c=>!pid||c.platform_id===parseInt(pid))
+        .map(c=>`<option value="${c.id}" ${state.targetCatId==c.id?'selected':''}>${esc(c.name)}</option>`).join('');
+      $body.innerHTML = `
+        <div class="form-group">
+          <label class="form-label">Đồng bộ <b>${state.selectedSids.size}</b> dịch vụ vào danh mục nội bộ</label>
+        </div>
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label">Nền tảng<span class="req">*</span></label>
+            <select class="form-select" id="sw-plat"><option value="">— Chọn —</option>${platOptions}</select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Danh mục đích<span class="req">*</span></label>
+            <select class="form-select" id="sw-tcat" ${state.targetPlatId?'':'disabled'}>
+              <option value="">— Chọn —</option>${catFor(state.targetPlatId)}
+            </select>
+          </div>
+        </div>
+        <div class="form-hint">Các dịch vụ đã chọn sẽ được tạo mới hoặc cập nhật nếu đã tồn tại (cùng nguồn + SID).</div>
+      `;
+      qs('#sw-plat', $body).onchange = (e) => {
+        state.targetPlatId = e.target.value;
+        state.targetCatId = '';
+        const sel = qs('#sw-tcat', $body);
+        sel.disabled = !state.targetPlatId;
+        sel.innerHTML = `<option value="">— Chọn —</option>${catFor(state.targetPlatId)}`;
+      };
+      qs('#sw-tcat', $body).onchange = (e) => { state.targetCatId = e.target.value; showErr(''); };
+    };
+
+    const render = () => {
+      updateStepper();
+      showErr('');
+      if (state.step === 1) renderStep1();
+      else if (state.step === 2) renderStep2();
+      else if (state.step === 3) renderStep3();
+      else if (state.step === 4) renderStep4();
+    };
+
+    $back.onclick = () => { if (state.step > 1) { state.step--; render(); } };
+    qs('#sync-cancel').onclick = closeModal;
+
+    $next.onclick = async () => {
+      try {
+        if (state.step === 1) {
+          if (!state.providerId) { showErr('Chọn nguồn API trước.'); return; }
+          $next.disabled = true; $next.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang tải...';
+          const data = await apiFetch(`/smm/providers/${state.providerId}/remote-services`);
+          state.remoteCats = data.categories || [];
+          state.remoteServices = data.services || [];
+          state.step = 2; render();
+        } else if (state.step === 2) {
+          if (!state.selectedCat) { showErr('Chọn một danh mục từ nguồn.'); return; }
+          state.step = 3; render();
+        } else if (state.step === 3) {
+          if (state.selectedSids.size === 0) { showErr('Chọn ít nhất một dịch vụ.'); return; }
+          state.step = 4; render();
+        } else if (state.step === 4) {
+          if (!state.targetCatId) { showErr('Chọn danh mục đích.'); return; }
+          $next.disabled = true; $next.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang đồng bộ...';
+          const res = await apiFetch('/smm/services/sync-selected', {
+            method: 'POST',
+            body: JSON.stringify({
+              provider_id: parseInt(state.providerId),
+              target_category_id: parseInt(state.targetCatId),
+              external_service_ids: [...state.selectedSids],
+            }),
+          });
+          toast(`Đã đồng bộ ${res.selected||0} dịch vụ (Tạo ${res.created||0}, Cập nhật ${res.updated||0})`, 'success');
+          closeModal();
+          refresh();
+        }
+      } catch (err) {
+        showErr(err.message || String(err));
+      } finally {
+        $next.disabled = false;
+        $next.textContent = state.step === 4 ? '✓ Đồng bộ' : 'Tiếp tục →';
+      }
+    };
+
+    render();
+  };
+  content.onclick = async (e) => {
+    if(e.target.closest('#btn-add-service')){showServiceModal(null);return;}
+    if(e.target.closest('#btn-sync-services')){showSyncModal();return;}
+    const eb=e.target.closest('[data-edit-service]');
+    if(eb){const ss=await apiFetch('/smm/services/all');const s=ss.find(x=>x.id===parseInt(eb.dataset.editService));if(s)showServiceModal(s);return;}
+    const db=e.target.closest('[data-del-service]');
+    if(db){if(!confirm('Xóa dịch vụ này?'))return;try{await apiFetch(`/smm/services/${db.dataset.delService}`,{method:'DELETE'});toast('Đã xóa','success');refresh();}catch(err){toast(err.message,'error');}return;}
+    if(e.target.closest('.smm-svc-search-btn')){currentPage=1;refresh();return;}
+    const pgBtn = e.target.closest('[data-page]');
+    if(pgBtn && !pgBtn.disabled){
+      const v = pgBtn.dataset.page;
+      if(v==='prev') currentPage = Math.max(1, currentPage-1);
+      else if(v==='next') currentPage = currentPage + 1;
+      else currentPage = parseInt(v) || 1;
+      refresh();
       return;
     }
-    const providerOptions = smmProviders.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
-    openModal(`
-      <form id="smm-sync-form">
-        <div class="form-group"><label class="form-label">Nguồn API<span class="req">*</span></label><select class="form-select" id="sync-provider" required><option value="">Chọn nguồn</option>${providerOptions}</select></div>
-        <div class="text-muted text-sm mb-12">Dịch vụ sẽ được đồng bộ từ API provider vào nền tảng hiện tại.</div>
-        <div id="sync-form-err" class="form-error mb-12" style="display:none"></div>
-        <div id="sync-result" style="display:none" class="mb-12"></div>
-        <div class="flex gap-8"><button type="submit" class="btn btn-primary flex-1" id="sync-submit"><i class="fa-solid fa-arrows-rotate"></i> Sync</button><button type="button" class="btn btn-ghost" id="sync-cancel">Hủy</button></div>
-      </form>
-    `, 'Sync dịch vụ từ API');
-    qs('#sync-cancel').onclick = closeModal;
-    qs('#smm-sync-form').onsubmit = async (e) => {
-      e.preventDefault();
-      const providerId = parseInt(qs('#sync-provider').value);
-      if (!providerId) return;
-      const submitBtn = qs('#sync-submit');
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang sync...';
+    if(e.target.closest('#smm-bulk-on') || e.target.closest('#smm-bulk-off')){
+      const onMode = !!e.target.closest('#smm-bulk-on');
       try {
-        const res = await apiFetch('/smm/services/sync', { method: 'POST', body: JSON.stringify({ provider_id: providerId, platform_id: currentView.platformId }) });
-        const resultEl = qs('#sync-result');
-        resultEl.style.display = 'block';
-        resultEl.innerHTML = `<div class="text-success">Đồng bộ thành công! ${res.synced ?? 0} dịch vụ đã được cập nhật.</div>`;
-        toast('Đã sync dịch vụ', 'success');
-        setTimeout(() => { closeModal(); refresh(); }, 1500);
-      } catch (err) {
-        const el = qs('#sync-form-err');
-        el.textContent = err.message;
-        el.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Sync';
-      }
-    };
+        await Promise.all([...selectedIds].map(id =>
+          apiFetch(`/smm/services/${id}/active`,{method:'PATCH',body:JSON.stringify({is_active:onMode})})
+        ));
+        toast(onMode?'Đã bật':'Đã tắt','success'); selectedIds.clear(); refresh();
+      } catch(err){ toast(err.message,'error'); }
+      return;
+    }
+    if(e.target.closest('#smm-bulk-del')){
+      if(!confirm(`Xóa ${selectedIds.size} dịch vụ?`))return;
+      try { await Promise.all([...selectedIds].map(id=>apiFetch(`/smm/services/${id}`,{method:'DELETE'}))); toast('Đã xóa','success'); selectedIds.clear(); refresh(); }
+      catch(err){ toast(err.message,'error'); }
+      return;
+    }
   };
+  content.onchange = async (e) => {
+    if(e.target.id==='smm-filter-cat-svc'){filterCategoryId=e.target.value;currentPage=1;await refresh();return;}
+    if(e.target.id==='smm-filter-prov-svc'){filterProviderId=e.target.value;currentPage=1;await refresh();return;}
+    if(e.target.id==='smm-select-all'){
+      const cbs = content.querySelectorAll('[data-svc-select]');
+      if(e.target.checked){cbs.forEach(cb=>selectedIds.add(parseInt(cb.dataset.svcSelect)));}
+      else { cbs.forEach(cb=>selectedIds.delete(parseInt(cb.dataset.svcSelect))); }
+      await refresh();
+      return;
+    }
+    if(e.target.dataset.svcSelect){
+      const id = parseInt(e.target.dataset.svcSelect);
+      if(e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+      const card = e.target.closest('.smm-svc-card');
+      if(card) card.classList.toggle('is-selected', e.target.checked);
+      return;
+    }
+    if(e.target.dataset.svcToggle){
+      const id = parseInt(e.target.dataset.svcToggle);
+      const wantActive = e.target.checked;
+      try {
+        await apiFetch(`/smm/services/${id}/active`,{method:'PATCH',body:JSON.stringify({is_active:wantActive})});
+        toast(wantActive?'Đã bật':'Đã tắt','success');
+      } catch(err){ toast(err.message,'error'); e.target.checked = !wantActive; }
+      return;
+    }
+  };
+  content.oninput = (e) => {
+    if(e.target.id==='smm-svc-search'){
+      searchQuery = e.target.value || '';
+      currentPage = 1;
+      clearTimeout(content._smmSearchT);
+      content._smmSearchT = setTimeout(refresh, 250);
+    }
+  };
+  await refresh();
+}
+
+// ═══════════════ 4. ORDERS ═══════════════
+async function renderAdminSmmOrders(view) {
+  if (!view) return;
+  const content = view;
+  let orderStatus = '', orderSearch = '', orderPage = 1;
+  const LIMIT = 10;
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+
+  const sLabels = { pending:'Chờ xử lý', processing:'Đang xử lý', in_progress:'Đang chạy', completed:'Hoàn thành', partial:'Hoàn một phần', canceled:'Đã hủy' };
+  const sOpts = ['pending','processing','in_progress','completed','partial','canceled'];
+  const fmtD = (iso) => { if(!iso) return '—'; const d=new Date(iso); return d.toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}); };
+  const fmtD2 = (iso) => { if(!iso) return '—'; const d=new Date(iso); return d.toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'}); };
+  const copyBtn = (text) => `<button class="smm-copy-btn" data-copy="${esc(text)}" title="Sao chép"><i class="fa-regular fa-clipboard"></i></button>`;
+
+  const refresh = async () => {
+    let url = `/smm/admin/orders?limit=${LIMIT}&page=${orderPage}`;
+    if (orderStatus) url += `&status=${orderStatus}`;
+    if (orderSearch) url += `&search=${encodeURIComponent(orderSearch)}`;
+    const data = await apiFetch(url);
+    const orders = data.orders || [], total = data.total || 0, totalPages = Math.ceil(total / LIMIT) || 1;
+    const st = data.stats || {};
+
+    content.innerHTML = `
+      ${cuiPageHeader('Quản lý Đơn hàng SMM', 'Theo dõi, cập nhật và xử lý tất cả các đơn hàng của người dùng')}
+
+      <!-- Controls -->
+      <div class="smm-admin-controls">
+        <button class="smm-admin-filter-btn${orderStatus||orderSearch?' active':''}" id="smm-filter-toggle">
+          <i class="fa-solid fa-filter"></i> Bộ lọc
+        </button>
+        <button class="smm-admin-refresh-btn" id="btn-check-all">
+          <i class="fa-solid fa-arrows-rotate"></i> Làm mới dữ liệu
+        </button>
+      </div>
+
+      <!-- Filter panel -->
+      <div class="smm-admin-filter-panel${orderStatus||orderSearch?' open':''}" id="smm-filter-panel">
+        <select class="form-select" id="smm-order-status">
+          <option value="">Tất cả trạng thái</option>
+          ${sOpts.map(s => `<option value="${s}" ${orderStatus===s?'selected':''}>${sLabels[s]}</option>`).join('')}
+        </select>
+        <input type="text" class="smm-search-input" id="smm-order-search" placeholder="Tìm mã đơn, link, dịch vụ..." value="${esc(orderSearch)}">
+      </div>
+
+      <!-- Stats -->
+      <div class="smm-admin-stats">
+        <div class="smm-admin-stat-card">
+          <div class="smm-admin-stat-icon blue"><i class="fa-solid fa-list-check"></i></div>
+          <div><div class="smm-admin-stat-label">Tổng đơn hàng</div><div class="smm-admin-stat-value">${st.total||0}</div></div>
+        </div>
+        <div class="smm-admin-stat-card">
+          <div class="smm-admin-stat-icon orange"><i class="fa-regular fa-clock"></i></div>
+          <div><div class="smm-admin-stat-label">Chờ xử lý</div><div class="smm-admin-stat-value">${st.pending||0}</div></div>
+        </div>
+        <div class="smm-admin-stat-card">
+          <div class="smm-admin-stat-icon cyan"><i class="fa-solid fa-spinner"></i></div>
+          <div><div class="smm-admin-stat-label">Đang chạy</div><div class="smm-admin-stat-value">${st.in_progress||0}</div></div>
+        </div>
+        <div class="smm-admin-stat-card">
+          <div class="smm-admin-stat-icon green"><i class="fa-solid fa-circle-check"></i></div>
+          <div><div class="smm-admin-stat-label">Hoàn thành</div><div class="smm-admin-stat-value">${st.completed||0}</div></div>
+        </div>
+        <div class="smm-admin-stat-card">
+          <div class="smm-admin-stat-icon yellow"><i class="fa-solid fa-circle-half-stroke"></i></div>
+          <div><div class="smm-admin-stat-label">Một phần</div><div class="smm-admin-stat-value">${st.partial||0}</div></div>
+        </div>
+        <div class="smm-admin-stat-card">
+          <div class="smm-admin-stat-icon red"><i class="fa-solid fa-circle-xmark"></i></div>
+          <div><div class="smm-admin-stat-label">Đã hủy</div><div class="smm-admin-stat-value">${st.canceled||0}</div></div>
+        </div>
+        <div class="smm-admin-stat-card">
+          <div class="smm-admin-stat-icon blue"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+          <div><div class="smm-admin-stat-label">Doanh thu</div><div class="smm-admin-stat-value" style="color:#ef4444;">${fmt(st.revenue||0)}</div></div>
+        </div>
+      </div>
+
+      <!-- Order cards -->
+      <div class="smm-admin-orders">
+        ${orders.length === 0 ? '<div class="empty-state"><i class="fa-solid fa-inbox"></i><p>Chưa có đơn hàng</p></div>' : ''}
+        ${orders.map(o => {
+          const rem = o.remains != null ? o.remains : o.quantity;
+          const profit = (o.charge || 0);
+          const linkShort = o.link && o.link.length > 40 ? o.link.substring(0, 40) + '…' : (o.link || '—');
+          const isUrl = o.link && (o.link.startsWith('http://') || o.link.startsWith('https://'));
+          return `
+          <div class="smm-admin-order" data-order-id="${o.id}">
+            <!-- Head: code + status -->
+            <div class="smm-admin-order-head">
+              <div class="smm-admin-order-id">
+                <input type="checkbox" data-oid="${o.id}">
+                <div>
+                  <div class="smm-admin-order-code">#${esc(String(o.code||o.id))}</div>
+                  <div class="smm-admin-order-date">${fmtD(o.created_at)}</div>
+                </div>
+              </div>
+              <div class="smm-admin-order-status smm-admin-order-status-pill smmao-pill-${o.status||'pending'}">
+                <select data-change-status="${o.id}">${sOpts.map(s => `<option value="${s}" ${o.status===s?'selected':''}>${sLabels[s].toUpperCase()}</option>`).join('')}</select>
+                <i class="fa-solid fa-chevron-down"></i>
+              </div>
+            </div>
+
+            <!-- Service + Link -->
+            <div class="smm-admin-order-service">
+              <div class="smm-admin-order-svc-row">
+                ${o.service_id ? `<span class="smm-admin-order-svc-id">${o.service_id}</span>` : ''}
+                <span class="smm-admin-order-svc-name">${esc(o.service_name||'—')}</span>
+              </div>
+              <div class="smm-admin-order-link-row">
+                ${isUrl ? `<a href="${esc(o.link)}" target="_blank" class="smm-order-link">${esc(linkShort)}</a>` : `<span class="smm-admin-order-link">${esc(linkShort)}</span>`}
+                ${copyBtn(o.link||'')}
+              </div>
+            </div>
+
+            <!-- Customer + API -->
+            <div class="smm-admin-order-info">
+              <div class="smm-admin-order-info-cell">
+                <div class="smm-admin-order-info-label">Khách hàng</div>
+                <div class="smm-admin-order-info-value"><strong>${esc(o.user_name||'—')}</strong></div>
+                <div class="smm-admin-order-info-value"><span class="smm-admin-muted">${esc(o.user_email||'')}</span> ${copyBtn(o.user_email||'')}</div>
+              </div>
+              ${o.delivery_type === 'api' ? `
+              <div class="smm-admin-order-info-cell">
+                <div class="smm-admin-order-info-label">API / Provider</div>
+                <div class="smm-admin-order-info-value">API: <span class="smm-admin-api-id">#${esc(o.external_order_id||'—')}</span> ${copyBtn(o.external_order_id||'')}</div>
+                <div class="smm-admin-order-info-value"><span class="smm-admin-muted">${esc(o.provider_name||'—')}</span></div>
+              </div>` : `
+              <div class="smm-admin-order-info-cell">
+                <div class="smm-admin-order-info-label">Giao hàng</div>
+                <div class="smm-admin-order-info-value">${_delivBadge(o.delivery_type)}</div>
+              </div>`}
+            </div>
+
+            <!-- Quantity & Progress -->
+            <div class="smm-admin-order-qty">
+              <div class="smm-admin-order-section-title">Số lượng & Tiến độ</div>
+              <div class="smm-admin-order-qty-row">
+                <div class="smm-admin-order-qty-item">Tổng: <span>${o.quantity}</span></div>
+                <div class="smm-admin-order-qty-item">C.Lại: <span class="${rem>0?'red':''}">${rem!=null?rem:'—'}</span></div>
+                <div class="smm-admin-order-qty-item">Đầu: <span class="${o.start_count?'green':''}">${o.start_count!=null?Number(o.start_count).toLocaleString('vi-VN'):'0'}</span></div>
+              </div>
+            </div>
+
+            <!-- Finance -->
+            <div class="smm-admin-order-finance">
+              <div class="smm-admin-order-section-title">Tài chính (VND)</div>
+              <div class="smm-admin-order-fin-row">
+                <div class="smm-admin-order-fin-item"><span class="red">${fmt(o.charge||0)}</span></div>
+                <div class="smm-admin-order-fin-item"><span class="gray">0 đ</span></div>
+                <div class="smm-admin-order-fin-item"><span class="green">+${fmt(profit)}</span></div>
+              </div>
+            </div>
+
+            <!-- Schedule & Repeat -->
+            ${o.scheduled_at || o.repeat_count > 0 ? `
+            <div class="smm-admin-order-schedule">
+              ${o.scheduled_at ? `<span class="badge badge-purple"><i class="fa-regular fa-clock"></i> Lịch: ${fmtD(o.scheduled_at)}</span>` : ''}
+              ${o.repeat_count > 0 ? `<span class="badge badge-blue"><i class="fa-solid fa-rotate"></i> Lặp ${o.repeat_count}x (còn ${o.repeat_remaining||0})</span>` : ''}
+              ${o.parent_order_id ? `<span class="badge badge-gray"><i class="fa-solid fa-link"></i> Từ #${o.parent_order_id}</span>` : ''}
+            </div>` : ''}
+
+            <!-- Actions -->
+            <div class="smm-admin-order-actions smm-admin-order-actions-v2">
+              <button class="smmao-edit-btn" data-edit-order="${o.id}"><i class="fa-solid fa-pen-to-square"></i> Chi tiết / Sửa</button>
+              <button class="smmao-del-btn" data-delete-order="${o.id}" title="Xóa đơn hàng"><i class="fa-regular fa-trash-can"></i></button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <!-- Pagination -->
+      ${totalPages > 1 ? buildPagination(orderPage, totalPages) : ''}`;
+  };
+
+  function buildPagination(page, totalPages) {
+    const range = [];
+    if (totalPages <= 5) { for (let i=1; i<=totalPages; i++) range.push(i); }
+    else { range.push(1); if(page>3) range.push('…'); for(let i=Math.max(2,page-1);i<=Math.min(totalPages-1,page+1);i++) range.push(i); if(page<totalPages-2) range.push('…'); range.push(totalPages); }
+    return `<div class="smm-pagination">
+      <button class="smm-page-btn${page<=1?' disabled':''}" data-order-page="${page-1}"><i class="fa-solid fa-chevron-left"></i></button>
+      ${range.map(p => p==='…' ? '<span class="smm-page-dots">…</span>' : `<button class="smm-page-btn${p===page?' active':''}" data-order-page="${p}">${p}</button>`).join('')}
+      <button class="smm-page-btn${page>=totalPages?' disabled':''}" data-order-page="${page+1}"><i class="fa-solid fa-chevron-right"></i></button>
+    </div>`;
+  }
+
+  // ── Detail/Edit Modal ──
+  function showEditModal(o) {
+    const copyLinkBtn = (text) => `<button class="smmao-modal-copy" data-copy="${esc(text)}"><i class="fa-regular fa-clipboard"></i> Sao chép</button>`;
+    openModal(`
+      <div class="smmao-modal">
+        <div class="smmao-modal-section">
+          <div class="smmao-modal-section-title">Thông tin cơ bản</div>
+          <table class="smmao-modal-table">
+            <tr><td class="lbl">Mã đơn hàng</td><td><span class="smmao-link">#${esc(String(o.code||o.id))}</span> ${copyBtn(String(o.code||o.id))}</td></tr>
+            <tr><td class="lbl">Ngày đặt</td><td>${fmtD2(o.created_at)}</td></tr>
+            <tr><td class="lbl">Khách hàng</td><td><span class="smmao-link smmao-strong">${esc(o.user_name||'—')}</span><div class="smmao-muted">${esc(o.user_email||'')}</div></td></tr>
+            <tr><td class="lbl">Dịch vụ</td><td><strong>${o.service_id?`[${o.service_id}] `:''}${esc(o.service_name||'—')}</strong></td></tr>
+            <tr><td class="lbl">Số lượng</td><td>${o.quantity}</td></tr>
+            <tr><td class="lbl">Tổng thanh toán</td><td class="smmao-fin-red">${fmt(o.charge||0)}</td></tr>
+            <tr><td class="lbl">Giá vốn (Ước tính)</td><td class="smmao-fin-blue">${fmt(0)}</td></tr>
+            <tr><td class="lbl">Lợi nhuận</td><td class="smmao-fin-green">${fmt(o.charge||0)}</td></tr>
+            <tr><td class="lbl">Liên kết (Link)</td><td class="smmao-link-row"><a href="${esc(o.link||'')}" target="_blank" class="smmao-underline">${esc(o.link||'—')}</a>${copyLinkBtn(o.link||'')}</td></tr>
+          </table>
+        </div>
+
+        ${(true) ? `
+        <div class="smmao-modal-section">
+          <div class="smmao-modal-section-title">Thông tin API đối tác</div>
+          <table class="smmao-modal-table">
+            <tr><td class="lbl">Mã đơn API</td><td>${o.external_order_id ? `<span class="smmao-link">#${esc(String(o.external_order_id))}</span> ${copyBtn(String(o.external_order_id))}` : '<span class="smmao-muted">—</span>'}</td></tr>
+            <tr><td class="lbl">Nhà cung cấp</td><td>${o.provider_name ? esc(o.provider_name) : '<span class="smmao-muted">Manual (không qua API)</span>'}</td></tr>
+            <tr><td class="lbl">API URL</td><td class="smmao-break">${o.provider_url ? esc(o.provider_url) : '<span class="smmao-muted">—</span>'}</td></tr>
+          </table>
+        </div>` : ''}
+
+        <div class="smmao-modal-section">
+          <div class="smmao-modal-section-title smmao-accent">Cập nhật xử lý</div>
+          <div class="smmao-form-group">
+            <label>Trạng thái đơn hàng</label>
+            <select class="form-select smmao-input" id="modal-status">
+              ${sOpts.map(s => `<option value="${s}" ${o.status===s?'selected':''}>${sLabels[s]}</option>`).join('')}
+            </select>
+          </div>
+          <div class="smmao-form-group">
+            <label>Số lượng bắt đầu</label>
+            <input type="number" class="form-input smmao-input" id="modal-start-count" value="${o.start_count||0}">
+          </div>
+          <div class="smmao-form-group">
+            <label>Số lượng còn lại</label>
+            <input type="number" class="form-input smmao-input" id="modal-remains" value="${o.remains!=null?o.remains:o.quantity}">
+          </div>
+          <div class="smmao-form-group">
+            <label>Bình luận đặt đơn (từ user)</label>
+            <textarea class="form-input smmao-input smmao-readonly" id="modal-user-comment" rows="2" readonly>${esc(o.user_comment||'—')}</textarea>
+          </div>
+          <div class="smmao-form-group">
+            <label>Ghi chú Admin</label>
+            <textarea class="form-input smmao-input" id="modal-admin-notes" rows="3" placeholder="Nhập ghi chú nội bộ">${esc(o.admin_notes||'')}</textarea>
+          </div>
+        </div>
+
+        <div class="smmao-modal-actions">
+          <button class="smmao-btn-cancel" id="modal-cancel">Cancel</button>
+          <button class="smmao-btn-ok" id="modal-ok">OK</button>
+        </div>
+      </div>
+    `, 'Chi tiết & Cập nhật đơn hàng');
+
+    // Copy buttons inside modal
+    setTimeout(() => {
+      const mc = qs('#modal-content');
+      if (!mc) return;
+      mc.querySelectorAll('.smm-copy-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          navigator.clipboard.writeText(btn.dataset.copy).then(() => toast('Đã sao chép', 'success'));
+        });
+      });
+      qs('#modal-cancel', mc).onclick = () => closeModal();
+      qs('#modal-ok', mc).onclick = async () => {
+        const btn = qs('#modal-ok', mc);
+        btn.disabled = true; btn.textContent = 'Đang lưu...';
+        try {
+          await apiFetch(`/smm/admin/orders/${o.id}/status`, { method: 'PUT', body: JSON.stringify({
+            status: qs('#modal-status', mc).value,
+            start_count: parseInt(qs('#modal-start-count', mc).value) || 0,
+            remains: parseInt(qs('#modal-remains', mc).value) || 0,
+            admin_notes: qs('#modal-admin-notes', mc).value || null,
+          })});
+          toast('Đã cập nhật', 'success');
+          closeModal();
+          refresh();
+        } catch (err) { toast(err.message, 'error'); btn.disabled = false; btn.textContent = 'OK'; }
+      };
+    }, 50);
+  }
 
   // ── Event delegation ──
   content.onclick = async (e) => {
-    // Tab switching
-    const tabBtn = e.target.closest('[data-smm-tab]');
-    if (tabBtn) {
-      activeTab = tabBtn.dataset.smmTab;
-      if (activeTab === 'platforms') currentView = { level: 'platforms' };
-      orderPage = 1;
-      await refresh();
+    // Check all / Refresh
+    if (e.target.closest('#btn-check-all')) {
+      const b = e.target.closest('#btn-check-all');
+      b.disabled = true; b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang kiểm tra...';
+      try { await apiFetch('/smm/admin/orders/check-all', {method:'POST'}); toast('Đã kiểm tra tất cả', 'success'); refresh(); } catch(err) { toast(err.message, 'error'); b.disabled=false; b.innerHTML='<i class="fa-solid fa-arrows-rotate"></i> Làm mới dữ liệu'; }
       return;
     }
-
-    // Breadcrumb navigation
-    const bcItem = e.target.closest('[data-bc-level]');
-    if (bcItem) {
-      const level = bcItem.dataset.bcLevel;
-      if (level === 'platforms') currentView = { level: 'platforms' };
-      else if (level === 'categories') currentView = { level: 'categories', platformId: parseInt(bcItem.dataset.bcPlatformId), platformName: bcItem.textContent.trim() };
-      await refresh();
+    // Filter toggle
+    if (e.target.closest('#smm-filter-toggle')) {
+      const panel = content.querySelector('#smm-filter-panel');
+      const btn = content.querySelector('#smm-filter-toggle');
+      panel.classList.toggle('open');
+      btn.classList.toggle('active');
       return;
     }
-
-    // Platform row click → drill into categories
-    const platformRow = e.target.closest('[data-platform-id]');
-    if (platformRow && !e.target.closest('.tbl-actions')) {
-      currentView = { level: 'categories', platformId: parseInt(platformRow.dataset.platformId), platformName: platformRow.dataset.platformName };
-      await refresh();
-      return;
-    }
-
-    // Category row click → drill into services
-    const categoryRow = e.target.closest('[data-category-id]');
-    if (categoryRow && !e.target.closest('.tbl-actions')) {
-      currentView = { ...currentView, level: 'services', categoryId: parseInt(categoryRow.dataset.categoryId), categoryName: categoryRow.dataset.categoryName };
-      await refresh();
-      return;
-    }
-
-    // Add platform
-    if (e.target.closest('#btn-add-platform')) { showPlatformModal(null); return; }
-
-    // Edit platform
-    const editPlatformBtn = e.target.closest('[data-edit-platform]');
-    if (editPlatformBtn) {
-      const platforms = await apiFetch('/smm/platforms');
-      const p = platforms.find(x => x.id === parseInt(editPlatformBtn.dataset.editPlatform));
-      if (p) showPlatformModal(p);
-      return;
-    }
-
-    // Delete platform
-    const delPlatformBtn = e.target.closest('[data-del-platform]');
-    if (delPlatformBtn) {
-      if (!confirm('Xóa nền tảng này? Tất cả danh mục và dịch vụ sẽ bị xóa theo.')) return;
+    // Pagination
+    const pg = e.target.closest('[data-order-page]');
+    if (pg) { const p = parseInt(pg.dataset.orderPage); if (p >= 1 && p !== orderPage) { orderPage = p; await refresh(); } return; }
+    // Edit
+    const ed = e.target.closest('[data-edit-order]');
+    if (ed) {
+      const oid = parseInt(ed.dataset.editOrder);
       try {
-        await apiFetch(`/smm/platforms/${delPlatformBtn.dataset.delPlatform}`, { method: 'DELETE' });
-        toast('Đã xóa nền tảng', 'success');
-        refresh();
-      } catch (err) { toast(err.message, 'error'); }
+        const data = await apiFetch(`/smm/admin/orders?limit=${LIMIT}&page=${orderPage}`);
+        const o = (data.orders || []).find(x => x.id === oid);
+        if (o) showEditModal(o); else toast('Không tìm thấy đơn hàng', 'error');
+      } catch(err) { toast(err.message, 'error'); }
       return;
     }
-
-    // Add category
-    if (e.target.closest('#btn-add-category')) { showCategoryModal(null); return; }
-
-    // Edit category
-    const editCategoryBtn = e.target.closest('[data-edit-category]');
-    if (editCategoryBtn) {
-      const categories = await apiFetch(`/smm/platforms/${currentView.platformId}/categories`);
-      const c = categories.find(x => x.id === parseInt(editCategoryBtn.dataset.editCategory));
-      if (c) showCategoryModal(c);
+    // Delete
+    const del = e.target.closest('[data-delete-order]');
+    if (del) {
+      if (!confirm('Bạn có chắc muốn xóa đơn hàng này?')) return;
+      try { await apiFetch(`/smm/admin/orders/${del.dataset.deleteOrder}`, {method:'DELETE'}); toast('Đã xóa', 'success'); refresh(); } catch(err) { toast(err.message, 'error'); }
       return;
     }
-
-    // Delete category
-    const delCategoryBtn = e.target.closest('[data-del-category]');
-    if (delCategoryBtn) {
-      if (!confirm('Xóa danh mục này? Tất cả dịch vụ sẽ bị xóa theo.')) return;
-      try {
-        await apiFetch(`/smm/categories/${delCategoryBtn.dataset.delCategory}`, { method: 'DELETE' });
-        toast('Đã xóa danh mục', 'success');
-        refresh();
-      } catch (err) { toast(err.message, 'error'); }
-      return;
-    }
-
-    // Add service
-    if (e.target.closest('#btn-add-service')) { showServiceModal(null); return; }
-
-    // Sync services
-    if (e.target.closest('#btn-sync-services')) { showSyncModal(); return; }
-
-    // Edit service
-    const editServiceBtn = e.target.closest('[data-edit-service]');
-    if (editServiceBtn) {
-      const services = await apiFetch(`/smm/categories/${currentView.categoryId}/services`);
-      const s = services.find(x => x.id === parseInt(editServiceBtn.dataset.editService));
-      if (s) showServiceModal(s);
-      return;
-    }
-
-    // Delete service
-    const delServiceBtn = e.target.closest('[data-del-service]');
-    if (delServiceBtn) {
-      if (!confirm('Xóa dịch vụ này?')) return;
-      try {
-        await apiFetch(`/smm/services/${delServiceBtn.dataset.delService}`, { method: 'DELETE' });
-        toast('Đã xóa dịch vụ', 'success');
-        refresh();
-      } catch (err) { toast(err.message, 'error'); }
-      return;
-    }
-
+    // Copy
+    const cp = e.target.closest('.smm-copy-btn');
+    if (cp) { navigator.clipboard.writeText(cp.dataset.copy).then(() => toast('Đã sao chép', 'success')); return; }
     // Check single order
-    const checkOrderBtn = e.target.closest('[data-check-order]');
-    if (checkOrderBtn) {
-      checkOrderBtn.disabled = true;
-      checkOrderBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-      try {
-        await apiFetch(`/smm/admin/orders/${checkOrderBtn.dataset.checkOrder}/check`, { method: 'POST' });
-        toast('Đã cập nhật trạng thái', 'success');
-        refresh();
-      } catch (err) { toast(err.message, 'error'); checkOrderBtn.disabled = false; checkOrderBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Check'; }
-      return;
-    }
-
-    // Check all orders
-    if (e.target.closest('#btn-check-all-orders')) {
-      const btn = e.target.closest('#btn-check-all-orders');
-      btn.disabled = true;
-      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang check...';
-      try {
-        await apiFetch('/smm/admin/orders/check-all', { method: 'POST' });
-        toast('Đã cập nhật tất cả đơn hàng', 'success');
-        refresh();
-      } catch (err) { toast(err.message, 'error'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Check tất cả'; }
-      return;
-    }
-
-    // Order pagination
-    const pageBtn = e.target.closest('[data-order-page]');
-    if (pageBtn) {
-      const p = parseInt(pageBtn.dataset.orderPage);
-      if (p >= 1) { orderPage = p; await refresh(); }
-      return;
-    }
+    const ck = e.target.closest('[data-check-order]');
+    if (ck) { ck.disabled=true; ck.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>'; try{await apiFetch(`/smm/admin/orders/${ck.dataset.checkOrder}/check`,{method:'POST'});toast('OK','success');refresh();}catch(err){toast(err.message,'error');ck.disabled=false;ck.innerHTML='<i class="fa-solid fa-arrows-rotate"></i>';} return; }
   };
 
   content.onchange = async (e) => {
-    // Order status filter
-    const statusFilter = e.target.closest('#smm-order-status-filter');
-    if (statusFilter) {
-      orderStatus = statusFilter.value;
-      orderPage = 1;
-      await refresh();
-      return;
-    }
-
-    // Change manual order status
-    const statusChange = e.target.closest('[data-change-order-status]');
-    if (statusChange && statusChange.value) {
-      const orderId = statusChange.dataset.changeOrderStatus;
-      const newStatus = statusChange.value;
-      try {
-        await apiFetch(`/smm/admin/orders/${orderId}/status`, { method: 'PUT', body: JSON.stringify({ status: newStatus }) });
-        toast('Đã cập nhật trạng thái', 'success');
-        refresh();
-      } catch (err) { toast(err.message, 'error'); }
-      return;
+    // Status filter
+    if (e.target.id === 'smm-order-status') { orderStatus = e.target.value; orderPage = 1; await refresh(); return; }
+    // Inline status change
+    const sc = e.target.closest('[data-change-status]');
+    if (sc && sc.value) {
+      try { await apiFetch(`/smm/admin/orders/${sc.dataset.changeStatus}/status`, {method:'PUT', body:JSON.stringify({status:sc.value})}); toast('Đã cập nhật trạng thái', 'success'); refresh(); } catch(err) { toast(err.message, 'error'); }
     }
   };
 
+  // Search debounce
+  content.addEventListener('input', (e) => {
+    if (e.target.id === 'smm-order-search') {
+      clearTimeout(content._searchTimer);
+      content._searchTimer = setTimeout(() => { orderSearch = e.target.value.trim(); orderPage = 1; refresh(); }, 400);
+    }
+  });
+
+  await refresh();
+}
+
+// ═══════════════ 5. PROVIDERS ═══════════════
+async function renderAdminSmmProviders(view) {
+  if (!view) return;
+  const content = view;
+  content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  const checkBal = async (pid, msg) => {
+    const el=content.querySelector(`[data-provider-balance="${pid}"]`);if(!el)return;
+    el.textContent='...';el.title='';
+    try{
+      const r=await apiFetch(`/smm/providers/${pid}/balance`,{method:'POST'});
+      if(r && r.ok===false){
+        el.textContent='Lỗi'; el.title=r.error||'Không lấy được số dư'; el.classList.add('smmprov-balance-err');
+        if(msg)toast(r.error||'Không lấy được số dư','error');
+        return;
+      }
+      el.classList.remove('smmprov-balance-err');
+      const vnd=Number(r.balance_vnd||0);
+      if(vnd>0){ el.innerHTML=`${fmt(vnd)}`; }
+      else{ const raw=r.balance_raw??0; el.textContent=`${fmt(raw)} ${r.currency||''}`.trim(); }
+      if(msg)toast('OK','success');
+    }catch(err){ el.textContent='Lỗi'; el.title=err.message||''; el.classList.add('smmprov-balance-err'); if(msg)toast(err.message,'error'); }
+  };
+  const refresh = async () => {
+    const providers=await apiFetch('/smm/providers');
+    content.innerHTML = `
+      <div class="smmprov-page">
+        <div class="smmprov-head">
+          <h1 class="smmprov-title">Đấu API SMM</h1>
+          <p class="smmprov-subtitle">Kết nối và quản lý các nguồn cung cấp dịch vụ SMM bên ngoài</p>
+        </div>
+        <button class="smmprov-add-btn" id="btn-add-provider"><i class="fa-solid fa-plus"></i> Thêm nhà cung cấp</button>
+        ${providers.length===0?'<div class="empty-state"><i class="fa-solid fa-server"></i><p>Chưa có nhà cung cấp</p></div>':`
+        <div class="smmprov-grid">${providers.map(p=>`
+          <div class="smmprov-card" data-provider-card="${p.id}">
+            <div class="smmprov-card-head">
+              <h3 class="smmprov-name">${esc(p.name)}</h3>
+              <label class="smmprov-toggle"><input type="checkbox" ${p.is_active?'checked':''} data-toggle-provider="${p.id}" /><span></span></label>
+            </div>
+            <div class="smmprov-divider"></div>
+            <div class="smmprov-section">
+              <div class="smmprov-label">SỐ DƯ:</div>
+              <div class="smmprov-balance-row">
+                <span class="smmprov-balance" data-provider-balance="${p.id}">—</span>
+                <button class="smmprov-refresh-btn" data-check-balance="${p.id}" title="Làm mới"><i class="fa-solid fa-arrows-rotate"></i></button>
+              </div>
+            </div>
+            <div class="smmprov-section">
+              <div class="smmprov-label">THỐNG KÊ:</div>
+              <div class="smmprov-stat-line">Dịch vụ: <b>${(p.stats?.services??0).toLocaleString()}</b></div>
+              <div class="smmprov-stat-line">Danh mục: <b>${(p.stats?.categories??0).toLocaleString()}</b></div>
+              <div class="smmprov-stat-line">Đơn hàng: <b>${(p.stats?.orders??0).toLocaleString()}</b></div>
+            </div>
+            <div class="smmprov-section">
+              <div class="smmprov-label">TÀI CHÍNH:</div>
+              <div class="smmprov-stat-line">Thu: <b>${fmt(p.stats?.revenue||0)}</b></div>
+              <div class="smmprov-stat-line">Vốn: <b>${fmt(p.stats?.cost||0)}</b></div>
+              <div class="smmprov-stat-line">Lãi: <b>${fmt(p.stats?.profit||0)}</b></div>
+            </div>
+            <div class="smmprov-section">
+              <div class="smmprov-label">API URL:</div>
+              <div class="smmprov-url-pill">${esc(p.base_url||'—')}</div>
+            </div>
+            <div class="smmprov-dashed"></div>
+            <div class="smmprov-card-actions">
+              <button class="smmprov-action-btn smmprov-edit" data-edit-provider="${p.id}">Chỉnh sửa</button>
+              <button class="smmprov-action-btn smmprov-del" data-del-provider="${p.id}">Xóa bỏ</button>
+            </div>
+          </div>`).join('')}</div>`}
+      </div>`;
+    for(const p of providers) checkBal(p.id,false);
+  };
+  const showProviderModal = (prov) => {
+    const isEdit=!!prov; const s=prov?.settings||{};
+    openModal(`<form id="smm-prov-form" class="smmprov-form">
+      <div class="smmprov-tabs" id="prov-tabs">
+        <button type="button" class="smmprov-tab active" data-pm-tab="api">Cấu hình API</button>
+        <button type="button" class="smmprov-tab" data-pm-tab="sync">Cài đặt Đồng bộ</button>
+        <button type="button" class="smmprov-tab" data-pm-tab="currency">Tiền tệ &amp; Giới hạn</button>
+      </div>
+      <div data-pm-panel="api" class="smmprov-panel">
+        <div class="form-row form-row-2">
+          <div class="form-group"><label class="form-label"><span class="req">*</span> Tên nhà cung cấp</label><input class="form-input" id="spv-name" value="${prov?.name||''}" required placeholder="VD: JAP Panel" /></div>
+          <div class="form-group"><label class="form-label">Trạng thái</label><label class="smmprov-bigtoggle"><input type="checkbox" id="spv-active" ${prov?.is_active!==false?'checked':''} /><span class="smmprov-bigtoggle-track"><span class="smmprov-bigtoggle-text"></span></span></label></div>
+        </div>
+        <div class="form-group"><label class="form-label"><span class="req">*</span> API URL</label><input class="form-input" id="spv-url" value="${prov?.base_url||''}" required placeholder="https://provider.com/api/v2" /></div>
+        <div class="form-row form-row-2">
+          <div class="form-group"><label class="form-label"><span class="req">*</span> API KEY</label><div style="position:relative"><input class="form-input" id="spv-apikey" type="password" ${isEdit?'':'required'} placeholder="${isEdit?'•••••••••••':'••••••••••••'}" style="padding-right:36px" /><button type="button" class="btn-icon" id="spv-toggle-key" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px"><i class="fa-solid fa-eye-slash"></i></button></div></div>
+          <div class="form-group"><label class="form-label">Mã giảm giá (Coupon)</label><input class="form-input" id="spv-coupon" value="${s.coupon||''}" placeholder="Mã giảm giá bên API" /></div>
+        </div>
+      </div>
+      <div data-pm-panel="sync" class="smmprov-panel" style="display:none">
+        <div class="smmprov-sync-grid">
+          <div class="smmprov-sync-col">
+            <div class="smmprov-sync-col-title">Đồng bộ Cơ bản</div>
+            <div class="smmprov-sync-row"><span>Đồng bộ Chuyên mục</span><label class="smmprov-bigtoggle"><input type="checkbox" id="spv-sync-categories" ${s.sync_categories!==false?'checked':''} /><span class="smmprov-bigtoggle-track"></span></label></div>
+            <div class="smmprov-sync-row"><span>Đồng bộ Dịch vụ</span><label class="smmprov-bigtoggle"><input type="checkbox" id="spv-sync-services" ${s.sync_services!==false?'checked':''} /><span class="smmprov-bigtoggle-track"></span></label></div>
+            <div class="smmprov-sync-row"><span>Đồng bộ Giá</span><label class="smmprov-bigtoggle"><input type="checkbox" id="spv-sync-prices" ${s.sync_prices!==false?'checked':''} /><span class="smmprov-bigtoggle-track"></span></label></div>
+          </div>
+          <div class="smmprov-sync-col">
+            <div class="smmprov-sync-col-title">Xử lý Nội dung</div>
+            <div class="smmprov-sync-row"><span>Cập nhật Tên &amp; Mô tả</span><label class="smmprov-bigtoggle"><input type="checkbox" id="spv-sync-desc" ${s.sync_descriptions?'checked':''} /><span class="smmprov-bigtoggle-track"></span></label></div>
+            <div class="smmprov-sync-row"><span>Lọc HTML độc hại</span><label class="smmprov-bigtoggle"><input type="checkbox" id="spv-filter-html" ${s.filter_html!==false?'checked':''} /><span class="smmprov-bigtoggle-track"></span></label></div>
+            <div class="smmprov-sync-row"><span>Đồng bộ Nâng cao (Refill/Cancel)</span><label class="smmprov-bigtoggle"><input type="checkbox" id="spv-sync-adv" ${s.sync_advanced?'checked':''} /><span class="smmprov-bigtoggle-track"></span></label></div>
+          </div>
+        </div>
+      </div>
+      <div data-pm-panel="currency" class="smmprov-panel" style="display:none">
+        <div class="form-row form-row-2">
+          <div class="form-group"><label class="form-label">Tiền tệ API</label><select class="form-select" id="spv-currency"><option value="USD" ${s.currency==='USD'||!s.currency?'selected':''}>USD</option><option value="VND" ${s.currency==='VND'?'selected':''}>VND</option><option value="EUR" ${s.currency==='EUR'?'selected':''}>EUR</option></select></div>
+          <div class="form-group"><label class="form-label">Tỷ giá hối đoái</label><input type="number" class="form-input" id="spv-rate" value="${s.exchange_rate??1}" /><div class="smmprov-hint">VD: 1 USD = 25,000 VND (Nhập 25000)</div></div>
+        </div>
+        <div class="form-row form-row-2">
+          <div class="form-group"><label class="form-label">Định dạng giá API</label><select class="form-select" id="spv-price-format"><option value="per1000" ${s.price_format!=='per1'?'selected':''}>Giá cho 1,000 lượt</option><option value="per1" ${s.price_format==='per1'?'selected':''}>Giá cho 1 lượt</option></select></div>
+          <div class="form-group"><label class="form-label">Lợi nhuận (%)</label><input type="number" class="form-input" id="spv-markup" value="${s.price_markup??0}" /><div class="smmprov-hint">VD: 10 (%) lợi nhuận tính trên giá vốn</div></div>
+        </div>
+        <div class="form-group"><label class="form-label">Giới hạn đồng bộ đơn (Cron)</label><input type="number" class="form-input" id="spv-cron-limit" value="${s.cron_limit??50}" /><div class="smmprov-hint">Khuyến nghị: 50 - 100 đơn / lần</div></div>
+      </div>
+      <div id="spv-err" class="form-error mb-12" style="display:none"></div>
+      <div class="smmprov-modal-actions"><button type="button" class="smmprov-btn-cancel" id="spv-cancel">Cancel</button><button type="submit" class="smmprov-btn-ok">OK</button></div>
+    </form>`, isEdit?`Sửa: ${prov.name}`:'Thêm nhà cung cấp mới');
+    qs('#prov-tabs').onclick=(e)=>{const b=e.target.closest('[data-pm-tab]');if(!b)return;const t=b.dataset.pmTab;qsa('#prov-tabs .smmprov-tab').forEach(x=>x.classList.toggle('active',x.dataset.pmTab===t));qsa('[data-pm-panel]').forEach(p=>p.style.display=p.dataset.pmPanel===t?'':'none');};
+    qs('#spv-toggle-key').onclick=()=>{const i=qs('#spv-apikey'),ic=qs('#spv-toggle-key i');if(i.type==='password'){i.type='text';ic.className='fa-solid fa-eye';}else{i.type='password';ic.className='fa-solid fa-eye-slash';}};
+    qs('#spv-cancel').onclick=closeModal;
+    qs('#smm-prov-form').onsubmit=async(e)=>{
+      e.preventDefault();
+      const body={name:qs('#spv-name').value,base_url:qs('#spv-url').value,is_active:qs('#spv-active').checked,settings:{
+        currency:qs('#spv-currency').value,exchange_rate:parseFloat(qs('#spv-rate').value)||1,price_markup:parseFloat(qs('#spv-markup').value)||0,
+        price_format:qs('#spv-price-format').value,cron_limit:parseInt(qs('#spv-cron-limit').value)||50,
+        sync_categories:qs('#spv-sync-categories').checked,sync_services:qs('#spv-sync-services').checked,sync_prices:qs('#spv-sync-prices').checked,
+        sync_descriptions:qs('#spv-sync-desc').checked,filter_html:qs('#spv-filter-html').checked,sync_advanced:qs('#spv-sync-adv').checked,
+        coupon:qs('#spv-coupon').value.trim(),
+      }};
+      const apiKey=qs('#spv-apikey').value;if(apiKey)body.api_key=apiKey;
+      try{
+        if(isEdit)await apiFetch(`/smm/providers/${prov.id}`,{method:'PUT',body:JSON.stringify(body)});
+        else{if(!apiKey){qs('#spv-err').textContent='API KEY bắt buộc';qs('#spv-err').style.display='block';return;}await apiFetch('/smm/providers',{method:'POST',body:JSON.stringify(body)});}
+        closeModal();toast(isEdit?'Đã cập nhật':'Đã tạo','success');refresh();
+      }catch(err){qs('#spv-err').textContent=err.message;qs('#spv-err').style.display='block';}
+    };
+  };
+  const showSyncModal = async (providerId) => {
+    const platforms=await apiFetch('/smm/platforms');
+    if(!platforms.length){toast('Chưa có nền tảng.','warning');return;}
+    openModal(`<form id="prov-sync-form">
+      <div class="form-group"><label class="form-label">Nền tảng đích<span class="req">*</span></label><select class="form-select" id="psync-plat" required><option value="">Chọn</option>${platforms.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div>
+      <div id="psync-err" class="form-error mb-12" style="display:none"></div>
+      <div id="psync-result" style="display:none" class="mb-12"></div>
+      <div class="flex gap-8 justify-end"><button type="button" class="btn btn-ghost" id="psync-cancel">Hủy</button><button type="submit" class="btn btn-primary" id="psync-submit"><i class="fa-solid fa-arrows-rotate"></i> Đồng bộ</button></div>
+    </form>`,'Đồng bộ dịch vụ');
+    qs('#psync-cancel').onclick=closeModal;
+    qs('#prov-sync-form').onsubmit=async(e)=>{
+      e.preventDefault();const platId=parseInt(qs('#psync-plat').value);if(!platId)return;
+      const btn=qs('#psync-submit');btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Đang sync...';
+      try{
+        const r=await apiFetch('/smm/services/sync',{method:'POST',body:JSON.stringify({provider_id:providerId,platform_id:platId})});
+        qs('#psync-result').style.display='block';qs('#psync-result').innerHTML=`<div class="text-success">Tạo: ${r.created??0}, Cập nhật: ${r.updated??0}, Bỏ qua: ${r.skipped??0}</div>`;
+        toast('OK','success');setTimeout(()=>{closeModal();refresh();},1500);
+      }catch(err){qs('#psync-err').textContent=err.message;qs('#psync-err').style.display='block';btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-arrows-rotate"></i> Đồng bộ';}
+    };
+  };
+  content.onclick = async (e) => {
+    if(e.target.closest('#btn-add-provider')){showProviderModal(null);return;}
+    const eb=e.target.closest('[data-edit-provider]');
+    if(eb){const ps=await apiFetch('/smm/providers');const p=ps.find(x=>x.id===parseInt(eb.dataset.editProvider));if(p)showProviderModal(p);return;}
+    const db=e.target.closest('[data-del-provider]');
+    if(db){if(!confirm('Xóa?'))return;try{await apiFetch(`/smm/providers/${db.dataset.delProvider}`,{method:'DELETE'});toast('Đã xóa','success');refresh();}catch(err){toast(err.message,'error');}return;}
+    const tb=e.target.closest('[data-toggle-provider]');
+    if(tb){try{const ps=await apiFetch('/smm/providers');const p=ps.find(x=>x.id===parseInt(tb.dataset.toggleProvider));if(p)await apiFetch(`/smm/providers/${p.id}`,{method:'PUT',body:JSON.stringify({name:p.name,base_url:p.base_url,is_active:tb.checked,settings:p.settings})});toast('OK','success');}catch(err){toast(err.message,'error');refresh();}return;}
+    const cb=e.target.closest('[data-check-balance]');
+    if(cb){await checkBal(cb.dataset.checkBalance,true);return;}
+    const sb=e.target.closest('[data-sync-provider]');
+    if(sb){await showSyncModal(parseInt(sb.dataset.syncProvider));return;}
+  };
   await refresh();
 }

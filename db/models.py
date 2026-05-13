@@ -317,12 +317,22 @@ class GiftCode(Base):
     max_discount = Column(Numeric(12, 2), nullable=True)  # cap for percent type
     usage_limit = Column(Integer, default=0)  # 0 = unlimited
     usage_count = Column(Integer, default=0)
+    per_user_limit = Column(Integer, default=1)  # 0 = unlimited per user
     starts_at = Column(DateTime(timezone=True), nullable=True)
     expires_at = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, default=True)
     is_public = Column(Boolean, default=False)  # Show on UI
     description = Column(String(500), nullable=True)  # shown on offers page
     created_at = Column(DateTime(timezone=True), default=now_utc)
+
+
+class GiftCodeUsage(Base):
+    __tablename__ = "gift_code_usages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code_id = Column(Integer, ForeignKey("gift_codes.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String(255), nullable=False, index=True)
+    used_at = Column(DateTime(timezone=True), default=now_utc)
 
 
 class AffiliateUser(Base):
@@ -508,23 +518,6 @@ class Wishlist(Base):
     __table_args__ = (UniqueConstraint('user_id', 'product_id', name='uq_wishlist_user_product'),)
 
 
-# ── API Keys ──────────────────────────────────────────
-
-class ApiKey(Base):
-    __tablename__ = "api_keys"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(String(255), nullable=False, index=True)
-    name = Column(String(255), nullable=False)
-    key_prefix = Column(String(12), nullable=False)       # first 8 chars for display
-    key_hash = Column(String(64), nullable=False, unique=True)  # SHA-256 hex
-    allowed_domains = Column(Text, nullable=True)          # comma-separated domains
-    callback_url = Column(Text, nullable=True)             # OAuth-style callback URL
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), default=now_utc)
-    last_used_at = Column(DateTime(timezone=True), nullable=True)
-
-
 # ── Card Charge (đổi thẻ nạp số dư) ─────────────────
 
 class CardChargeTransaction(Base):
@@ -573,6 +566,8 @@ class SmmCategory(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=now_utc)
 
+    platform = relationship("SmmPlatform", backref="categories", lazy="joined")
+
 
 class SmmService(Base):
     __tablename__ = "smm_services"
@@ -582,17 +577,23 @@ class SmmService(Base):
     name = Column(String(500), nullable=False)
     description = Column(Text, nullable=True)
     rate = Column(Float, default=0)
-    min = Column(Integer, default=1)
-    max = Column(Integer, default=10000)
+    min_quantity = Column(Integer, default=1)
+    max_quantity = Column(Integer, default=10000)
     delivery_type = Column(String(20), default="manual")  # manual | api
     api_provider_id = Column(Integer, ForeignKey("api_providers.id", ondelete="SET NULL"), nullable=True)
     external_service_id = Column(String(100), nullable=True)
     can_refill = Column(Boolean, default=False)
     can_cancel = Column(Boolean, default=False)
+    service_type = Column(String(50), default="Default")  # Default | Custom Comments | Mentions | Subscriptions
+    drip_feed = Column(Boolean, default=False)
+    avg_time_minutes = Column(Integer, nullable=True)  # NULL = auto from provider
+    cost_rate = Column(Float, default=0)  # provider cost per 1000 (informational)
     is_active = Column(Boolean, default=True)
     sort_order = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), default=now_utc)
     updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
+
+    category = relationship("SmmCategory", backref="services", lazy="joined")
 
 
 class SmmOrder(Base):
@@ -607,14 +608,24 @@ class SmmOrder(Base):
     service_name = Column(String(500), nullable=True)
     link = Column(Text, nullable=False)
     quantity = Column(Integer, nullable=False)
-    charge = Column(Float, default=0)
+    charge = Column(Numeric(12, 2), default=0)
     status = Column(String(50), default="pending")  # pending|processing|in_progress|completed|partial|canceled
     delivery_type = Column(String(20), default="manual")
     api_provider_id = Column(Integer, ForeignKey("api_providers.id", ondelete="SET NULL"), nullable=True)
     external_order_id = Column(String(100), nullable=True)
+    start_count = Column(Integer, nullable=True)
+    remains = Column(Integer, nullable=True)
+    service_type = Column(String(50), default="Default")  # Default | Custom Comments | Mentions
+    extras = Column(Text, nullable=True)  # JSON: type-specific payload (comments, hashtags, keywords, ...)
     admin_notes = Column(Text, nullable=True)
     refill_id = Column(String(100), nullable=True)
     refill_status = Column(String(50), nullable=True)
+    # Schedule & Repeat
+    scheduled_at = Column(DateTime(timezone=True), nullable=True)      # NULL = immediate
+    repeat_count = Column(Integer, default=0)                          # total repeats requested (0 = no repeat)
+    repeat_interval = Column(Integer, default=0)                       # minutes between repeats
+    repeat_remaining = Column(Integer, default=0)                      # how many repeats left
+    parent_order_id = Column(Integer, ForeignKey("smm_orders.id", ondelete="SET NULL"), nullable=True)  # links repeat children to original
     created_at = Column(DateTime(timezone=True), default=now_utc)
     updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
 

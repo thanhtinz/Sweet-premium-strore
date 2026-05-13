@@ -4,8 +4,8 @@ from db import Base, DATABASE_PROVIDER, engine
 from db.models import (  # noqa: F401 — import to register models
     Category, Product, ProductPackage, StockItem,
     PackageField, Order, OrderItem, SiteSetting, AdminUser, User,
-    Announcement, UploadedImage, UserBotLink, ApiKey, ApiProvider,
-    CardChargeTransaction, SmmPlatform, SmmCategory, SmmService, SmmOrder
+    Announcement, UploadedImage, UserBotLink, ApiProvider,
+    CardChargeTransaction, SmmPlatform, SmmCategory, SmmService, SmmOrder,
 )
 from db.schema_version import LATEST_SCHEMA_VERSION, apply_versioned_patches
 
@@ -224,6 +224,101 @@ def _patch_v6(conn):
         conn.execute(text(stmt))
 
 
+def _patch_v7(conn):
+    """Audit hardening: gift code per-user limit + SMM charge precision."""
+    inspector = inspect(conn)
+
+    # gift_codes: per_user_limit column
+    _add_missing_columns(conn, inspector, "gift_codes", [
+        ("per_user_limit", "per_user_limit INTEGER DEFAULT 1"),
+    ])
+
+    # smm_orders.charge: Float → Numeric(12,2) for money precision
+    try:
+        if _dialect_name() == "postgresql":
+            conn.execute(text(
+                "ALTER TABLE smm_orders ALTER COLUMN charge TYPE NUMERIC(12,2) USING charge::numeric(12,2)"
+            ))
+    except Exception:
+        # Non-critical: keep going even if alter fails (e.g., column already migrated)
+        pass
+
+    # gift_code_usages: created by create_all; ensure index
+    if inspector.has_table("gift_code_usages"):
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS idx_gift_code_usage_code_user ON gift_code_usages(code_id, user_id)"
+        ))
+
+
+def _patch_v8(conn):
+    """SMM service: drip_feed + avg_time_minutes columns."""
+    inspector = inspect(conn)
+    _add_missing_columns(conn, inspector, "smm_services", [
+        ("drip_feed", "drip_feed BOOLEAN DEFAULT FALSE"),
+        ("avg_time_minutes", "avg_time_minutes INTEGER"),
+    ])
+
+
+def _patch_v9(conn):
+    """SMM order: extras JSON text column for service-type specific payload."""
+    inspector = inspect(conn)
+    _add_missing_columns(conn, inspector, "smm_orders", [
+        ("extras", "extras TEXT"),
+    ])
+
+
+def _patch_v10(conn):
+    """SMM service: cost_rate (provider cost per 1000)."""
+    inspector = inspect(conn)
+    _add_missing_columns(conn, inspector, "smm_services", [
+        ("cost_rate", "cost_rate DOUBLE PRECISION DEFAULT 0"),
+    ])
+
+
+def _patch_v11(conn):
+    """Partner API: partner_keys table for exposing system as provider to external shops."""
+    inspector = inspect(conn)
+    existing = inspector.get_table_names()
+    if "partner_keys" not in existing:
+        conn.execute(text("""
+            CREATE TABLE partner_keys (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(120) NOT NULL,
+                api_key VARCHAR(64) NOT NULL UNIQUE,
+                api_secret VARCHAR(128) NOT NULL,
+                partner_id VARCHAR(64),
+                enabled_protocols TEXT NOT NULL DEFAULT '[]',
+                ip_whitelist TEXT,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                total_requests INTEGER NOT NULL DEFAULT 0,
+                last_used_at TIMESTAMP,
+                notes TEXT,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW()
+            )
+        """))
+        conn.execute(text("CREATE INDEX ix_partner_keys_api_key ON partner_keys(api_key)"))
+
+
+def _patch_v12(conn):
+    """(legacy) Previously dropped partner_keys + added enabled_protocols to api_keys.
+    No-op now that api_keys table is removed in v13."""
+    inspector = inspect(conn)
+    if "partner_keys" in inspector.get_table_names():
+        conn.execute(text("DROP TABLE partner_keys CASCADE"))
+    inspector = inspect(conn)
+    if "api_keys" in inspector.get_table_names():
+        _add_missing_columns(conn, inspector, "api_keys", [
+            ("enabled_protocols", "enabled_protocols TEXT NOT NULL DEFAULT '[]'"),
+        ])
+
+
+def _patch_v13(conn):
+    """Drop api_keys table — API key feature fully removed."""
+    inspector = inspect(conn)
+    if "api_keys" in inspector.get_table_names():
+        conn.execute(text("DROP TABLE api_keys CASCADE"))
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
     with engine.begin() as conn:
@@ -234,6 +329,13 @@ def init_db():
             (4, _patch_v4),
             (5, _patch_v5),
             (6, _patch_v6),
+            (7, _patch_v7),
+            (8, _patch_v8),
+            (9, _patch_v9),
+            (10, _patch_v10),
+            (11, _patch_v11),
+            (12, _patch_v12),
+            (13, _patch_v13),
         ])
-        if LATEST_SCHEMA_VERSION < 6:
+        if LATEST_SCHEMA_VERSION < 13:
             raise RuntimeError("LATEST_SCHEMA_VERSION is behind applied patch definitions")

@@ -107,8 +107,8 @@ class SmmPanelProvider(BaseProvider):
             return ProviderOrderResult(
                 order_id=order_id,
                 status=internal_status,
-                delivery_data=None, # SMM orders don't usually deliver data
-                message=f"Start count: {data.get('start_count', '')}, Remains: {data.get('remains', '')}"
+                delivery_data=None,
+                message=f"start_count: {data.get('start_count', '0')}, remains: {data.get('remains', '0')}"
             )
         except Exception as e:
             logger.error(f"SmmPanel get_order_status failed: {e}")

@@ -411,7 +411,6 @@ function animateEntrance(container) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
-    // Also scroll .main-content if it's the scroller
     const mc = document.querySelector('.main-content');
     if (mc) mc.scrollTop = 0;
     if (typeof anime !== 'undefined' && anime.animate) {

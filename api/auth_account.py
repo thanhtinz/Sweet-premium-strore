@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from api.auth_shared import (
@@ -7,23 +7,29 @@ from api.auth_shared import (
     LoginBody,
     ProfileUpdate,
     RegisterBody,
+    ResetPasswordBody,
     Verify2FA,
     _create_token,
     _generate_temp_password,
     _hash_password,
+    _make_reset_token,
     _send_password_email,
+    _send_reset_link_email,
     _user_dict,
     _verify_password,
+    _verify_reset_token,
     build_2fa_setup_payload,
     get_current_user,
 )
+from api.rate_limit import rate_limit, rate_limit_by_value
 from db import get_db
 from db.models import AdminUser, User
+from db.repositories import SiteConfigRepository
 
 router = APIRouter(tags=["auth"])
 
 
-@router.post("/register")
+@router.post("/register", dependencies=[Depends(rate_limit("register", 3, 60))])
 def register(body: RegisterBody, db: Session = Depends(get_db)):
     if len(body.password) < 8:
         raise HTTPException(400, "Mật khẩu tối thiểu 8 ký tự")
@@ -43,8 +49,10 @@ def register(body: RegisterBody, db: Session = Depends(get_db)):
     return {"token": token, "user": _user_dict(user)}
 
 
-@router.post("/login")
+@router.post("/login", dependencies=[Depends(rate_limit("login_ip", 10, 60))])
 def login(body: LoginBody, db: Session = Depends(get_db)):
+    # Per-email lock-out: max 5 failed attempts / 5 minutes
+    rate_limit_by_value("login_email", body.email.lower(), 8, 300)
     user = db.query(User).filter(User.email == body.email).first()
     if not user or not user.password_hash or not _verify_password(body.password, user.password_hash):
         raise HTTPException(401, "Email hoặc mật khẩu không đúng")
@@ -62,19 +70,41 @@ def login(body: LoginBody, db: Session = Depends(get_db)):
     return {"token": token, "user": _user_dict(user, is_admin=admin is not None, role=admin.role if admin else None)}
 
 
-@router.post("/forgot-password")
-def forgot_password(body: ForgotPasswordBody, db: Session = Depends(get_db)):
+@router.post("/forgot-password", dependencies=[Depends(rate_limit("forgot_ip", 3, 900))])
+def forgot_password(body: ForgotPasswordBody, request: Request, db: Session = Depends(get_db)):
+    # Hard cap per-email: 1 reset / 15 minutes — chặn attacker spam email victim
+    rate_limit_by_value("forgot_email", body.email.lower(), 1, 900)
     user = db.query(User).filter(User.email == body.email).first()
-    if not user or not user.is_active:
-        return {"ok": True, "message": "Nếu email tồn tại, mật khẩu mới sẽ được gửi qua email."}
-    new_password = _generate_temp_password()
-    user.password_hash = _hash_password(new_password)
-    sent = _send_password_email(user.email, new_password)
+    # Generic response regardless of email existence (no enumeration)
+    generic = {"ok": True, "message": "Nếu email tồn tại, link đặt lại mật khẩu đã được gửi."}
+    if not user or not user.is_active or not user.password_hash:
+        return generic
+
+    # Build reset link using site_url > X-Forwarded-Host > Host
+    repo = SiteConfigRepository(db)
+    site_url = (repo.get_value("site_url") or "").rstrip("/")
+    if not site_url:
+        proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+        site_url = f"{proto}://{host}"
+    token = _make_reset_token(user)
+    link = f"{site_url}/reset-password?token={token}"
+    sent = _send_reset_link_email(user.email, link)
     if not sent:
-        db.rollback()
         raise HTTPException(500, "Không thể gửi email đặt lại mật khẩu")
+    return generic
+
+
+@router.post("/reset-password", dependencies=[Depends(rate_limit("reset_pw_ip", 10, 900))])
+def reset_password(body: ResetPasswordBody, db: Session = Depends(get_db)):
+    if len(body.new_password) < 8:
+        raise HTTPException(400, "Mật khẩu tối thiểu 8 ký tự")
+    user = _verify_reset_token(body.token, db)
+    if not user:
+        raise HTTPException(400, "Link không hợp lệ hoặc đã hết hạn")
+    user.password_hash = _hash_password(body.new_password)
     db.commit()
-    return {"ok": True, "message": "Nếu email tồn tại, mật khẩu mới sẽ được gửi qua email."}
+    return {"ok": True, "message": "Mật khẩu đã được cập nhật. Vui lòng đăng nhập lại."}
 
 
 @router.get("/me")

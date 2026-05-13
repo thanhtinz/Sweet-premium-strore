@@ -16,7 +16,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from db import get_db
-from db.models import AdminUser, ApiKey, User
+from db.models import AdminUser, User
 from db.repositories import SiteConfigRepository
 
 JWT_SECRET = os.environ.get("JWT_SECRET")
@@ -117,7 +117,61 @@ def _send_password_email(to_email: str, password: str, *, subject_prefix: str = 
     return bool(send_email(to_email, subject, body, is_html=True))
 
 
-def get_current_user(authorization: str = Header(default="")):
+# ── L2: Password reset link (stateless signed token) ────────────────
+import hmac as _hmac_mod
+
+RESET_TOKEN_TTL_SECONDS = 30 * 60  # 30 minutes
+
+
+def _reset_token_sig(user_id: int, exp_ts: int, pwd_hash: str) -> str:
+    payload = f"{user_id}.{exp_ts}.{pwd_hash}".encode("utf-8")
+    return _hmac_mod.new(JWT_SECRET.encode("utf-8"), payload, hashlib.sha256).hexdigest()
+
+
+def _make_reset_token(user: User) -> str:
+    exp_ts = int((datetime.now(timezone.utc) + timedelta(seconds=RESET_TOKEN_TTL_SECONDS)).timestamp())
+    sig = _reset_token_sig(int(user.id), exp_ts, user.password_hash or "")
+    raw = f"{user.id}.{exp_ts}.{sig}"
+    return base64.urlsafe_b64encode(raw.encode("utf-8")).decode("utf-8").rstrip("=")
+
+
+def _verify_reset_token(token: str, db: Session):
+    try:
+        pad = "=" * (-len(token) % 4)
+        raw = base64.urlsafe_b64decode(token + pad).decode("utf-8")
+        uid_s, exp_s, sig = raw.split(".", 2)
+        uid, exp_ts = int(uid_s), int(exp_s)
+    except Exception:
+        return None
+    if exp_ts < int(datetime.now(timezone.utc).timestamp()):
+        return None
+    user = db.query(User).filter(User.id == uid).first()
+    if not user or not user.is_active:
+        return None
+    expected = _reset_token_sig(uid, exp_ts, user.password_hash or "")
+    if not _hmac_mod.compare_digest(expected, sig):
+        return None
+    return user
+
+
+def _send_reset_link_email(to_email: str, link: str) -> bool:
+    try:
+        from bot.mail import send_email
+    except Exception:
+        send_email = None
+    if not send_email:
+        return False
+    subject = "Đặt lại mật khẩu"
+    body = (
+        f"<p>Bạn vừa yêu cầu đặt lại mật khẩu.</p>"
+        f"<p>Bấm vào liên kết bên dưới để tạo mật khẩu mới (hết hạn sau 30 phút):</p>"
+        f"<p><a href=\"{link}\">{link}</a></p>"
+        f"<p>Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>"
+    )
+    return bool(send_email(to_email, subject, body, is_html=True))
+
+
+def get_current_user(authorization: str = Header(default=""), db: Session = Depends(get_db)):
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid token")
     token = authorization[7:]
@@ -127,43 +181,19 @@ def get_current_user(authorization: str = Header(default="")):
         email = payload.get("email", "")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token payload")
-        return {"user_id": user_id, "email": email, "token": token}
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
-
-
-def get_current_user_or_apikey(
-    authorization: str = Header(default=""),
-    x_api_key: str = Header(default="", alias="X-API-Key"),
-    request: Request = None,
-    db: Session = Depends(get_db),
-):
-    """Authenticate via API key (X-API-Key header) or JWT Bearer token."""
-    from api.api_keys import _validate_origin
-    # Try API key first
-    if x_api_key:
-        key_hash = hashlib.sha256(x_api_key.encode()).hexdigest()
-        key_obj = db.query(ApiKey).filter(
-            ApiKey.key_hash == key_hash,
-            ApiKey.is_active == True,
-        ).first()
-        if not key_obj:
-            raise HTTPException(status_code=401, detail="Invalid API key")
-        # Validate origin/domain
-        if request and not _validate_origin(request, key_obj):
-            raise HTTPException(status_code=403, detail="Domain không được phép sử dụng API key này")
-        # Update last_used_at
-        key_obj.last_used_at = datetime.now(timezone.utc)
-        db.commit()
-        user = db.query(User).filter(User.id == int(key_obj.user_id)).first()
-        return {
-            "user_id": key_obj.user_id,
-            "email": user.email if user else "",
-            "auth_method": "api_key",
-            "api_key_id": key_obj.id,
-        }
-    # Fallback to JWT
-    return get_current_user(authorization)
+    # Verify user still exists and is active
+    try:
+        uid_int = int(user_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid token subject")
+    user = db.query(User).filter(User.id == uid_int).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User no longer exists")
+    if not getattr(user, "is_active", True):
+        raise HTTPException(status_code=403, detail="Tài khoản đã bị vô hiệu hoá")
+    return {"user_id": user_id, "email": email, "token": token}
 
 
 def get_current_admin(
@@ -201,6 +231,11 @@ class LoginBody(BaseModel):
 
 class ForgotPasswordBody(BaseModel):
     email: EmailStr
+
+
+class ResetPasswordBody(BaseModel):
+    token: str
+    new_password: str
 
 
 class ProfileUpdate(BaseModel):

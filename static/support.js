@@ -51,8 +51,7 @@ async function renderSupportPage(slug) {
 
 // ─── SUPPORT HOME ────────────────────────────────────
 
-async function renderSupportHome(view) {
-  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+async function renderSupportHome(view) {  view.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
     const pages = await apiFetch("/support/pages").catch(() => []);
 
@@ -205,10 +204,50 @@ async function renderSupportHome(view) {
     `;
     view.appendChild(ticketCard);
 
-    // Ticket form handler
+    // Ticket form handler + URL pre-fill
     if (currentUser) {
       const form = qs('#support-ticket-form');
       if (form) {
+        // Pre-fill from URL params (e.g. /support?subject=...&category=...&message=...)
+        try {
+          const params = new URLSearchParams(location.search || '');
+          const preSubject = params.get('subject');
+          const preCategory = params.get('category');
+          const preMessage = params.get('message');
+          if (preSubject) {
+            const f = form.querySelector('[name="subject"]');
+            if (f) f.value = preSubject;
+          }
+          if (preCategory) {
+            const f = form.querySelector('[name="category"]');
+            if (f) f.value = preCategory;
+          }
+          if (preMessage) {
+            const f = form.querySelector('[name="message"]');
+            if (f) f.value = preMessage;
+          }
+          if (preSubject || preMessage) {
+            // Scroll the form into view and focus
+            setTimeout(() => {
+              form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              const m = form.querySelector('[name="message"]');
+              if (m) m.focus();
+            }, 100);
+          }
+        } catch (_) {}
+        // Pre-fill from URL query (?subject=...&category=...&message=...)
+        try {
+          const sp = new URLSearchParams(location.search || '');
+          const preSubject = sp.get('subject');
+          const preCategory = sp.get('category');
+          const preMessage = sp.get('message');
+          if (preSubject) form.elements['subject'].value = preSubject;
+          if (preCategory) form.elements['category'].value = preCategory;
+          if (preMessage) form.elements['message'].value = preMessage;
+          if (preSubject || preMessage) {
+            setTimeout(() => form.elements['message']?.focus(), 50);
+          }
+        } catch (_) {}
         form.onsubmit = async (e) => {
           e.preventDefault();
           const fd = new FormData(form);

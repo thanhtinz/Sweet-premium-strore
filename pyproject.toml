@@ -27,7 +27,13 @@ dependencies = [
     "discord-py>=2.7.1",
     "python-telegram-bot>=22.7",
     "pytest>=8.3.5",
+    "pillow>=12.2.0",
 ]
 
 [tool.uv]
 exclude-newer = "14 days"
+
+[dependency-groups]
+dev = [
+    "playwright>=1.58.0",
+]
