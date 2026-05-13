@@ -602,6 +602,20 @@ def delete_service(sid: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+@router.post("/services/bulk-delete", dependencies=[Depends(get_current_admin)])
+def bulk_delete_services(body: dict, db: Session = Depends(get_db)):
+    ids = body.get("ids") or []
+    if not isinstance(ids, list) or not ids:
+        raise HTTPException(400, "ids required")
+    try:
+        ids_int = [int(x) for x in ids]
+    except Exception:
+        raise HTTPException(400, "ids must be integers")
+    deleted = db.query(SmmService).filter(SmmService.id.in_(ids_int)).delete(synchronize_session=False)
+    db.commit()
+    return {"ok": True, "deleted": deleted}
+
+
 # ── Sync from API provider ───────────────────────────────────
 
 @router.get("/providers/{pid}/remote-services", dependencies=[Depends(get_current_admin)])

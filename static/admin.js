@@ -4801,6 +4801,7 @@ async function renderAdminSmmServices(view) {
   let currentPage = 1;
   const PAGE_SIZE = 10;
   const selectedIds = new Set();
+  let currentFilteredIds = [];
   content.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   const refresh = async () => {
     const [platforms, allCats, allSvcs, providers] = await Promise.all([
@@ -4820,11 +4821,12 @@ async function renderAdminSmmServices(view) {
       svcs = svcs.filter(s => (s.name||'').toLowerCase().includes(q) || String(s.id).includes(q));
     }
     const totalCount = svcs.length;
+    currentFilteredIds = svcs.map(s => s.id);
+    const allFilteredSelected = totalCount > 0 && currentFilteredIds.every(id => selectedIds.has(id));
     const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
     if (currentPage > totalPages) currentPage = totalPages;
     if (currentPage < 1) currentPage = 1;
     const pageSvcs = svcs.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-    const allSelectedOnPage = pageSvcs.length > 0 && pageSvcs.every(s => selectedIds.has(s.id));
 
     const buildPager = () => {
       if (totalPages <= 1) return '';
@@ -4891,7 +4893,7 @@ async function renderAdminSmmServices(view) {
           </div>
         </div>
         <label class="smm-svc-select-all">
-          <input type="checkbox" id="smm-select-all" ${allSelectedOnPage?'checked':''}/>
+          <input type="checkbox" id="smm-select-all" ${allFilteredSelected?'checked':''}/>
           <span></span>
           Chọn tất cả (${totalCount})
         </label>
@@ -5340,8 +5342,12 @@ async function renderAdminSmmServices(view) {
     }
     if(e.target.closest('#smm-bulk-del')){
       if(!confirm(`Xóa ${selectedIds.size} dịch vụ?`))return;
-      try { await Promise.all([...selectedIds].map(id=>apiFetch(`/smm/services/${id}`,{method:'DELETE'}))); toast('Đã xóa','success'); selectedIds.clear(); refresh(); }
-      catch(err){ toast(err.message,'error'); }
+      try {
+        const ids = [...selectedIds];
+        const r = await apiFetch('/smm/services/bulk-delete',{method:'POST',body:JSON.stringify({ids})});
+        toast(`Đã xóa ${r.deleted||ids.length}`,'success');
+        selectedIds.clear(); refresh();
+      } catch(err){ toast(err.message,'error'); }
       return;
     }
   };
@@ -5349,9 +5355,8 @@ async function renderAdminSmmServices(view) {
     if(e.target.id==='smm-filter-cat-svc'){filterCategoryId=e.target.value;currentPage=1;await refresh();return;}
     if(e.target.id==='smm-filter-prov-svc'){filterProviderId=e.target.value;currentPage=1;await refresh();return;}
     if(e.target.id==='smm-select-all'){
-      const cbs = content.querySelectorAll('[data-svc-select]');
-      if(e.target.checked){cbs.forEach(cb=>selectedIds.add(parseInt(cb.dataset.svcSelect)));}
-      else { cbs.forEach(cb=>selectedIds.delete(parseInt(cb.dataset.svcSelect))); }
+      if(e.target.checked){currentFilteredIds.forEach(id=>selectedIds.add(id));}
+      else { currentFilteredIds.forEach(id=>selectedIds.delete(id)); }
       await refresh();
       return;
     }
