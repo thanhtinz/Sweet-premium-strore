@@ -487,8 +487,8 @@ def _validate_service_body(body: "ServiceCreate"):
         raise HTTPException(400, "min_quantity phải >= 1")
     if body.max_quantity is None or body.max_quantity < body.min_quantity:
         raise HTTPException(400, "max_quantity phải >= min_quantity")
-    if body.max_quantity > 10_000_000:
-        raise HTTPException(400, "max_quantity quá lớn")
+    if body.max_quantity > 2_000_000_000:
+        raise HTTPException(400, "max_quantity quá lớn (giới hạn 2 tỷ)")
     if body.rate is None or body.rate < 0:
         raise HTTPException(400, "rate không hợp lệ")
 
