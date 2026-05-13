@@ -1243,8 +1243,7 @@ def user_place_order(
             if provider:
                 import asyncio
                 adapter = get_provider(provider)
-                loop = asyncio.get_event_loop()
-                result = loop.run_until_complete(
+                result = asyncio.run(
                     adapter.create_order(
                         product_id="",
                         plan_id=str(svc.external_service_id),
