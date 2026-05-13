@@ -4943,12 +4943,12 @@ async function renderAdminSmmServices(view) {
       </div>
       <div class="form-group"><label class="form-label">Tên dịch vụ<span class="req">*</span></label><input class="form-input" id="ss-name" value="${esc(svc?.name||'')}" required placeholder="VD: FB Like Giá Rẻ" /></div>
       <div class="form-row form-row-2">
+        <div class="form-group"><label class="form-label">ID hiển thị <span class="form-hint-inline">(tự đặt, 0 = auto theo thứ tự)</span></label><input type="number" class="form-input" id="ss-order" value="${svc?.sort_order??0}" placeholder="VD: 101" /></div>
         <div class="form-group"><label class="form-label">ID dịch vụ từ Provider</label><input class="form-input" id="ss-ext-id" value="${esc(svc?.external_service_id||'')}" placeholder="VD: 145" /></div>
-        <div class="form-group"><label class="form-label">Giá bán (1,000)<span class="req">*</span></label><input type="number" step="0.01" class="form-input" id="ss-rate" value="${svc?.rate??0}" required /></div>
       </div>
       <div class="form-row form-row-2">
+        <div class="form-group"><label class="form-label">Giá bán (1,000)<span class="req">*</span></label><input type="number" step="0.01" class="form-input" id="ss-rate" value="${svc?.rate??0}" required /></div>
         <div class="form-group"><label class="form-label">Giá gốc (lấy từ API)</label><input type="number" step="0.01" class="form-input" id="ss-cost" value="${svc?.cost_rate??0}" placeholder="0" readonly tabindex="-1" style="background:var(--bg-page,#f3f4f6);cursor:not-allowed;color:var(--text-muted);" title="Tự động lấy từ nguồn khi đồng bộ — không chỉnh sửa" /></div>
-        <div class="form-group"></div>
       </div>
       <div class="form-row form-row-2">
         <div class="form-group"><label class="form-label">Số lượng Min</label><input type="number" class="form-input" id="ss-min" value="${svc?.min_quantity??100}" /></div>
@@ -5001,7 +5001,6 @@ async function renderAdminSmmServices(view) {
         </div>
         <textarea class="form-textarea rich-textarea" id="ss-desc" rows="6" placeholder="Nhập mô tả chi tiết dịch vụ...">${svc?.description||''}</textarea>
       </div>
-      <input type="hidden" id="ss-order" value="${svc?.sort_order??0}" />
       <div id="ss-err" class="form-error mb-12" style="display:none"></div>
       <div class="flex gap-8 justify-end"><button type="button" class="btn btn-ghost" id="ss-cancel-btn">Cancel</button><button type="submit" class="btn btn-primary">OK</button></div>
     </form>`, isEdit ? `Sửa: ${svc.name}` : 'Thêm dịch vụ mới');
