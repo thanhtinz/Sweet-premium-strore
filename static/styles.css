@@ -5066,6 +5066,11 @@ a.support-contact-value:hover {
 .smm-tab-dot { width:7px; height:7px; border-radius:50%; display:inline-block; }
 
 .smm-search-wrap { position:relative; margin-bottom:16px; }
+.smm-detail-refresh-btn { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+.smm-detail-refresh-btn .fa-rotate { font-size:14px; }
+@media (max-width: 480px) {
+  .smm-detail-refresh-btn span { display:none; }
+}
 .smm-order-card-header-right { display:flex; align-items:center; gap:8px; }
 .smm-order-refresh-btn {
   display:inline-flex; align-items:center; justify-content:center;

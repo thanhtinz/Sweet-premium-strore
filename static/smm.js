@@ -1457,8 +1457,8 @@ async function renderSmmOrderDetail(view, { id }) {
       </a>
       <div class="smm-detail-header-row">
         <h1 class="smm-detail-title">Chi tiết đơn hàng #${esc(String(o.order_code || o.id))}</h1>
-        <button id="smm-detail-refresh" type="button" class="btn btn-outline btn-sm" title="Lấy trạng thái mới nhất từ nguồn">
-          <i class="fa-solid fa-rotate"></i> Cập nhật trạng thái
+        <button id="smm-detail-refresh" type="button" class="btn btn-primary btn-sm smm-detail-refresh-btn" title="Lấy trạng thái mới nhất từ nguồn">
+          <i class="fa-solid fa-rotate"></i> <span>Cập nhật trạng thái</span>
         </button>
       </div>
 
