@@ -1065,13 +1065,11 @@ async def admin_check_all_orders(db: Session = Depends(get_db)):
 
     db.commit()
 
-    # Auto-refund cho các đơn vừa chuyển sang canceled/cancelled/failed
+    # Auto-refund cho các đơn đang ở canceled/cancelled/failed (idempotent)
     try:
         for _pid, plist in by_provider.items():
             for o in plist:
-                prev = prev_status_map.get(o.id)
-                if o.status != prev:
-                    _maybe_refund_on_terminal(db, o, prev)
+                _maybe_refund_on_terminal(db, o)
         db.commit()
     except Exception as _e:
         logger.warning(f"Batch refund pass failed: {_e}")
@@ -1478,15 +1476,13 @@ async def user_refresh_all_orders(
 
     db.commit()
 
-    # Refund on terminal transitions
+    # Refund on terminal (idempotent — gọi cho mọi đơn, helper tự skip nếu đã hoàn)
     refunded = 0
     try:
         for _pid, plist in by_provider.items():
             for o in plist:
-                prev = prev_status_map.get(o.id)
-                if o.status != prev:
-                    if _maybe_refund_on_terminal(db, o, prev):
-                        refunded += 1
+                if _maybe_refund_on_terminal(db, o):
+                    refunded += 1
         db.commit()
     except Exception as _e:
         logger.warning(f"User batch refund pass failed: {_e}")
@@ -1561,9 +1557,9 @@ async def user_get_order(
                         o.remains = int(float(rm_val))
                 except Exception:
                     pass
-                # Refund nếu chuyển sang canceled/cancelled/failed từ trạng thái chưa terminal
-                if o.status != prev_status:
-                    _maybe_refund_on_terminal(db, o, prev_status)
+                # Refund nếu hiện đang canceled/cancelled/failed và chưa có marker
+                # (idempotent — gọi cả khi status không đổi để bắt các đơn đã huỷ từ trước)
+                refunded_now = _maybe_refund_on_terminal(db, o, prev_status)
                 db.commit()
                 # Notify on terminal transitions
                 if o.status != prev_status and o.status in ("completed", "partial", "canceled", "cancelled", "failed"):
@@ -1575,6 +1571,16 @@ async def user_get_order(
                         pass
         except Exception as _e:
             logger.warning(f"SMM live status fetch failed for order {o.id}: {_e}")
+
+    # Refund pass cuối — idempotent, chạy độc lập với adapter
+    # Bắt cả trường hợp adapter exception hoặc đơn đã ở trạng thái terminal từ trước
+    try:
+        if _maybe_refund_on_terminal(db, o):
+            db.commit()
+            logger.info(f"[REFUND] Order #{o.id} (status={o.status}) refunded +{o.charge}")
+    except Exception as _e:
+        logger.warning(f"Refund pass failed for order {o.id}: {_e}")
+        db.rollback()
 
     svc = o.smm_service
     return {
